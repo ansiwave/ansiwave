@@ -129,7 +129,12 @@ proc tick*() =
   iw.display(tb)
 
 when isMainModule:
-  init()
-  while true:
-    tick()
-    os.sleep(20)
+  try:
+    init()
+    while true:
+      tick()
+      os.sleep(20)
+  except Exception as e:
+    iw.illwillDeinit()
+    iw.showCursor()
+    raise e
