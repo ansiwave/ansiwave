@@ -14,6 +14,7 @@ type
     CursorLine, CursorColumn,
     ScrollX, ScrollY,
     WindowColumns, WindowLines,
+    CurrentBufferId,
 
 schema Fact(Id, Attr):
   CursorLine: int
@@ -22,6 +23,7 @@ schema Fact(Id, Attr):
   ScrollY: float
   WindowLines: int
   WindowColumns: int
+  CurrentBufferId: int
 
 let rules =
   ruleset:
@@ -51,6 +53,13 @@ let rules =
           session.insert(id, ScrollY, cursorLine.float)
         elif cursorLine > scrollBottom:
           session.insert(id, ScrollY, scrollY + float(cursorLine - scrollBottom))
+    rule getCurrentBuffer(Fact):
+      what:
+        (Global, CurrentBufferId, id)
+        (id, CursorLine, cursorLine)
+        (id, CursorColumn, cursorColumn)
+        (id, ScrollX, scrollX)
+        (id, ScrollY, scrollY)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -92,6 +101,14 @@ proc init*() =
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
+  let bufferId = Id.high.ord + 1
+
+  session.insert(Global, CurrentBufferId, bufferId)
+  session.insert(bufferId, CursorLine, 0)
+  session.insert(bufferId, CursorColumn, 0)
+  session.insert(bufferId, ScrollX, 0f)
+  session.insert(bufferId, ScrollY, 0f)
+
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
     return
@@ -118,6 +135,7 @@ proc tick*() =
 
   let
     (windowColumns, windowLines) = session.query(rules.getTerminalWindow)
+    currentBuffer = session.query(rules.getCurrentBuffer)
     width = iw.terminalWidth()
     height = iw.terminalHeight()
   var tb = iw.newTerminalBuffer(width, height)
@@ -125,6 +143,10 @@ proc tick*() =
     onWindowResize(width, height)
 
   iw.write(tb, 0, 0, "Hello, world!")
+  let
+    col = currentBuffer.cursorColumn - currentBuffer.scrollX.int
+    row = currentBuffer.cursorLine - currentBuffer.scrollY.int
+  setCharBackground(tb, col, row, iw.bgYellow, true)
 
   iw.display(tb)
 
