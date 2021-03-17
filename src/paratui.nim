@@ -61,9 +61,9 @@ let rules =
         (id, CursorColumn, cursorColumn, then = false)
         (id, Lines, lines, then = false)
       cond:
-        cursorColumn + 1 > lines[cursorLine].len
+        cursorColumn > lines[cursorLine].len
       then:
-        session.insert(id, CursorColumn, lines[cursorLine].len - 1)
+        session.insert(id, CursorColumn, lines[cursorLine].len)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -147,8 +147,18 @@ proc onInput(ch: string) =
     if currentBuffer.cursorColumn > 0:
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
   of "<Right>":
-    if currentBuffer.cursorColumn + 1 < currentBuffer.lines[currentBuffer.cursorLine].len:
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
+
+proc onInput(ch: char) =
+  let
+    currentBuffer = session.query(rules.getCurrentBuffer)
+    line = currentBuffer.lines[currentBuffer.cursorLine]
+    newLine = line[0 ..< currentBuffer.cursorColumn] & $ch & line[currentBuffer.cursorColumn ..< line.len]
+  var newLines = currentBuffer.lines
+  newLines[currentBuffer.cursorLine] = newLine
+  session.insert(currentBuffer.id, Lines, newLines)
+  session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
 
 proc tick*() =
   var key = iw.getKey()
@@ -159,7 +169,7 @@ proc tick*() =
     if iwToSpecials.hasKey(code):
       onInput(iwToSpecials[code])
     elif code >= 32:
-      onInput($ char(code))
+      onInput(char(code))
   session.fireRules()
 
   let
