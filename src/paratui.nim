@@ -14,7 +14,8 @@ type
     CursorLine, CursorColumn,
     ScrollX, ScrollY,
     WindowColumns, WindowLines,
-    CurrentBufferId,
+    CurrentBufferId, Lines,
+  RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
   CursorLine: int
@@ -24,6 +25,7 @@ schema Fact(Id, Attr):
   WindowLines: int
   WindowColumns: int
   CurrentBufferId: int
+  Lines: RefStrings
 
 let rules =
   ruleset:
@@ -60,6 +62,7 @@ let rules =
         (id, CursorColumn, cursorColumn)
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
+        (id, Lines, lines)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -108,6 +111,10 @@ proc init*() =
   session.insert(bufferId, CursorColumn, 0)
   session.insert(bufferId, ScrollX, 0f)
   session.insert(bufferId, ScrollY, 0f)
+  var lines: RefStrings
+  new lines
+  lines[] = @["Hello, world!"]
+  session.insert(bufferId, Lines, lines)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
@@ -142,7 +149,23 @@ proc tick*() =
   if width != windowColumns or height != windowLines:
     onWindowResize(width, height)
 
-  iw.write(tb, 0, 0, "Hello, world!")
+  let
+    lines = currentBuffer.lines[]
+    scrollX = currentBuffer.scrollX.int
+    scrollY = currentBuffer.scrollY.int
+  var screenLine = 0
+  for i in scrollY ..< lines.len:
+    if screenLine >= height - 1:
+      break
+    var line = lines[i]
+    if scrollX < line.len:
+      if scrollX > 0:
+        line = line[scrollX ..< line.len]
+    else:
+      line = ""
+    iw.write(tb, 0, screenLine, line)
+    screenLine += 1
+
   let
     col = currentBuffer.cursorColumn - currentBuffer.scrollX.int
     row = currentBuffer.cursorLine - currentBuffer.scrollY.int
