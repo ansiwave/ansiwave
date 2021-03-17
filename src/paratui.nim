@@ -55,6 +55,15 @@ let rules =
           session.insert(id, ScrollY, cursorLine.float)
         elif cursorLine > scrollBottom:
           session.insert(id, ScrollY, scrollY + float(cursorLine - scrollBottom))
+    rule cursorLineChanged(Fact):
+      what:
+        (id, CursorLine, cursorLine)
+        (id, CursorColumn, cursorColumn, then = false)
+        (id, Lines, lines, then = false)
+      cond:
+        cursorColumn + 1 > lines[cursorLine].len
+      then:
+        session.insert(id, CursorColumn, lines[cursorLine].len - 1)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -113,7 +122,7 @@ proc init*() =
   session.insert(bufferId, ScrollY, 0f)
   var lines: RefStrings
   new lines
-  lines[] = @["Hello, world!"]
+  lines[] = @["Hello, world!", "How are you?"]
   session.insert(bufferId, Lines, lines)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
@@ -126,7 +135,20 @@ proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.
     iw.setCursorPos(tb, col, row)
 
 proc onInput(ch: string) =
-  discard
+  let currentBuffer = session.query(rules.getCurrentBuffer)
+  case ch:
+  of "<Up>":
+    if currentBuffer.cursorLine > 0:
+      session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
+  of "<Down>":
+    if currentBuffer.cursorLine + 1 < currentBuffer.lines[].len:
+      session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
+  of "<Left>":
+    if currentBuffer.cursorColumn > 0:
+      session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
+  of "<Right>":
+    if currentBuffer.cursorColumn + 1 < currentBuffer.lines[currentBuffer.cursorLine].len:
+      session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
 
 proc tick*() =
   var key = iw.getKey()
