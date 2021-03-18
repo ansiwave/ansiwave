@@ -137,6 +137,23 @@ proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.
 proc onInput(ch: string) =
   let currentBuffer = session.query(rules.getCurrentBuffer)
   case ch:
+  of "<BS>":
+    if currentBuffer.cursorColumn > 0:
+      let
+        line = currentBuffer.lines[currentBuffer.cursorLine]
+        newLine = line[0 ..< currentBuffer.cursorColumn - 1] & line[currentBuffer.cursorColumn ..< line.len]
+      var newLines = currentBuffer.lines
+      newLines[currentBuffer.cursorLine] = newLine
+      session.insert(currentBuffer.id, Lines, newLines)
+      session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
+  of "<Del>":
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
+      let
+        line = currentBuffer.lines[currentBuffer.cursorLine]
+        newLine = line[0 ..< currentBuffer.cursorColumn] & line[currentBuffer.cursorColumn + 1 ..< line.len]
+      var newLines = currentBuffer.lines
+      newLines[currentBuffer.cursorLine] = newLine
+      session.insert(currentBuffer.id, Lines, newLines)
   of "<Up>":
     if currentBuffer.cursorLine > 0:
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
