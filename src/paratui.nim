@@ -166,6 +166,12 @@ proc onInput(ch: string) =
   of "<Right>":
     if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
+  of "<Home>":
+    if currentBuffer.cursorColumn > 0:
+      session.insert(currentBuffer.id, CursorColumn, 0)
+  of "<End>":
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
+      session.insert(currentBuffer.id, CursorColumn, currentBuffer.lines[currentBuffer.cursorLine].len)
 
 proc onInput(ch: char) =
   let
