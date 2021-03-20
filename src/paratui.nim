@@ -344,4 +344,4 @@ when isMainModule:
   init()
   while true:
     tick()
-    os.sleep(20)
+    os.sleep(5)
