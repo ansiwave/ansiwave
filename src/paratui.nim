@@ -26,7 +26,7 @@ type
     CursorLine, CursorColumn,
     ScrollX, ScrollY,
     WindowColumns, WindowLines,
-    CurrentBufferId, Lines,
+    CurrentBufferId, Lines, LineColumns,
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -38,6 +38,7 @@ schema Fact(Id, Attr):
   WindowColumns: int
   CurrentBufferId: int
   Lines: RefStrings
+  LineColumns: int
 
 let rules =
   ruleset:
@@ -79,9 +80,11 @@ let rules =
     rule wrapText(Fact):
       what:
         (Global, WindowColumns, windowColumns)
-        (id, Lines, lines, then = false)
+        (id, Lines, lines)
+        (id, LineColumns, lineColumns)
       cond:
         windowColumns > 0
+        lineColumns != windowColumns
       then:
         let fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
         var wrapLines: seq[seq[string]]
@@ -101,6 +104,7 @@ let rules =
         for line in wrapLines:
           newLines[].add(line)
         session.insert(id, Lines, newLines)
+        session.insert(id, LineColumns, windowColumns)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -163,6 +167,7 @@ proc init*() =
   new lines
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
+  session.insert(bufferId, LineColumns, 0)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
@@ -223,6 +228,7 @@ proc onInput(ch: char) =
   newLines[currentBuffer.cursorLine] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
   session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
+  session.insert(currentBuffer.id, LineColumns, 0)
 
 proc tick*() =
   var key = iw.getKey()
