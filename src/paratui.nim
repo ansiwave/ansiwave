@@ -32,20 +32,22 @@ type
     CursorLine, CursorColumn,
     ScrollX, ScrollY,
     WindowColumns, WindowLines,
-    CurrentBufferId, Lines, LineColumns,
+    CurrentBufferId, Lines,
+    BufferLines, BufferColumns,
     Wrap
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
   CursorLine: int
   CursorColumn: int
-  ScrollX: float
-  ScrollY: float
+  ScrollX: int
+  ScrollY: int
   WindowLines: int
   WindowColumns: int
   CurrentBufferId: int
   Lines: RefStrings
-  LineColumns: int
+  BufferLines: int
+  BufferColumns: int
   Wrap: bool
 
 let rules =
@@ -56,7 +58,7 @@ let rules =
         (Global, WindowLines, windowLines)
     rule updateTerminalScrollX(Fact):
       what:
-        (Global, WindowColumns, windowColumns)
+        (id, BufferColumns, bufferColumns)
         (id, CursorColumn, cursorColumn)
         (id, ScrollX, scrollX, then = false)
         (id, Wrap, wrap)
@@ -64,24 +66,25 @@ let rules =
         wrap == false
         cursorColumn >= 0
       then:
-        let scrollRight = scrollX.int + windowColumns - 1
-        if cursorColumn < scrollX.int:
-          session.insert(id, ScrollX, cursorColumn.float)
+        let scrollRight = scrollX + bufferColumns - 1
+        if cursorColumn < scrollX:
+          session.insert(id, ScrollX, cursorColumn)
         elif cursorColumn > scrollRight:
-          session.insert(id, ScrollX, scrollX + float(cursorColumn - scrollRight))
+          session.insert(id, ScrollX, scrollX + (cursorColumn - scrollRight))
     rule updateTerminalScrollY(Fact):
       what:
-        (Global, WindowLines, windowLines)
+        (id, BufferLines, bufferLines)
         (id, CursorLine, cursorLine)
+        (id, Lines, lines)
         (id, ScrollY, scrollY, then = false)
       cond:
-        cursorLine > 0
+        cursorLine >= 0
       then:
-        let scrollBottom = scrollY.int + windowLines - 2
-        if cursorLine < scrollY.int:
-          session.insert(id, ScrollY, cursorLine.float)
-        elif cursorLine > scrollBottom:
-          session.insert(id, ScrollY, scrollY + float(cursorLine - scrollBottom))
+        let scrollBottom = scrollY + bufferLines - 1
+        if cursorLine < scrollY:
+          session.insert(id, ScrollY, cursorLine)
+        elif cursorLine > scrollBottom and cursorLine < lines[].len:
+          session.insert(id, ScrollY, scrollY + (cursorLine - scrollBottom))
     rule cursorLineChanged(Fact):
       what:
         (id, CursorLine, cursorLine)
@@ -122,26 +125,24 @@ let rules =
             session.insert(id, CursorColumn, 0)
     rule wrapText(Fact):
       what:
-        (Global, WindowColumns, windowColumns)
         (id, Wrap, wrap)
-        (id, Lines, lines)
-        (id, LineColumns, lineColumns)
+        (id, Lines, lines, then = false)
+        (id, BufferColumns, bufferColumns)
       cond:
         wrap
-        windowColumns > 0
-        lineColumns + 1 != windowColumns
+        bufferColumns > 0
       then:
         let
           fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
-          lineColumnsNew = windowColumns - 1
+          lineColumns = bufferColumns - 1
         var wrapLines: seq[seq[string]]
         for line in fullLines:
           var parts: seq[string]
           var rest = line
           while true:
-            if rest.lineLen > lineColumnsNew:
-              parts.add(rest[0 ..< lineColumnsNew])
-              rest = rest[lineColumnsNew ..< rest.len]
+            if rest.lineLen > lineColumns:
+              parts.add(rest[0 ..< lineColumns])
+              rest = rest[lineColumns ..< rest.len]
             else:
               parts.add(rest)
               break
@@ -151,7 +152,6 @@ let rules =
         for line in wrapLines:
           newLines[].add(line)
         session.insert(id, Lines, newLines)
-        session.insert(id, LineColumns, lineColumnsNew)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -161,6 +161,8 @@ let rules =
         (id, ScrollY, scrollY)
         (id, Lines, lines)
         (id, Wrap, wrap)
+        (id, BufferLines, bufferLines)
+        (id, BufferColumns, bufferColumns)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -209,13 +211,14 @@ proc init*() =
   session.insert(Global, CurrentBufferId, bufferId)
   session.insert(bufferId, CursorLine, 0)
   session.insert(bufferId, CursorColumn, 0)
-  session.insert(bufferId, ScrollX, 0f)
-  session.insert(bufferId, ScrollY, 0f)
+  session.insert(bufferId, ScrollX, 0)
+  session.insert(bufferId, ScrollY, 0)
   var lines: RefStrings
   new lines
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
-  session.insert(bufferId, LineColumns, -1)
+  session.insert(bufferId, BufferLines, 5)
+  session.insert(bufferId, BufferColumns, 40)
   session.insert(bufferId, Wrap, true)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
@@ -267,7 +270,7 @@ proc onInput(ch: string) =
       newLines[].add(after)
     newLines[].add(currentBuffer.lines[currentBuffer.cursorLine + 1 ..< currentBuffer.lines[].len])
     session.insert(currentBuffer.id, Lines, newLines)
-    session.insert(currentBuffer.id, LineColumns, -1)
+    session.insert(currentBuffer.id, BufferColumns, currentBuffer.bufferColumns) # force refresh
     session.insert(currentBuffer.id, CursorColumn, 0)
     if not keepCursorOnLine:
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
@@ -293,16 +296,16 @@ proc onInput(ch: char) =
   newLines[currentBuffer.cursorLine] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
   session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
-  session.insert(currentBuffer.id, LineColumns, -1)
+  session.insert(currentBuffer.id, BufferColumns, currentBuffer.bufferColumns) # force refresh
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
   let
     lines = buffer.lines[]
-    scrollX = buffer.scrollX.int
-    scrollY = buffer.scrollY.int
+    scrollX = buffer.scrollX
+    scrollY = buffer.scrollY
   var screenLine = 0
   for i in scrollY ..< lines.len:
-    if screenLine >= tb.height - 1:
+    if screenLine > buffer.bufferLines - 1:
       break
     var line = lines[i][0 ..< lines[i].lineLen]
     if scrollX < line.lineLen:
@@ -314,8 +317,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
     screenLine += 1
 
   let
-    col = buffer.cursorColumn - buffer.scrollX.int
-    row = buffer.cursorLine - buffer.scrollY.int
+    col = buffer.cursorColumn - buffer.scrollX
+    row = buffer.cursorLine - buffer.scrollY
   setCharBackground(tb, col, row, iw.bgYellow, true)
 
 proc tick*() =
