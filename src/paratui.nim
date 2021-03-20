@@ -62,6 +62,7 @@ let rules =
         (id, Wrap, wrap)
       cond:
         wrap == false
+        cursorColumn >= 0
       then:
         let scrollRight = scrollX.int + windowColumns - 1
         if cursorColumn < scrollX.int:
@@ -115,7 +116,7 @@ let rules =
             else:
               session.insert(id, CursorColumn, 0)
         else:
-          if cursorColumn >= lines[cursorLine].lineLen:
+          if cursorColumn > lines[cursorLine].lineLen:
             session.insert(id, CursorColumn, lines[cursorLine].lineLen)
           elif cursorColumn < 0:
             session.insert(id, CursorColumn, 0)
@@ -248,19 +249,27 @@ proc onInput(ch: string) =
       session.insert(currentBuffer.id, Lines, newLines)
   of "<Enter>":
     let
-      line = currentBuffer.lines[currentBuffer.cursorLine]
+      line = currentbuffer.lines[currentBuffer.cursorLine]
       before = line[0 ..< currentBuffer.cursorColumn]
       after = line[currentBuffer.cursorColumn ..< line.len]
-      newLine = before & "\n" & after
-    var newLines = currentBuffer.lines
-    newLines[currentBuffer.cursorLine] = newLine
+      keepCursorOnLine = currentBuffer.wrap and
+                         currentBuffer.cursorColumn == 0 and
+                         currentBuffer.cursorLine > 0 and
+                         not strutils.endsWith(currentBuffer.lines[currentBuffer.cursorLine - 1], "\n")
+    var newLines: ref seq[string]
+    new newLines
+    newLines[] = currentBuffer.lines[0 ..< currentBuffer.cursorLine]
+    if keepCursorOnLine:
+      newLines[newLines[].len - 1] &= "\n"
+    else:
+      newLines[].add(before & "\n")
+    if after.len > 0:
+      newLines[].add(after)
+    newLines[].add(currentBuffer.lines[currentBuffer.cursorLine + 1 ..< currentBuffer.lines[].len])
     session.insert(currentBuffer.id, Lines, newLines)
     session.insert(currentBuffer.id, LineColumns, -1)
     session.insert(currentBuffer.id, CursorColumn, 0)
-    session.fireRules() # we must do this so the Lines are updated before setting the new CursorLine
-    if not (currentBuffer.cursorColumn == 0 and
-            currentBuffer.cursorLine != 0 and
-            not strutils.endsWith(currentBuffer.lines[currentBuffer.cursorLine - 1], "\n")):
+    if not keepCursorOnLine:
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
   of "<Up>":
     session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
