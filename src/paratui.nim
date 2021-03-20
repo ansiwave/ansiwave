@@ -295,6 +295,29 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
   session.insert(currentBuffer.id, LineColumns, -1)
 
+proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
+  let
+    lines = buffer.lines[]
+    scrollX = buffer.scrollX.int
+    scrollY = buffer.scrollY.int
+  var screenLine = 0
+  for i in scrollY ..< lines.len:
+    if screenLine >= tb.height - 1:
+      break
+    var line = lines[i][0 ..< lines[i].lineLen]
+    if scrollX < line.lineLen:
+      if scrollX > 0:
+        line = line[scrollX ..< line.lineLen]
+    else:
+      line = ""
+    iw.write(tb, 0, screenLine, line)
+    screenLine += 1
+
+  let
+    col = buffer.cursorColumn - buffer.scrollX.int
+    row = buffer.cursorLine - buffer.scrollY.int
+  setCharBackground(tb, col, row, iw.bgYellow, true)
+
 proc tick*() =
   var key = iw.getKey()
   case key
@@ -316,27 +339,7 @@ proc tick*() =
   if width != windowColumns or height != windowLines:
     onWindowResize(width, height)
 
-  let
-    lines = currentBuffer.lines[]
-    scrollX = currentBuffer.scrollX.int
-    scrollY = currentBuffer.scrollY.int
-  var screenLine = 0
-  for i in scrollY ..< lines.len:
-    if screenLine >= height - 1:
-      break
-    var line = lines[i][0 ..< lines[i].lineLen]
-    if scrollX < line.lineLen:
-      if scrollX > 0:
-        line = line[scrollX ..< line.lineLen]
-    else:
-      line = ""
-    iw.write(tb, 0, screenLine, line)
-    screenLine += 1
-
-  let
-    col = currentBuffer.cursorColumn - currentBuffer.scrollX.int
-    row = currentBuffer.cursorLine - currentBuffer.scrollY.int
-  setCharBackground(tb, col, row, iw.bgYellow, true)
+  renderBuffer(tb, currentBuffer)
 
   iw.display(tb)
 
