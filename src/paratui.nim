@@ -33,7 +33,7 @@ type
     ScrollX, ScrollY,
     X, Y, Width, Height,
     CurrentBufferId, Lines,
-    Wrap
+    Wrap, Editable
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -48,6 +48,7 @@ schema Fact(Id, Attr):
   CurrentBufferId: int
   Lines: RefStrings
   Wrap: bool
+  Editable: bool
 
 let rules =
   ruleset:
@@ -164,6 +165,7 @@ let rules =
         (id, Y, y)
         (id, Width, width)
         (id, Height, height)
+        (id, Editable, editable)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -223,6 +225,7 @@ proc init*() =
   session.insert(bufferId, Width, 40)
   session.insert(bufferId, Height, 5)
   session.insert(bufferId, Wrap, true)
+  session.insert(bufferId, Editable, true)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
@@ -237,6 +240,8 @@ proc onInput(ch: string) =
   let currentBuffer = session.query(rules.getCurrentBuffer)
   case ch:
   of "<BS>":
+    if not currentBuffer.editable:
+      return
     if currentBuffer.cursorX > 0:
       let
         line = currentBuffer.lines[currentBuffer.cursorY]
@@ -247,6 +252,8 @@ proc onInput(ch: string) =
       session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX - 1)
       session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
   of "<Del>":
+    if not currentBuffer.editable:
+      return
     if currentBuffer.cursorX < currentBuffer.lines[currentBuffer.cursorY].lineLen:
       let
         line = currentBuffer.lines[currentBuffer.cursorY]
@@ -256,6 +263,8 @@ proc onInput(ch: string) =
       session.insert(currentBuffer.id, Lines, newLines)
       session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
   of "<Enter>":
+    if not currentBuffer.editable:
+      return
     let
       line = currentbuffer.lines[currentBuffer.cursorY]
       before = line[0 ..< currentBuffer.cursorX]
@@ -292,8 +301,10 @@ proc onInput(ch: string) =
     session.insert(currentBuffer.id, CursorX, currentBuffer.lines[currentBuffer.cursorY].lineLen)
 
 proc onInput(ch: char) =
+  let currentBuffer = session.query(rules.getCurrentBuffer)
+  if not currentBuffer.editable:
+    return
   let
-    currentBuffer = session.query(rules.getCurrentBuffer)
     line = currentBuffer.lines[currentBuffer.cursorY]
     newLine = line[0 ..< currentBuffer.cursorX] & $ch & line[currentBuffer.cursorX ..< line.len]
   var newLines = currentBuffer.lines
@@ -302,8 +313,8 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
   session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
-proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
-  tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1)
+proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
+  tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
   let
     lines = buffer.lines[]
     scrollX = buffer.scrollX
@@ -323,10 +334,11 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
     screenLine += 1
 
-  let
-    col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
-    row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
-  setCharBackground(tb, col, row, iw.bgYellow, true)
+  if focused:
+    let
+      col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
+      row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
+    setCharBackground(tb, col, row, iw.bgYellow, true)
 
 proc tick*() =
   var key = iw.getKey()
@@ -349,7 +361,7 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  renderBuffer(tb, currentBuffer)
+  renderBuffer(tb, currentBuffer, true)
 
   iw.display(tb)
 
