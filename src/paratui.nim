@@ -15,9 +15,15 @@ proc lineLen(line: string): int =
     line.len
 
 proc splitLinesRetainingNewline(text: string): seq[string] =
-  result = strutils.split(text, "\n")
-  for i in 0 ..< result.len - 1:
-    result[i] &= "\n"
+  var rest = text
+  while true:
+    let i = strutils.find(rest, "\n")
+    if i == -1:
+      result.add(rest)
+      break
+    else:
+      result.add(rest[0 .. i])
+      rest = rest[i + 1 ..< rest.len]
 
 type
   Id* = enum
@@ -74,6 +80,7 @@ let rules =
         (id, CursorColumn, cursorColumn, then = false)
         (id, Lines, lines, then = false)
       cond:
+        cursorLine < lines[].len
         cursorColumn > lines[cursorLine].len
       then:
         session.insert(id, CursorColumn, lines[cursorLine].len)
@@ -91,13 +98,13 @@ let rules =
         for line in fullLines:
           var parts: seq[string]
           var rest = line
-          while rest.lineLen > 0:
+          while true:
             if rest.lineLen > windowColumns:
               parts.add(rest[0 ..< windowColumns])
               rest = rest[windowColumns ..< rest.len]
             else:
               parts.add(rest)
-              rest = ""
+              break
           wrapLines.add(parts)
         var newLines: ref seq[string]
         new newLines
@@ -144,7 +151,7 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-const text = "Hello, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
+const text = "\nHello, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
 
 proc init*() =
   iw.illwillInit(fullscreen=true)
@@ -185,7 +192,7 @@ proc onInput(ch: string) =
     if currentBuffer.cursorColumn > 0:
       let
         line = currentBuffer.lines[currentBuffer.cursorLine]
-        newLine = line[0 ..< currentBuffer.cursorColumn - 1] & line[currentBuffer.cursorColumn ..< line.lineLen]
+        newLine = line[0 ..< currentBuffer.cursorColumn - 1] & line[currentBuffer.cursorColumn ..< line.len]
       var newLines = currentBuffer.lines
       newLines[currentBuffer.cursorLine] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
@@ -194,12 +201,25 @@ proc onInput(ch: string) =
     if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
       let
         line = currentBuffer.lines[currentBuffer.cursorLine]
-        newLine = line[0 ..< currentBuffer.cursorColumn] & line[currentBuffer.cursorColumn + 1 ..< line.lineLen]
+        newLine = line[0 ..< currentBuffer.cursorColumn] & line[currentBuffer.cursorColumn + 1 ..< line.len]
       var newLines = currentBuffer.lines
       newLines[currentBuffer.cursorLine] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
   of "<Enter>":
-    discard
+    let
+      line = currentBuffer.lines[currentBuffer.cursorLine]
+      before = line[0 ..< currentBuffer.cursorColumn]
+      after = line[currentBuffer.cursorColumn ..< line.len]
+      newLine = before & "\n" & after
+    var newLines = currentBuffer.lines
+    newLines[currentBuffer.cursorLine] = newLine
+    session.insert(currentBuffer.id, Lines, newLines)
+    session.insert(currentBuffer.id, LineColumns, 0)
+    if not (currentBuffer.cursorColumn == 0 and
+            currentBuffer.cursorLine != 0 and
+            not strutils.endsWith(currentBuffer.lines[currentBuffer.cursorLine - 1], "\n")):
+      session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
+    session.insert(currentBuffer.id, CursorColumn, 0)
   of "<Up>":
     if currentBuffer.cursorLine > 0:
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
@@ -223,7 +243,7 @@ proc onInput(ch: char) =
   let
     currentBuffer = session.query(rules.getCurrentBuffer)
     line = currentBuffer.lines[currentBuffer.cursorLine]
-    newLine = line[0 ..< currentBuffer.cursorColumn] & $ch & line[currentBuffer.cursorColumn ..< line.lineLen]
+    newLine = line[0 ..< currentBuffer.cursorColumn] & $ch & line[currentBuffer.cursorColumn ..< line.len]
   var newLines = currentBuffer.lines
   newLines[currentBuffer.cursorLine] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
@@ -276,12 +296,7 @@ proc tick*() =
   iw.display(tb)
 
 when isMainModule:
-  try:
-    init()
-    while true:
-      tick()
-      os.sleep(20)
-  except Exception as e:
-    iw.illwillDeinit()
-    iw.showCursor()
-    raise e
+  init()
+  while true:
+    tick()
+    os.sleep(20)
