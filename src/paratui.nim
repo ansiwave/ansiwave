@@ -245,6 +245,7 @@ proc onInput(ch: string) =
       newLines[currentBuffer.cursorY] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
       session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX - 1)
+      session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
   of "<Del>":
     if currentBuffer.cursorX < currentBuffer.lines[currentBuffer.cursorY].lineLen:
       let
@@ -253,6 +254,7 @@ proc onInput(ch: string) =
       var newLines = currentBuffer.lines
       newLines[currentBuffer.cursorY] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
+      session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
   of "<Enter>":
     let
       line = currentbuffer.lines[currentBuffer.cursorY]
