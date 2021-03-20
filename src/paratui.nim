@@ -8,6 +8,17 @@ from strutils import nil
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 
+proc lineLen(line: string): int =
+  if strutils.endsWith(line, "\n"):
+    line.len - 1
+  else:
+    line.len
+
+proc splitLinesRetainingNewline(text: string): seq[string] =
+  result = strutils.split(text, "\n")
+  for i in 0 ..< result.len - 1:
+    result[i] &= "\n"
+
 type
   Id* = enum
     Global
@@ -65,6 +76,31 @@ let rules =
         cursorColumn > lines[cursorLine].len
       then:
         session.insert(id, CursorColumn, lines[cursorLine].len)
+    rule wrapText(Fact):
+      what:
+        (Global, WindowColumns, windowColumns)
+        (id, Lines, lines, then = false)
+      cond:
+        windowColumns > 0
+      then:
+        let fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
+        var wrapLines: seq[seq[string]]
+        for line in fullLines:
+          var parts: seq[string]
+          var rest = line
+          while rest.lineLen > 0:
+            if rest.lineLen > windowColumns:
+              parts.add(rest[0 ..< windowColumns])
+              rest = rest[windowColumns ..< rest.len]
+            else:
+              parts.add(rest)
+              rest = ""
+          wrapLines.add(parts)
+        var newLines: ref seq[string]
+        new newLines
+        for line in wrapLines:
+          newLines[].add(line)
+        session.insert(id, Lines, newLines)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -104,7 +140,7 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-const text = "Hello, world!\nHow are you?"
+const text = "Hello, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
 
 proc init*() =
   iw.illwillInit(fullscreen=true)
@@ -125,9 +161,7 @@ proc init*() =
   session.insert(bufferId, ScrollY, 0f)
   var lines: RefStrings
   new lines
-  lines[] = strutils.split(text, "\n")
-  for i in 0 ..< lines[].len - 1:
-    lines[i] &= "\n"
+  lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
@@ -138,12 +172,6 @@ proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.
   tb[col, row] = ch
   if cursor:
     iw.setCursorPos(tb, col, row)
-
-proc lineLen(line: string): int =
-  if strutils.endsWith(line, "\n"):
-    line.len - 1
-  else:
-    line.len
 
 proc onInput(ch: string) =
   let currentBuffer = session.query(rules.getCurrentBuffer)
