@@ -271,8 +271,7 @@ proc onInput(ch: string) =
       newLines[newLines[].len - 1] &= "\n"
     else:
       newLines[].add(before & "\n")
-    if after.len > 0:
-      newLines[].add(after)
+    newLines[].add(after)
     newLines[].add(currentBuffer.lines[currentBuffer.cursorY + 1 ..< currentBuffer.lines[].len])
     session.insert(currentBuffer.id, Lines, newLines)
     session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
@@ -319,6 +318,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
         line = line[scrollX ..< line.lineLen]
     else:
       line = ""
+    if line.lineLen > buffer.width:
+      line = line[0 ..< buffer.width]
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
     screenLine += 1
 
