@@ -31,7 +31,7 @@ type
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
-    Width, Height,
+    X, Y, Width, Height,
     CurrentBufferId, Lines,
     Wrap
   RefStrings = ref seq[string]
@@ -41,6 +41,8 @@ schema Fact(Id, Attr):
   CursorY: int
   ScrollX: int
   ScrollY: int
+  X: int
+  Y: int
   Width: int
   Height: int
   CurrentBufferId: int
@@ -158,6 +160,8 @@ let rules =
         (id, ScrollY, scrollY)
         (id, Lines, lines)
         (id, Wrap, wrap)
+        (id, X, x)
+        (id, Y, y)
         (id, Width, width)
         (id, Height, height)
 
@@ -214,6 +218,8 @@ proc init*() =
   new lines
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
+  session.insert(bufferId, X, 0)
+  session.insert(bufferId, Y, 0)
   session.insert(bufferId, Width, 40)
   session.insert(bufferId, Height, 5)
   session.insert(bufferId, Wrap, true)
@@ -296,6 +302,7 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
+  tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1)
   let
     lines = buffer.lines[]
     scrollX = buffer.scrollX
@@ -310,12 +317,12 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
         line = line[scrollX ..< line.lineLen]
     else:
       line = ""
-    iw.write(tb, 0, screenLine, line)
+    iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
     screenLine += 1
 
   let
-    col = buffer.cursorX - buffer.scrollX
-    row = buffer.cursorY - buffer.scrollY
+    col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
+    row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
   setCharBackground(tb, col, row, iw.bgYellow, true)
 
 proc tick*() =
