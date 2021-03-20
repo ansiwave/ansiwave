@@ -27,13 +27,12 @@ proc splitLinesRetainingNewline(text: string): seq[string] =
 
 type
   Id* = enum
-    Global
+    Window
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
-    WindowWidth, WindowHeight,
+    Width, Height,
     CurrentBufferId, Lines,
-    BufferWidth, BufferHeight,
     Wrap
   RefStrings = ref seq[string]
 
@@ -42,23 +41,21 @@ schema Fact(Id, Attr):
   CursorY: int
   ScrollX: int
   ScrollY: int
-  WindowWidth: int
-  WindowHeight: int
+  Width: int
+  Height: int
   CurrentBufferId: int
   Lines: RefStrings
-  BufferWidth: int
-  BufferHeight: int
   Wrap: bool
 
 let rules =
   ruleset:
     rule getTerminalWindow(Fact):
       what:
-        (Global, WindowWidth, windowWidth)
-        (Global, WindowHeight, windowHeight)
+        (Window, Width, windowWidth)
+        (Window, Height, windowHeight)
     rule updateTerminalScrollX(Fact):
       what:
-        (id, BufferWidth, bufferWidth)
+        (id, Width, bufferWidth)
         (id, CursorX, cursorX)
         (id, ScrollX, scrollX, then = false)
         (id, Wrap, wrap)
@@ -73,7 +70,7 @@ let rules =
           session.insert(id, ScrollX, scrollX + (cursorX - scrollRight))
     rule updateTerminalScrollY(Fact):
       what:
-        (id, BufferHeight, bufferHeight)
+        (id, Height, bufferHeight)
         (id, CursorY, cursorY)
         (id, Lines, lines)
         (id, ScrollY, scrollY, then = false)
@@ -127,7 +124,7 @@ let rules =
       what:
         (id, Wrap, wrap)
         (id, Lines, lines, then = false)
-        (id, BufferWidth, bufferWidth)
+        (id, Width, bufferWidth)
       cond:
         wrap
         bufferWidth > 0
@@ -154,15 +151,15 @@ let rules =
         session.insert(id, Lines, newLines)
     rule getCurrentBuffer(Fact):
       what:
-        (Global, CurrentBufferId, id)
+        (Window, CurrentBufferId, id)
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
         (id, Lines, lines)
         (id, Wrap, wrap)
-        (id, BufferWidth, bufferWidth)
-        (id, BufferHeight, bufferHeight)
+        (id, Width, width)
+        (id, Height, height)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -186,8 +183,8 @@ const iwToSpecials =
    iw.Key.CtrlV.ord: "<C-V>",}.toTable
 
 proc onWindowResize(width: int, height: int) =
-  session.insert(Global, WindowWidth, width)
-  session.insert(Global, WindowHeight, height)
+  session.insert(Window, Width, width)
+  session.insert(Window, Height, height)
 
 proc exitProc() {.noconv.} =
   iw.illwillDeinit()
@@ -208,7 +205,7 @@ proc init*() =
 
   let bufferId = Id.high.ord + 1
 
-  session.insert(Global, CurrentBufferId, bufferId)
+  session.insert(Window, CurrentBufferId, bufferId)
   session.insert(bufferId, CursorX, 0)
   session.insert(bufferId, CursorY, 0)
   session.insert(bufferId, ScrollX, 0)
@@ -217,8 +214,8 @@ proc init*() =
   new lines
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
-  session.insert(bufferId, BufferWidth, 40)
-  session.insert(bufferId, BufferHeight, 5)
+  session.insert(bufferId, Width, 40)
+  session.insert(bufferId, Height, 5)
   session.insert(bufferId, Wrap, true)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
@@ -270,7 +267,7 @@ proc onInput(ch: string) =
       newLines[].add(after)
     newLines[].add(currentBuffer.lines[currentBuffer.cursorY + 1 ..< currentBuffer.lines[].len])
     session.insert(currentBuffer.id, Lines, newLines)
-    session.insert(currentBuffer.id, BufferWidth, currentBuffer.bufferWidth) # force refresh
+    session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
     session.insert(currentBuffer.id, CursorX, 0)
     if not keepCursorOnLine:
       session.insert(currentBuffer.id, CursorY, currentBuffer.cursorY + 1)
@@ -296,7 +293,7 @@ proc onInput(ch: char) =
   newLines[currentBuffer.cursorY] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
   session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
-  session.insert(currentBuffer.id, BufferWidth, currentBuffer.bufferWidth) # force refresh
+  session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
   let
@@ -305,7 +302,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple) =
     scrollY = buffer.scrollY
   var screenLine = 0
   for i in scrollY ..< lines.len:
-    if screenLine > buffer.bufferHeight - 1:
+    if screenLine > buffer.height - 1:
       break
     var line = lines[i][0 ..< lines[i].lineLen]
     if scrollX < line.lineLen:
