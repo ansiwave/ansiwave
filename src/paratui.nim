@@ -2,6 +2,7 @@ import illwill as iw
 import tables
 import pararules
 from os import nil
+from strutils import nil
 
 #import paratuipkg/ansi
 #const content = staticRead("../luke_and_yoda.ans")
@@ -103,6 +104,8 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
+const text = "Hello, world!\nHow are you?"
+
 proc init*() =
   iw.illwillInit(fullscreen=true)
   setControlCHook(exitProc)
@@ -122,7 +125,9 @@ proc init*() =
   session.insert(bufferId, ScrollY, 0f)
   var lines: RefStrings
   new lines
-  lines[] = @["Hello, world!", "How are you?"]
+  lines[] = strutils.split(text, "\n")
+  for i in 0 ..< lines[].len - 1:
+    lines[i] &= "\n"
   session.insert(bufferId, Lines, lines)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
@@ -134,6 +139,12 @@ proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.
   if cursor:
     iw.setCursorPos(tb, col, row)
 
+proc lineLen(line: string): int =
+  if strutils.endsWith(line, "\n"):
+    line.len - 1
+  else:
+    line.len
+
 proc onInput(ch: string) =
   let currentBuffer = session.query(rules.getCurrentBuffer)
   case ch:
@@ -141,19 +152,21 @@ proc onInput(ch: string) =
     if currentBuffer.cursorColumn > 0:
       let
         line = currentBuffer.lines[currentBuffer.cursorLine]
-        newLine = line[0 ..< currentBuffer.cursorColumn - 1] & line[currentBuffer.cursorColumn ..< line.len]
+        newLine = line[0 ..< currentBuffer.cursorColumn - 1] & line[currentBuffer.cursorColumn ..< line.lineLen]
       var newLines = currentBuffer.lines
       newLines[currentBuffer.cursorLine] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
   of "<Del>":
-    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
       let
         line = currentBuffer.lines[currentBuffer.cursorLine]
-        newLine = line[0 ..< currentBuffer.cursorColumn] & line[currentBuffer.cursorColumn + 1 ..< line.len]
+        newLine = line[0 ..< currentBuffer.cursorColumn] & line[currentBuffer.cursorColumn + 1 ..< line.lineLen]
       var newLines = currentBuffer.lines
       newLines[currentBuffer.cursorLine] = newLine
       session.insert(currentBuffer.id, Lines, newLines)
+  of "<Enter>":
+    discard
   of "<Up>":
     if currentBuffer.cursorLine > 0:
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
@@ -164,20 +177,20 @@ proc onInput(ch: string) =
     if currentBuffer.cursorColumn > 0:
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
   of "<Right>":
-    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
       session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
   of "<Home>":
     if currentBuffer.cursorColumn > 0:
       session.insert(currentBuffer.id, CursorColumn, 0)
   of "<End>":
-    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].len:
-      session.insert(currentBuffer.id, CursorColumn, currentBuffer.lines[currentBuffer.cursorLine].len)
+    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
+      session.insert(currentBuffer.id, CursorColumn, currentBuffer.lines[currentBuffer.cursorLine].lineLen)
 
 proc onInput(ch: char) =
   let
     currentBuffer = session.query(rules.getCurrentBuffer)
     line = currentBuffer.lines[currentBuffer.cursorLine]
-    newLine = line[0 ..< currentBuffer.cursorColumn] & $ch & line[currentBuffer.cursorColumn ..< line.len]
+    newLine = line[0 ..< currentBuffer.cursorColumn] & $ch & line[currentBuffer.cursorColumn ..< line.lineLen]
   var newLines = currentBuffer.lines
   newLines[currentBuffer.cursorLine] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
@@ -212,10 +225,10 @@ proc tick*() =
   for i in scrollY ..< lines.len:
     if screenLine >= height - 1:
       break
-    var line = lines[i]
-    if scrollX < line.len:
+    var line = lines[i][0 ..< lines[i].lineLen]
+    if scrollX < line.lineLen:
       if scrollX > 0:
-        line = line[scrollX ..< line.len]
+        line = line[scrollX ..< line.lineLen]
     else:
       line = ""
     iw.write(tb, 0, screenLine, line)
