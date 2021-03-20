@@ -33,6 +33,7 @@ type
     ScrollX, ScrollY,
     WindowColumns, WindowLines,
     CurrentBufferId, Lines, LineColumns,
+    Wrap
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -45,6 +46,7 @@ schema Fact(Id, Attr):
   CurrentBufferId: int
   Lines: RefStrings
   LineColumns: int
+  Wrap: bool
 
 let rules =
   ruleset:
@@ -57,6 +59,9 @@ let rules =
         (Global, WindowColumns, windowColumns)
         (id, CursorColumn, cursorColumn)
         (id, ScrollX, scrollX, then = false)
+        (id, Wrap, wrap)
+      cond:
+        wrap == false
       then:
         let scrollRight = scrollX.int + windowColumns - 1
         if cursorColumn < scrollX.int:
@@ -68,6 +73,8 @@ let rules =
         (Global, WindowLines, windowLines)
         (id, CursorLine, cursorLine)
         (id, ScrollY, scrollY, then = false)
+      cond:
+        cursorLine > 0
       then:
         let scrollBottom = scrollY.int + windowLines - 2
         if cursorLine < scrollY.int:
@@ -79,29 +86,61 @@ let rules =
         (id, CursorLine, cursorLine)
         (id, CursorColumn, cursorColumn, then = false)
         (id, Lines, lines, then = false)
-      cond:
-        cursorLine < lines[].len
-        cursorColumn > lines[cursorLine].len
       then:
-        session.insert(id, CursorColumn, lines[cursorLine].len)
+        if cursorLine < 0:
+          session.insert(id, CursorLine, 0)
+        elif cursorLine < lines[].len:
+          if cursorColumn > lines[cursorLine].lineLen:
+            session.insert(id, CursorColumn, lines[cursorLine].lineLen)
+        else:
+          session.insert(id, CursorLine, cursorLine - 1)
+    rule cursorColumnChanged(Fact):
+      what:
+        (id, CursorLine, cursorLine, then = false)
+        (id, CursorColumn, cursorColumn)
+        (id, Lines, lines)
+        (id, Wrap, wrap)
+      then:
+        if wrap:
+          if cursorColumn > lines[cursorLine].lineLen:
+            if cursorLine < lines[].len - 1:
+              session.insert(id, CursorLine, cursorLine + 1)
+              session.insert(id, CursorColumn, 0)
+            else:
+              session.insert(id, CursorColumn, cursorColumn - 1)
+          elif cursorColumn < 0:
+            if cursorLine > 0:
+              session.insert(id, CursorLine, cursorLine - 1)
+              session.insert(id, CursorColumn, lines[cursorLine - 1].lineLen)
+            else:
+              session.insert(id, CursorColumn, 0)
+        else:
+          if cursorColumn >= lines[cursorLine].lineLen:
+            session.insert(id, CursorColumn, lines[cursorLine].lineLen)
+          elif cursorColumn < 0:
+            session.insert(id, CursorColumn, 0)
     rule wrapText(Fact):
       what:
         (Global, WindowColumns, windowColumns)
+        (id, Wrap, wrap)
         (id, Lines, lines)
         (id, LineColumns, lineColumns)
       cond:
+        wrap
         windowColumns > 0
-        lineColumns != windowColumns
+        lineColumns + 1 != windowColumns
       then:
-        let fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
+        let
+          fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
+          lineColumnsNew = windowColumns - 1
         var wrapLines: seq[seq[string]]
         for line in fullLines:
           var parts: seq[string]
           var rest = line
           while true:
-            if rest.lineLen > windowColumns:
-              parts.add(rest[0 ..< windowColumns])
-              rest = rest[windowColumns ..< rest.len]
+            if rest.lineLen > lineColumnsNew:
+              parts.add(rest[0 ..< lineColumnsNew])
+              rest = rest[lineColumnsNew ..< rest.len]
             else:
               parts.add(rest)
               break
@@ -111,7 +150,7 @@ let rules =
         for line in wrapLines:
           newLines[].add(line)
         session.insert(id, Lines, newLines)
-        session.insert(id, LineColumns, windowColumns)
+        session.insert(id, LineColumns, lineColumnsNew)
     rule getCurrentBuffer(Fact):
       what:
         (Global, CurrentBufferId, id)
@@ -120,6 +159,7 @@ let rules =
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
         (id, Lines, lines)
+        (id, Wrap, wrap)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -174,7 +214,8 @@ proc init*() =
   new lines
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
-  session.insert(bufferId, LineColumns, 0)
+  session.insert(bufferId, LineColumns, -1)
+  session.insert(bufferId, Wrap, true)
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
@@ -214,30 +255,25 @@ proc onInput(ch: string) =
     var newLines = currentBuffer.lines
     newLines[currentBuffer.cursorLine] = newLine
     session.insert(currentBuffer.id, Lines, newLines)
-    session.insert(currentBuffer.id, LineColumns, 0)
+    session.insert(currentBuffer.id, LineColumns, -1)
+    session.insert(currentBuffer.id, CursorColumn, 0)
+    session.fireRules() # we must do this so the Lines are updated before setting the new CursorLine
     if not (currentBuffer.cursorColumn == 0 and
             currentBuffer.cursorLine != 0 and
             not strutils.endsWith(currentBuffer.lines[currentBuffer.cursorLine - 1], "\n")):
       session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
-    session.insert(currentBuffer.id, CursorColumn, 0)
   of "<Up>":
-    if currentBuffer.cursorLine > 0:
-      session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
+    session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine - 1)
   of "<Down>":
-    if currentBuffer.cursorLine + 1 < currentBuffer.lines[].len:
-      session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
+    session.insert(currentBuffer.id, CursorLine, currentBuffer.cursorLine + 1)
   of "<Left>":
-    if currentBuffer.cursorColumn > 0:
-      session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
+    session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn - 1)
   of "<Right>":
-    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
-      session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
+    session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
   of "<Home>":
-    if currentBuffer.cursorColumn > 0:
-      session.insert(currentBuffer.id, CursorColumn, 0)
+    session.insert(currentBuffer.id, CursorColumn, 0)
   of "<End>":
-    if currentBuffer.cursorColumn < currentBuffer.lines[currentBuffer.cursorLine].lineLen:
-      session.insert(currentBuffer.id, CursorColumn, currentBuffer.lines[currentBuffer.cursorLine].lineLen)
+    session.insert(currentBuffer.id, CursorColumn, currentBuffer.lines[currentBuffer.cursorLine].lineLen)
 
 proc onInput(ch: char) =
   let
@@ -248,7 +284,7 @@ proc onInput(ch: char) =
   newLines[currentBuffer.cursorLine] = newLine
   session.insert(currentBuffer.id, Lines, newLines)
   session.insert(currentBuffer.id, CursorColumn, currentBuffer.cursorColumn + 1)
-  session.insert(currentBuffer.id, LineColumns, 0)
+  session.insert(currentBuffer.id, LineColumns, -1)
 
 proc tick*() =
   var key = iw.getKey()
