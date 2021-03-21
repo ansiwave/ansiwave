@@ -27,13 +27,13 @@ proc splitLinesRetainingNewline(text: string): seq[string] =
 
 type
   Id* = enum
-    TerminalWindow
+    Global, TerminalWindow,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
     X, Y, Width, Height,
     CurrentBufferId, Lines,
-    Wrap, Editable
+    Wrap, Editable,
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -154,7 +154,7 @@ let rules =
         session.insert(id, Lines, newLines)
     rule getCurrentBuffer(Fact):
       what:
-        (TerminalWindow, CurrentBufferId, id)
+        (Global, CurrentBufferId, id)
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, ScrollX, scrollX)
@@ -211,7 +211,7 @@ proc init*() =
 
   let bufferId = Id.high.ord + 1
 
-  session.insert(TerminalWindow, CurrentBufferId, bufferId)
+  session.insert(Global, CurrentBufferId, bufferId)
   session.insert(bufferId, CursorX, 0)
   session.insert(bufferId, CursorY, 0)
   session.insert(bufferId, ScrollX, 0)
