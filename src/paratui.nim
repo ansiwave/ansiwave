@@ -27,7 +27,7 @@ proc splitLinesRetainingNewline(text: string): seq[string] =
 
 type
   Id* = enum
-    Window
+    TerminalWindow
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
@@ -54,8 +54,8 @@ let rules =
   ruleset:
     rule getTerminalWindow(Fact):
       what:
-        (Window, Width, windowWidth)
-        (Window, Height, windowHeight)
+        (TerminalWindow, Width, windowWidth)
+        (TerminalWindow, Height, windowHeight)
     rule updateTerminalScrollX(Fact):
       what:
         (id, Width, bufferWidth)
@@ -154,7 +154,7 @@ let rules =
         session.insert(id, Lines, newLines)
     rule getCurrentBuffer(Fact):
       what:
-        (Window, CurrentBufferId, id)
+        (TerminalWindow, CurrentBufferId, id)
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, ScrollX, scrollX)
@@ -189,8 +189,8 @@ const iwToSpecials =
    iw.Key.CtrlV.ord: "<C-V>",}.toTable
 
 proc onWindowResize(width: int, height: int) =
-  session.insert(Window, Width, width)
-  session.insert(Window, Height, height)
+  session.insert(TerminalWindow, Width, width)
+  session.insert(TerminalWindow, Height, height)
 
 proc exitProc() {.noconv.} =
   iw.illwillDeinit()
@@ -211,7 +211,7 @@ proc init*() =
 
   let bufferId = Id.high.ord + 1
 
-  session.insert(Window, CurrentBufferId, bufferId)
+  session.insert(TerminalWindow, CurrentBufferId, bufferId)
   session.insert(bufferId, CursorX, 0)
   session.insert(bufferId, CursorY, 0)
   session.insert(bufferId, ScrollX, 0)
