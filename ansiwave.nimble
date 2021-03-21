@@ -6,10 +6,10 @@ description   = "A new awesome nimble package"
 license       = "Public Domain"
 srcDir        = "src"
 installExt    = @["nim"]
-bin           = @["paratui"]
+bin           = @["ansiwave"]
 
 task dev, "Run dev version":
-  exec "nimble run paratui"
+  exec "nimble run ansiwave"
 
 # Dependencies
 

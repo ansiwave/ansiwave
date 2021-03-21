@@ -4,7 +4,7 @@ import pararules
 from os import nil
 from strutils import nil
 
-#import paratuipkg/ansi
+#import ansiwavepkg/ansi
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 
