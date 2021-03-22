@@ -208,7 +208,7 @@ proc init*() =
   lines[] = splitLinesRetainingNewline(text)
   session.insert(bufferId, Lines, lines)
   session.insert(bufferId, X, 0)
-  session.insert(bufferId, Y, 0)
+  session.insert(bufferId, Y, 2)
   session.insert(bufferId, Width, 0)
   session.insert(bufferId, Height, 0)
   session.insert(bufferId, Wrap, true)
