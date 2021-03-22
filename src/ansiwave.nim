@@ -104,6 +104,9 @@ let rules =
         (id, CursorY, cursorY, then = false)
         (id, Lines, lines)
         (id, Wrap, wrap)
+      cond:
+        cursorY >= 0
+        cursorY < lines[].len
       then:
         if wrap:
           if cursorX > lines[cursorY].lineLen:
@@ -200,7 +203,7 @@ proc exitProc() {.noconv.} =
 const text = "\nHello, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
 
 proc init*() =
-  iw.illwillInit(fullscreen=true)
+  iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitProc)
   iw.hideCursor()
 
@@ -340,13 +343,21 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCharBackground(tb, col, row, iw.bgYellow, true)
 
+proc onInput(info: MouseInfo) =
+  let currentBuffer = session.query(rules.getCurrentBuffer)
+  if info.button == mbLeft and info.action == mbaPressed:
+    session.insert(currentBuffer.id, CursorX, info.x - (currentBuffer.x + 1 - currentBuffer.scrollX))
+    session.insert(currentBuffer.id, CursorY, info.y - (currentBuffer.y + 1 - currentBuffer.scrollY))
+
 proc tick*() =
   var key = iw.getKey()
   case key
   of iw.Key.None: discard
   else:
     let code = key.ord
-    if iwToSpecials.hasKey(code):
+    if key == Key.Mouse:
+      onInput(getMouse())
+    elif iwToSpecials.hasKey(code):
       onInput(iwToSpecials[code])
     elif code >= 32:
       onInput(char(code))
