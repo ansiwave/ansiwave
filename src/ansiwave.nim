@@ -194,6 +194,9 @@ const iwToSpecials =
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
+  let currentBuffer = session.query(rules.getCurrentBuffer)
+  session.insert(currentBuffer.id, Width, width - 2)
+  session.insert(currentBuffer.id, Height, height - 2)
 
 proc exitProc() {.noconv.} =
   iw.illwillDeinit()
@@ -210,8 +213,6 @@ proc init*() =
   for r in rules.fields:
     session.add(r)
 
-  onWindowResize(iw.terminalWidth(), iw.terminalHeight())
-
   let bufferId = Id.high.ord + 1
 
   session.insert(Global, CurrentBufferId, bufferId)
@@ -225,10 +226,12 @@ proc init*() =
   session.insert(bufferId, Lines, lines)
   session.insert(bufferId, X, 0)
   session.insert(bufferId, Y, 0)
-  session.insert(bufferId, Width, 40)
-  session.insert(bufferId, Height, 5)
+  session.insert(bufferId, Width, 0)
+  session.insert(bufferId, Height, 0)
   session.insert(bufferId, Wrap, true)
   session.insert(bufferId, Editable, true)
+
+  onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
 proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
   if col < 0 or row < 0:
