@@ -93,37 +93,35 @@ let rules =
       then:
         if cursorY < 0:
           session.insert(id, CursorY, 0)
-        elif cursorY < lines[].len:
+        elif cursorY >= lines[].len:
+          session.insert(id, CursorY, lines[].len - 1)
+        else:
           if cursorX > lines[cursorY].lineLen:
             session.insert(id, CursorX, lines[cursorY].lineLen)
-        else:
-          session.insert(id, CursorY, cursorY - 1)
     rule cursorXChanged(Fact):
       what:
         (id, CursorX, cursorX)
         (id, CursorY, cursorY, then = false)
         (id, Lines, lines)
         (id, Wrap, wrap)
-      cond:
-        cursorY >= 0
-        cursorY < lines[].len
       then:
+        let cursorYNew =
+          if cursorY < 0:
+            0
+          elif cursorY >= lines[].len:
+            lines[].len - 1
+          else:
+            cursorY
         if wrap:
-          if cursorX > lines[cursorY].lineLen:
-            if cursorY < lines[].len - 1:
-              session.insert(id, CursorY, cursorY + 1)
-              session.insert(id, CursorX, 0)
-            else:
-              session.insert(id, CursorX, cursorX - 1)
+          if cursorX > lines[cursorYNew].lineLen:
+            session.insert(id, CursorY, cursorYNew + 1)
+            session.insert(id, CursorX, 0)
           elif cursorX < 0:
-            if cursorY > 0:
-              session.insert(id, CursorY, cursorY - 1)
-              session.insert(id, CursorX, lines[cursorY - 1].lineLen)
-            else:
-              session.insert(id, CursorX, 0)
+            session.insert(id, CursorY, cursorYNew - 1)
+            session.insert(id, CursorX, lines[cursorYNew - 1].lineLen)
         else:
-          if cursorX > lines[cursorY].lineLen:
-            session.insert(id, CursorX, lines[cursorY].lineLen)
+          if cursorX > lines[cursorYNew].lineLen:
+            session.insert(id, CursorX, lines[cursorYNew].lineLen)
           elif cursorX < 0:
             session.insert(id, CursorX, 0)
     rule wrapText(Fact):
