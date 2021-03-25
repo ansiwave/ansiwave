@@ -377,7 +377,7 @@ proc tick*() =
     onWindowResize(width, height)
 
   renderRadioButtons(tb, 0, 0, ["Keyboard Mode", "Draw Mode"], currentBuffer, key)
-  iw.write(tb, 20, 0, "░▒▓█")
+  iw.write(tb, 20, 0, "█▓▒░")
   iw.write(tb, 20, 1, "↑")
 
   renderBuffer(tb, currentBuffer, true, key)
