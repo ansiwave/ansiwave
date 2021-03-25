@@ -302,7 +302,7 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
   session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], selected: int) =
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], selected: int): int =
   var
     i = 0
     offset = 0
@@ -317,6 +317,7 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArra
       tb.setStyle(style)
     i = i + 1
     offset = offset + label.len + 2
+  return offset
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
   tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
@@ -374,7 +375,9 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  renderRadioButtons(tb, 1, 0, ["Keyboard Mode", "Draw Mode"], 0)
+  let xOffset = renderRadioButtons(tb, 1, 0, ["Keyboard Mode", "Draw Mode"], 0)
+  iw.write(tb, xOffset, 0, "░▒▓█")
+  iw.write(tb, xOffset, 1, "↑")
 
   renderBuffer(tb, currentBuffer, true)
 
