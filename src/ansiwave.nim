@@ -211,7 +211,7 @@ proc init*() =
   session.insert(bufferId, Y, 2)
   session.insert(bufferId, Width, 0)
   session.insert(bufferId, Height, 0)
-  session.insert(bufferId, Wrap, true)
+  session.insert(bufferId, Wrap, false)
   session.insert(bufferId, Editable, true)
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
@@ -302,6 +302,22 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
   session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], selected: int) =
+  var
+    i = 0
+    offset = 0
+  for label in labels:
+    let style = tb.getStyle()
+    if i == selected:
+      var newStyle = style
+      newStyle.incl(styleUnderscore)
+      tb.setStyle(newStyle)
+    iw.write(tb, x + offset, y, label)
+    if i == selected:
+      tb.setStyle(style)
+    i = i + 1
+    offset = offset + label.len + 2
+
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
   tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
   let
@@ -357,6 +373,8 @@ proc tick*() =
   var tb = iw.newTerminalBuffer(width, height)
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
+
+  renderRadioButtons(tb, 1, 0, ["Keyboard Mode", "Draw Mode"], 0)
 
   renderBuffer(tb, currentBuffer, true)
 
