@@ -228,110 +228,99 @@ proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.
   if cursor:
     iw.setCursorPos(tb, col, row)
 
-proc onInput(ch: string) =
-  let currentBuffer = session.query(rules.getCurrentBuffer)
+proc onInput(ch: string, buffer: tuple) =
   case ch:
   of "<BS>":
-    if not currentBuffer.editable:
+    if not buffer.editable:
       return
-    if currentBuffer.cursorX > 0:
+    if buffer.cursorX > 0:
       let
-        line = currentBuffer.lines[currentBuffer.cursorY]
-        newLine = line[0 ..< currentBuffer.cursorX - 1] & line[currentBuffer.cursorX ..< line.len]
-      var newLines = currentBuffer.lines
-      newLines[currentBuffer.cursorY] = newLine
-      session.insert(currentBuffer.id, Lines, newLines)
-      session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX - 1)
-      session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
+        line = buffer.lines[buffer.cursorY]
+        newLine = line[0 ..< buffer.cursorX - 1] & line[buffer.cursorX ..< line.len]
+      var newLines = buffer.lines
+      newLines[buffer.cursorY] = newLine
+      session.insert(buffer.id, Lines, newLines)
+      session.insert(buffer.id, CursorX, buffer.cursorX - 1)
+      session.insert(buffer.id, Width, buffer.width) # force refresh
   of "<Del>":
-    if not currentBuffer.editable:
+    if not buffer.editable:
       return
-    if currentBuffer.cursorX < currentBuffer.lines[currentBuffer.cursorY].lineLen:
+    if buffer.cursorX < buffer.lines[buffer.cursorY].lineLen:
       let
-        line = currentBuffer.lines[currentBuffer.cursorY]
-        newLine = line[0 ..< currentBuffer.cursorX] & line[currentBuffer.cursorX + 1 ..< line.len]
-      var newLines = currentBuffer.lines
-      newLines[currentBuffer.cursorY] = newLine
-      session.insert(currentBuffer.id, Lines, newLines)
-      session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
+        line = buffer.lines[buffer.cursorY]
+        newLine = line[0 ..< buffer.cursorX] & line[buffer.cursorX + 1 ..< line.len]
+      var newLines = buffer.lines
+      newLines[buffer.cursorY] = newLine
+      session.insert(buffer.id, Lines, newLines)
+      session.insert(buffer.id, Width, buffer.width) # force refresh
   of "<Enter>":
-    if not currentBuffer.editable:
+    if not buffer.editable:
       return
     let
-      line = currentbuffer.lines[currentBuffer.cursorY]
-      before = line[0 ..< currentBuffer.cursorX]
-      after = line[currentBuffer.cursorX ..< line.len]
-      keepCursorOnLine = currentBuffer.wrap and
-                         currentBuffer.cursorX == 0 and
-                         currentBuffer.cursorY > 0 and
-                         not strutils.endsWith(currentBuffer.lines[currentBuffer.cursorY - 1], "\n")
+      line = buffer.lines[buffer.cursorY]
+      before = line[0 ..< buffer.cursorX]
+      after = line[buffer.cursorX ..< line.len]
+      keepCursorOnLine = buffer.wrap and
+                         buffer.cursorX == 0 and
+                         buffer.cursorY > 0 and
+                         not strutils.endsWith(buffer.lines[buffer.cursorY - 1], "\n")
     var newLines: ref seq[string]
     new newLines
-    newLines[] = currentBuffer.lines[0 ..< currentBuffer.cursorY]
+    newLines[] = buffer.lines[][0 ..< buffer.cursorY]
     if keepCursorOnLine:
       newLines[newLines[].len - 1] &= "\n"
     else:
       newLines[].add(before & "\n")
     newLines[].add(after)
-    newLines[].add(currentBuffer.lines[currentBuffer.cursorY + 1 ..< currentBuffer.lines[].len])
-    session.insert(currentBuffer.id, Lines, newLines)
-    session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
-    session.insert(currentBuffer.id, CursorX, 0)
+    newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
+    session.insert(buffer.id, Lines, newLines)
+    session.insert(buffer.id, Width, buffer.width) # force refresh
+    session.insert(buffer.id, CursorX, 0)
     if not keepCursorOnLine:
-      session.insert(currentBuffer.id, CursorY, currentBuffer.cursorY + 1)
+      session.insert(buffer.id, CursorY, buffer.cursorY + 1)
   of "<Up>":
-    session.insert(currentBuffer.id, CursorY, currentBuffer.cursorY - 1)
+    session.insert(buffer.id, CursorY, buffer.cursorY - 1)
   of "<Down>":
-    session.insert(currentBuffer.id, CursorY, currentBuffer.cursorY + 1)
+    session.insert(buffer.id, CursorY, buffer.cursorY + 1)
   of "<Left>":
-    session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX - 1)
+    session.insert(buffer.id, CursorX, buffer.cursorX - 1)
   of "<Right>":
-    session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
+    session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   of "<Home>":
-    session.insert(currentBuffer.id, CursorX, 0)
+    session.insert(buffer.id, CursorX, 0)
   of "<End>":
-    session.insert(currentBuffer.id, CursorX, currentBuffer.lines[currentBuffer.cursorY].lineLen)
+    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].lineLen)
 
-proc onInput(ch: char) =
-  let currentBuffer = session.query(rules.getCurrentBuffer)
-  if not currentBuffer.editable:
+proc onInput(ch: char, buffer: tuple) =
+  if not buffer.editable:
     return
   let
-    line = currentBuffer.lines[currentBuffer.cursorY]
-    newLine = line[0 ..< currentBuffer.cursorX] & $ch & line[currentBuffer.cursorX ..< line.len]
-  var newLines = currentBuffer.lines
-  newLines[currentBuffer.cursorY] = newLine
-  session.insert(currentBuffer.id, Lines, newLines)
-  session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
-  session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
+    line = buffer.lines[buffer.cursorY]
+    newLine = line[0 ..< buffer.cursorX] & $ch & line[buffer.cursorX ..< line.len]
+  var newLines = buffer.lines
+  newLines[buffer.cursorY] = newLine
+  session.insert(buffer.id, Lines, newLines)
+  session.insert(buffer.id, CursorX, buffer.cursorX + 1)
+  session.insert(buffer.id, Width, buffer.width) # force refresh
 
-proc onInput(info: MouseInfo) =
-  let currentBuffer = session.query(rules.getCurrentBuffer)
-  if info.button == mbLeft and info.action == mbaPressed:
-    if currentBuffer.mode == 0 and
-        info.x >= currentBuffer.x and
-        info.x <= currentBuffer.x + currentBuffer.width and
-        info.y >= currentBuffer.y and
-        info.y <= currentBuffer.y + currentBuffer.height:
-      session.insert(currentBuffer.id, CursorX, info.x - (currentBuffer.x + 1 - currentBuffer.scrollX))
-      session.insert(currentBuffer.id, CursorY, info.y - (currentBuffer.y + 1 - currentBuffer.scrollY))
-
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, info: MouseInfo) =
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, key: Key) =
   iw.write(tb, x, y + buffer.mode, "→")
   const space = 2
   var i = 0
   for label in labels:
     let style = tb.getStyle()
     iw.write(tb, x + space, y + i, label)
-    if info.button == mbLeft and info.action == mbaPressed:
-      if info.x >= x + space and
-          info.x <= x + space + label.len and
-          info.y >= y + i and
-          info.y <= y + i + 1:
-        session.insert(buffer.id, Mode, i)
+    if key == Key.Mouse:
+      let info = getMouse()
+      if info.button == mbLeft and info.action == mbaPressed:
+        if info.x >= x + space and
+            info.x <= x + space + label.len and
+            info.y >= y + i and
+            info.y <= y + i + 1:
+          session.insert(buffer.id, Mode, i)
     i = i + 1
 
-proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
+proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key) =
   tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
   let
     lines = buffer.lines[]
@@ -352,6 +341,23 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
     screenLine += 1
 
+  if key == Key.Mouse:
+    let info = getMouse()
+    if info.button == mbLeft and info.action == mbaPressed:
+      if buffer.mode == 0 and
+          info.x >= buffer.x and
+          info.x <= buffer.x + buffer.width and
+          info.y >= buffer.y and
+          info.y <= buffer.y + buffer.height:
+        session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
+        session.insert(buffer.id, CursorY, info.y - (buffer.y + 1 - buffer.scrollY))
+  elif focused and buffer.mode == 0:
+    let code = key.ord
+    if iwToSpecials.hasKey(code):
+      onInput(iwToSpecials[code], buffer)
+    elif code >= 32:
+      onInput(char(code), buffer)
+
   if focused and buffer.mode == 0:
     let
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
@@ -359,18 +365,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
     setCharBackground(tb, col, row, iw.bgYellow, true)
 
 proc tick*() =
-  var key = iw.getKey()
-  case key
-  of iw.Key.None: discard
-  else:
-    let code = key.ord
-    if key == Key.Mouse:
-      onInput(getMouse())
-    elif iwToSpecials.hasKey(code):
-      onInput(iwToSpecials[code])
-    elif code >= 32:
-      onInput(char(code))
-  session.fireRules()
+  let key = iw.getKey()
 
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
@@ -381,11 +376,13 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  renderRadioButtons(tb, 0, 0, ["Keyboard Mode", "Draw Mode"], currentBuffer, getMouse())
+  renderRadioButtons(tb, 0, 0, ["Keyboard Mode", "Draw Mode"], currentBuffer, key)
   iw.write(tb, 20, 0, "░▒▓█")
   iw.write(tb, 20, 1, "↑")
 
-  renderBuffer(tb, currentBuffer, true)
+  renderBuffer(tb, currentBuffer, true, key)
+
+  session.fireRules()
 
   iw.display(tb)
 
