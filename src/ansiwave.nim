@@ -33,7 +33,7 @@ type
     ScrollX, ScrollY,
     X, Y, Width, Height,
     CurrentBufferId, Lines,
-    Wrap, Editable,
+    Wrap, Editable, Mode,
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -49,6 +49,7 @@ schema Fact(Id, Attr):
   Lines: RefStrings
   Wrap: bool
   Editable: bool
+  Mode: int
 
 let rules =
   ruleset:
@@ -152,6 +153,7 @@ let rules =
         (id, Width, width)
         (id, Height, height)
         (id, Editable, editable)
+        (id, Mode, mode)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -213,6 +215,7 @@ proc init*() =
   session.insert(bufferId, Height, 0)
   session.insert(bufferId, Wrap, false)
   session.insert(bufferId, Editable, true)
+  session.insert(bufferId, Mode, 0)
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
@@ -302,22 +305,31 @@ proc onInput(ch: char) =
   session.insert(currentBuffer.id, CursorX, currentBuffer.cursorX + 1)
   session.insert(currentBuffer.id, Width, currentBuffer.width) # force refresh
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], selected: int): int =
-  var
-    i = 0
-    offset = 0
+proc onInput(info: MouseInfo) =
+  let currentBuffer = session.query(rules.getCurrentBuffer)
+  if info.button == mbLeft and info.action == mbaPressed:
+    if currentBuffer.mode == 0 and
+        info.x >= currentBuffer.x and
+        info.x <= currentBuffer.x + currentBuffer.width and
+        info.y >= currentBuffer.y and
+        info.y <= currentBuffer.y + currentBuffer.height:
+      session.insert(currentBuffer.id, CursorX, info.x - (currentBuffer.x + 1 - currentBuffer.scrollX))
+      session.insert(currentBuffer.id, CursorY, info.y - (currentBuffer.y + 1 - currentBuffer.scrollY))
+
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, info: MouseInfo) =
+  iw.write(tb, x, y + buffer.mode, "→")
+  const space = 2
+  var i = 0
   for label in labels:
     let style = tb.getStyle()
-    if i == selected:
-      var newStyle = style
-      newStyle.incl(styleUnderscore)
-      tb.setStyle(newStyle)
-    iw.write(tb, x + offset, y, label)
-    if i == selected:
-      tb.setStyle(style)
+    iw.write(tb, x + space, y + i, label)
+    if info.button == mbLeft and info.action == mbaPressed:
+      if info.x >= x + space and
+          info.x <= x + space + label.len and
+          info.y >= y + i and
+          info.y <= y + i + 1:
+        session.insert(buffer.id, Mode, i)
     i = i + 1
-    offset = offset + label.len + 2
-  return offset
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
   tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
@@ -340,17 +352,11 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool) =
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
     screenLine += 1
 
-  if focused:
+  if focused and buffer.mode == 0:
     let
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCharBackground(tb, col, row, iw.bgYellow, true)
-
-proc onInput(info: MouseInfo) =
-  let currentBuffer = session.query(rules.getCurrentBuffer)
-  if info.button == mbLeft and info.action == mbaPressed:
-    session.insert(currentBuffer.id, CursorX, info.x - (currentBuffer.x + 1 - currentBuffer.scrollX))
-    session.insert(currentBuffer.id, CursorY, info.y - (currentBuffer.y + 1 - currentBuffer.scrollY))
 
 proc tick*() =
   var key = iw.getKey()
@@ -375,9 +381,9 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  let xOffset = renderRadioButtons(tb, 1, 0, ["Keyboard Mode", "Draw Mode"], 0)
-  iw.write(tb, xOffset, 0, "░▒▓█")
-  iw.write(tb, xOffset, 1, "↑")
+  renderRadioButtons(tb, 0, 0, ["Keyboard Mode", "Draw Mode"], currentBuffer, getMouse())
+  iw.write(tb, 20, 0, "░▒▓█")
+  iw.write(tb, 20, 1, "↑")
 
   renderBuffer(tb, currentBuffer, true)
 
