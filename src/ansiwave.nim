@@ -180,7 +180,6 @@ proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
   let currentBuffer = session.query(rules.getCurrentBuffer)
-  session.insert(currentBuffer.id, Width, width - 2)
   session.insert(currentBuffer.id, Height, height - 2)
 
 proc exitProc() {.noconv.} =
@@ -211,7 +210,7 @@ proc init*() =
   session.insert(bufferId, Lines, lines)
   session.insert(bufferId, X, 0)
   session.insert(bufferId, Y, 2)
-  session.insert(bufferId, Width, 0)
+  session.insert(bufferId, Width, 80)
   session.insert(bufferId, Height, 0)
   session.insert(bufferId, Wrap, false)
   session.insert(bufferId, Editable, true)
