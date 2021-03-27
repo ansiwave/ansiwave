@@ -262,8 +262,8 @@ proc onInput(ch: string, buffer: tuple) =
       return
     if buffer.cursorX > 0:
       let
-        line = buffer.lines[buffer.cursorY]
-        newLine = line[0 ..< buffer.cursorX - 1] & line[buffer.cursorX ..< line.len]
+        line = buffer.lines[buffer.cursorY].toRunes
+        newLine = $line[0 ..< buffer.cursorX - 1] & $line[buffer.cursorX ..< line.len]
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
@@ -274,8 +274,8 @@ proc onInput(ch: string, buffer: tuple) =
       return
     if buffer.cursorX < buffer.lines[buffer.cursorY].lineLen:
       let
-        line = buffer.lines[buffer.cursorY]
-        newLine = line[0 ..< buffer.cursorX] & line[buffer.cursorX + 1 ..< line.len]
+        line = buffer.lines[buffer.cursorY].toRunes
+        newLine = $line[0 ..< buffer.cursorX] & $line[buffer.cursorX + 1 ..< line.len]
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
