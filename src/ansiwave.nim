@@ -434,7 +434,7 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key) =
     brushCharsJoined = strutils.join(brushChars, " ")
     brushIndex = find(brushChars, buffer.selectedChar)
   const x = 16
-  iw.write(tb, x, 0, brushCharsJoined & " Custom...")
+  iw.write(tb, x, 0, brushCharsJoined & " More...")
   iw.write(tb, x + brushIndex * 2, 1, "↑")
   if key == Key.Mouse:
     let info = getMouse()
