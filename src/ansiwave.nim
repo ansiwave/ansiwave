@@ -16,7 +16,7 @@ proc lineLen(line: string): int =
     line.runeLen
 
 proc lineLen(line: seq[Rune]): int =
-  if line[line.len - 1] == "\n".runeAt(0):
+  if line.len > 0 and line[line.len - 1] == "\n".runeAt(0):
     line.len - 1
   else:
     line.len
@@ -354,13 +354,25 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   if key == Key.Mouse:
     let info = getMouse()
     if info.button == mbLeft and info.action == mbaPressed:
-      if buffer.mode == 0 and
-          info.x >= buffer.x and
+      if info.x >= buffer.x and
           info.x <= buffer.x + buffer.width and
           info.y >= buffer.y and
           info.y <= buffer.y + buffer.height:
-        session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
-        session.insert(buffer.id, CursorY, info.y - (buffer.y + 1 - buffer.scrollY))
+        if buffer.mode == 0:
+            session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
+            session.insert(buffer.id, CursorY, info.y - (buffer.y + 1 - buffer.scrollY))
+        elif buffer.mode == 1:
+          let
+            x = info.x - buffer.x - 1
+            y = info.y - buffer.y - 1
+          var lines = buffer.lines
+          while y > lines[].len - 1:
+            lines[].add("")
+          var line = lines[y].toRunes
+          while x > line.lineLen - 1:
+            line.add(" ".runeAt(0))
+          line[x] = buffer.selectedChar.runeAt(0)
+          lines[y] = $ line
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
