@@ -355,9 +355,9 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   if key == Key.Mouse:
     let info = getMouse()
     if info.button == mbLeft and info.action == mbaPressed:
-      if info.x >= buffer.x and
+      if info.x > buffer.x and
           info.x <= buffer.x + buffer.width and
-          info.y >= buffer.y and
+          info.y > buffer.y and
           info.y <= buffer.y + buffer.height:
         if buffer.mode == 0:
             session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
