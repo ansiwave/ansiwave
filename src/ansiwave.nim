@@ -340,15 +340,16 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   for i in scrollY ..< lines.len:
     if screenLine > buffer.height - 1:
       break
-    var line = lines[i][0 ..< lines[i].lineLen]
+    var line = lines[i].toRunes
+    line = line[0 ..< lines[i].lineLen]
     if scrollX < line.lineLen:
       if scrollX > 0:
         line = line[scrollX ..< line.lineLen]
     else:
-      line = ""
+      line = @[]
     if line.lineLen > buffer.width:
       line = line[0 ..< buffer.width]
-    iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, line)
+    iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     screenLine += 1
 
   if key == Key.Mouse:
