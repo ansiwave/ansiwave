@@ -1,6 +1,7 @@
 import illwill as iw
 import tables
 import pararules
+import unicode
 from os import nil
 from strutils import nil
 
@@ -10,6 +11,12 @@ from strutils import nil
 
 proc lineLen(line: string): int =
   if strutils.endsWith(line, "\n"):
+    line.runeLen - 1
+  else:
+    line.runeLen
+
+proc lineLen(line: seq[Rune]): int =
+  if line[line.len - 1] == "\n".runeAt(0):
     line.len - 1
   else:
     line.len
@@ -27,12 +34,13 @@ proc splitLinesRetainingNewline(text: string): seq[string] =
 
 type
   Id* = enum
-    Global, TerminalWindow,
+    Global, TerminalWindow, BrushBuffer,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
     X, Y, Width, Height,
     CurrentBufferId, Lines,
+    CurrentModalId,
     Wrap, Editable, Mode,
     SelectedChar, CustomChar,
   RefStrings = ref seq[string]
@@ -47,6 +55,7 @@ schema Fact(Id, Attr):
   Width: int
   Height: int
   CurrentBufferId: int
+  CurrentModalId: int
   Lines: RefStrings
   Wrap: bool
   Editable: bool
@@ -56,6 +65,10 @@ schema Fact(Id, Attr):
 
 let rules =
   ruleset:
+    rule getGlobals(Fact):
+      what:
+        (Global, CurrentBufferId, currentBuffer)
+        (Global, CurrentModalId, currentModal)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -103,11 +116,17 @@ let rules =
         else:
           if wrap:
             if cursorX > lines[cursorY].lineLen:
-              session.insert(id, CursorY, cursorY + 1)
-              session.insert(id, CursorX, 0)
+              if cursorY == lines[].len - 1:
+                session.insert(id, CursorX, lines[cursorY].lineLen)
+              else:
+                session.insert(id, CursorY, cursorY + 1)
+                session.insert(id, CursorX, 0)
             elif cursorX < 0:
-              session.insert(id, CursorY, cursorY - 1)
-              session.insert(id, CursorX, lines[cursorY - 1].lineLen)
+              if cursorY == 0:
+                session.insert(id, CursorX, 0)
+              else:
+                session.insert(id, CursorY, cursorY - 1)
+                session.insert(id, CursorX, lines[cursorY - 1].lineLen)
           else:
             if cursorX > lines[cursorY].lineLen:
               session.insert(id, CursorX, lines[cursorY].lineLen)
@@ -127,8 +146,8 @@ let rules =
           lineColumns = bufferWidth - 1
         var wrapLines: seq[seq[string]]
         for line in fullLines:
-          var parts: seq[string]
-          var rest = line
+          var parts: seq[seq[Rune]]
+          var rest = line.toRunes
           while true:
             if rest.lineLen > lineColumns:
               parts.add(rest[0 ..< lineColumns])
@@ -136,15 +155,17 @@ let rules =
             else:
               parts.add(rest)
               break
-          wrapLines.add(parts)
+          var strs: seq[string]
+          for part in parts:
+            strs.add($ part)
+          wrapLines.add(strs)
         var newLines: ref seq[string]
         new newLines
         for line in wrapLines:
           newLines[].add(line)
         session.insert(id, Lines, newLines)
-    rule getCurrentBuffer(Fact):
+    rule getBuffer(Fact):
       what:
-        (Global, CurrentBufferId, id)
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, ScrollX, scrollX)
@@ -184,7 +205,8 @@ const iwToSpecials =
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
-  let currentBuffer = session.query(rules.getCurrentBuffer)
+  let globals = session.query(rules.getGlobals)
+  let currentBuffer = session.query(rules.getBuffer, id = globals.currentBuffer)
   session.insert(currentBuffer.id, Height, height - 2)
 
 proc exitProc() {.noconv.} =
@@ -205,23 +227,51 @@ proc init*() =
   let bufferId = Id.high.ord + 1
 
   session.insert(Global, CurrentBufferId, bufferId)
-  session.insert(bufferId, CursorX, 0)
-  session.insert(bufferId, CursorY, 0)
-  session.insert(bufferId, ScrollX, 0)
-  session.insert(bufferId, ScrollY, 0)
-  var lines: RefStrings
-  new lines
-  lines[] = splitLinesRetainingNewline(text)
-  session.insert(bufferId, Lines, lines)
-  session.insert(bufferId, X, 0)
-  session.insert(bufferId, Y, 2)
-  session.insert(bufferId, Width, 80)
-  session.insert(bufferId, Height, 0)
-  session.insert(bufferId, Wrap, false)
-  session.insert(bufferId, Editable, true)
-  session.insert(bufferId, Mode, 0)
-  session.insert(bufferId, SelectedChar, "█")
-  session.insert(bufferId, CustomChar, "▄")
+  session.insert(Global, CurrentModalId, -1)
+
+  block:
+    session.insert(BrushBuffer, CursorX, 0)
+    session.insert(BrushBuffer, CursorY, 0)
+    session.insert(BrushBuffer, ScrollX, 0)
+    session.insert(BrushBuffer, ScrollY, 0)
+    const customChars = [
+      "│", "┤", "╡", "╢", "╖", "╕", "╣", "║", "╗", "╝", "╜", "╛", "┐",
+      "└", "┴", "┬", "├", "─", "┼", "╞", "╟", "╚", "╔", "╩", "╦", "╠", "═", "╬", "╧",
+      "╨", "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌", "▄", "▌", "▐", "▀",
+      "°", "∙", "·", "■",
+    ]
+    var lines: RefStrings
+    new lines
+    lines[] = @[strutils.join(customChars)]
+    session.insert(BrushBuffer, Lines, lines)
+    session.insert(BrushBuffer, X, 2)
+    session.insert(BrushBuffer, Y, 2)
+    session.insert(BrushBuffer, Width, 40)
+    session.insert(BrushBuffer, Height, 5)
+    session.insert(BrushBuffer, Wrap, true)
+    session.insert(BrushBuffer, Editable, false)
+    session.insert(BrushBuffer, Mode, 0)
+    session.insert(BrushBuffer, SelectedChar, "█")
+    session.insert(BrushBuffer, CustomChar, "▄")
+
+  block:
+    session.insert(bufferId, CursorX, 0)
+    session.insert(bufferId, CursorY, 0)
+    session.insert(bufferId, ScrollX, 0)
+    session.insert(bufferId, ScrollY, 0)
+    var lines: RefStrings
+    new lines
+    lines[] = splitLinesRetainingNewline(text)
+    session.insert(bufferId, Lines, lines)
+    session.insert(bufferId, X, 0)
+    session.insert(bufferId, Y, 2)
+    session.insert(bufferId, Width, 80)
+    session.insert(bufferId, Height, 0)
+    session.insert(bufferId, Wrap, false)
+    session.insert(bufferId, Editable, true)
+    session.insert(bufferId, Mode, 0)
+    session.insert(bufferId, SelectedChar, "█")
+    session.insert(bufferId, CustomChar, "▄")
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
@@ -309,41 +359,8 @@ proc onInput(ch: char, buffer: tuple) =
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   session.insert(buffer.id, Width, buffer.width) # force refresh
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, key: Key) =
-  iw.write(tb, x, y + buffer.mode, "→")
-  const space = 2
-  var i = 0
-  for label in labels:
-    let style = tb.getStyle()
-    iw.write(tb, x + space, y + i, label)
-    if key == Key.Mouse:
-      let info = getMouse()
-      if info.button == mbLeft and info.action == mbaPressed:
-        if info.x >= x + space and
-            info.x <= x + space + label.len and
-            info.y >= y + i and
-            info.y <= y + i + 1:
-          session.insert(buffer.id, Mode, i)
-    i = i + 1
-
-proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key) =
-  let
-    brushChars = ["█", "▓", "▒", "░", buffer.customChar]
-    brushCharsJoined = strutils.join(brushChars, " ")
-    brushIndex = find(brushChars, buffer.selectedChar)
-  const x = 16
-  iw.write(tb, x, 0, brushCharsJoined & " Custom...")
-  iw.write(tb, x + brushIndex * 2, 1, "↑")
-  if key == Key.Mouse:
-    let info = getMouse()
-    if info.button == mbLeft and info.action == mbaPressed:
-      if info.y == 0:
-        let index = int((info.x - x) / 2)
-        if index >= 0 and index < brushChars.len:
-          session.insert(buffer.id, SelectedChar, brushChars[index])
-
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key) =
-  tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
+  tb.drawRect(buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
   let
     lines = buffer.lines[]
     scrollX = buffer.scrollX
@@ -386,12 +403,56 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCharBackground(tb, col, row, iw.bgYellow, true)
 
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, key: Key) =
+  iw.write(tb, x, y + buffer.mode, "→")
+  const space = 2
+  var i = 0
+  for label in labels:
+    let style = tb.getStyle()
+    iw.write(tb, x + space, y + i, label)
+    if key == Key.Mouse:
+      let info = getMouse()
+      if info.button == mbLeft and info.action == mbaPressed:
+        if info.x >= x + space and
+            info.x <= x + space + label.len and
+            info.y >= y + i and
+            info.y <= y + i + 1:
+          session.insert(buffer.id, Mode, i)
+    i = i + 1
+
+proc renderModal(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+  let spaces = strutils.repeat(' ', buffer.width)
+  for i in buffer.y ..< buffer.y + buffer.height:
+    iw.write(tb, buffer.x + 1, i, spaces)
+  renderBuffer(tb, buffer, true, key)
+  if key == iw.Key.Escape:
+    session.insert(Global, CurrentModalId, -1)
+
+proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+  let
+    brushChars = ["█", "▓", "▒", "░", buffer.customChar]
+    brushCharsJoined = strutils.join(brushChars, " ")
+    brushIndex = find(brushChars, buffer.selectedChar)
+  const x = 16
+  iw.write(tb, x, 0, brushCharsJoined & " Custom...")
+  iw.write(tb, x + brushIndex * 2, 1, "↑")
+  if key == Key.Mouse:
+    let info = getMouse()
+    if info.button == mbLeft and info.action == mbaPressed:
+      if info.y == 0:
+        let index = int((info.x - x) / 2)
+        if index >= 0 and index < brushChars.len:
+          session.insert(buffer.id, SelectedChar, brushChars[index])
+        elif index > 4 and index < 9:
+          session.insert(Global, CurrentModalId, BrushBuffer.int)
+
 proc tick*() =
   let key = iw.getKey()
 
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
-    currentBuffer = session.query(rules.getCurrentBuffer)
+    globals = session.query(rules.getGlobals)
+    currentBuffer = session.query(rules.getBuffer, id = globals.currentBuffer)
     width = iw.terminalWidth()
     height = iw.terminalHeight()
   var tb = iw.newTerminalBuffer(width, height)
@@ -403,7 +464,10 @@ proc tick*() =
   if currentBuffer.mode == 1:
     renderBrushes(tb, currentBuffer, key)
 
-  renderBuffer(tb, currentBuffer, true, key)
+  renderBuffer(tb, currentBuffer, globals.currentModal == -1, key)
+
+  if globals.currentModal != -1:
+    renderModal(tb, session.query(rules.getBuffer, id = globals.currentModal), key)
 
   session.fireRules()
 
