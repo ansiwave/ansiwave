@@ -34,6 +34,7 @@ type
     X, Y, Width, Height,
     CurrentBufferId, Lines,
     Wrap, Editable, Mode,
+    SelectedChar, CustomChar,
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -50,6 +51,8 @@ schema Fact(Id, Attr):
   Wrap: bool
   Editable: bool
   Mode: int
+  SelectedChar: string
+  CustomChar: string
 
 let rules =
   ruleset:
@@ -154,6 +157,8 @@ let rules =
         (id, Height, height)
         (id, Editable, editable)
         (id, Mode, mode)
+        (id, SelectedChar, selectedChar)
+        (id, CustomChar, customChar)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -215,6 +220,8 @@ proc init*() =
   session.insert(bufferId, Wrap, false)
   session.insert(bufferId, Editable, true)
   session.insert(bufferId, Mode, 0)
+  session.insert(bufferId, SelectedChar, "█")
+  session.insert(bufferId, CustomChar, "▄")
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
@@ -319,6 +326,22 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArra
           session.insert(buffer.id, Mode, i)
     i = i + 1
 
+proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+  let
+    brushChars = ["█", "▓", "▒", "░", buffer.customChar]
+    brushCharsJoined = strutils.join(brushChars, " ")
+    brushIndex = find(brushChars, buffer.selectedChar)
+  const x = 16
+  iw.write(tb, x, 0, brushCharsJoined & " Custom...")
+  iw.write(tb, x + brushIndex * 2, 1, "↑")
+  if key == Key.Mouse:
+    let info = getMouse()
+    if info.button == mbLeft and info.action == mbaPressed:
+      if info.y == 0:
+        let index = int((info.x - x) / 2)
+        if index >= 0 and index < brushChars.len:
+          session.insert(buffer.id, SelectedChar, brushChars[index])
+
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key) =
   tb.drawRect(buffer.x, buffer.y, buffer.width + 1, buffer.height + 1, doubleStyle = focused)
   let
@@ -376,8 +399,9 @@ proc tick*() =
     onWindowResize(width, height)
 
   renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer, key)
-  iw.write(tb, 16, 0, "█▓▒░")
-  iw.write(tb, 16, 1, "↑")
+
+  if currentBuffer.mode == 1:
+    renderBrushes(tb, currentBuffer, key)
 
   renderBuffer(tb, currentBuffer, true, key)
 
