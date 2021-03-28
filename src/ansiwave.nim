@@ -212,7 +212,7 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-const text = "\nHello, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
+const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
 
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
