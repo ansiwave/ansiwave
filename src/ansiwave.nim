@@ -107,7 +107,9 @@ type
     CurrentBufferId, Lines,
     CurrentModalId,
     Wrap, Editable, Mode,
-    SelectedChar,
+    SelectedChar, Prompt,
+  PromptKind = enum
+    None, DeleteLine,
   RefStrings = ref seq[string]
 
 schema Fact(Id, Attr):
@@ -126,6 +128,7 @@ schema Fact(Id, Attr):
   Editable: bool
   Mode: int
   SelectedChar: string
+  Prompt: PromptKind
 
 let rules =
   ruleset:
@@ -243,6 +246,7 @@ let rules =
         (id, Editable, editable)
         (id, Mode, mode)
         (id, SelectedChar, selectedChar)
+        (id, Prompt, prompt)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -308,6 +312,7 @@ proc init*() =
   session.insert(bufferId, Editable, true)
   session.insert(bufferId, Mode, 0)
   session.insert(bufferId, SelectedChar, "█")
+  session.insert(bufferId, Prompt, None)
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
@@ -325,7 +330,9 @@ proc onInput(ch: string, buffer: tuple) =
   of "<BS>":
     if not buffer.editable:
       return
-    if buffer.cursorX > 0:
+    if buffer.cursorX == 0:
+      session.insert(buffer.id, Prompt, DeleteLine)
+    elif buffer.cursorX > 0:
       let
         line = buffer.lines[buffer.cursorY].toRunes
         realX = getRealX(line, buffer.cursorX - 1)
@@ -338,7 +345,9 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Del>":
     if not buffer.editable:
       return
-    if buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.lineLen:
+    if buffer.cursorX == buffer.lines[buffer.cursorY].stripCodes.lineLen:
+      session.insert(buffer.id, Prompt, DeleteLine)
+    elif buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.lineLen:
       let
         line = buffer.lines[buffer.cursorY].toRunes
         realX = getRealX(line, buffer.cursorX)
@@ -385,6 +394,19 @@ proc onInput(ch: string, buffer: tuple) =
     session.insert(buffer.id, CursorX, 0)
   of "<End>":
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].lineLen)
+  of "<Esc>":
+    case buffer.prompt:
+    of None:
+      discard
+    of DeleteLine:
+      var newLines = buffer.lines
+      if newLines[].len == 1:
+        newLines[0] = ""
+      else:
+        newLines[].delete(buffer.cursorY)
+      session.insert(buffer.id, Lines, newLines)
+      if buffer.cursorY > newLines[].len - 1:
+        session.insert(buffer.id, CursorY, newLines[].len - 1)
 
 proc onInput(ch: char, buffer: tuple) =
   if not buffer.editable:
@@ -423,6 +445,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   if key == Key.Mouse:
     let info = getMouse()
     if info.button == mbLeft and info.action == mbaPressed:
+      session.insert(buffer.id, Prompt, None)
       if info.x > buffer.x and
           info.x <= buffer.x + buffer.width and
           info.y > buffer.y and
@@ -446,8 +469,10 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
+      session.insert(buffer.id, Prompt, None)
       onInput(iwToSpecials[code], buffer)
     elif code >= 32:
+      session.insert(buffer.id, Prompt, None)
       onInput(char(code), buffer)
 
   if focused and buffer.mode == 0:
@@ -455,6 +480,12 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCharBackground(tb, col, row, iw.bgYellow, true)
+
+  case buffer.prompt:
+  of None:
+    discard
+  of DeleteLine:
+    iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to delete the current line")
 
 proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, key: Key) =
   iw.write(tb, x, y + buffer.mode, "→")
