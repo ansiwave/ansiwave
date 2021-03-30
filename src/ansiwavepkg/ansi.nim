@@ -6,10 +6,10 @@ const
   ESCAPE = '\x1B'
   CR     = '\x0D'
   LF     = '\x0A'
-  codeTerminators = {'c', 'f', 'h', 'l', 'm', 's', 'u',
-                     'A', 'B', 'C', 'D', 'E', 'F', 'G',
-                     'H', 'J', 'K', 'N', 'O', 'P', 'S',
-                     'T', 'X', '\\', ']', '^', '_'}
+  codeTerminators* = {'c', 'f', 'h', 'l', 'm', 's', 'u',
+                      'A', 'B', 'C', 'D', 'E', 'F', 'G',
+                      'H', 'J', 'K', 'N', 'O', 'P', 'S',
+                      'T', 'X', '\\', ']', '^', '_'}
   COLOR_DEFAULT_TXT = "37"
   COLOR_DEFAULT_BG  = "40"
   cp437 = [
@@ -69,7 +69,7 @@ proc toEsc(brush: Brush, prevBrush: Brush): string =
   if parts.len > 0:
     return "\x1B[" & strutils.join(parts, ";") & "m"
 
-proc parseParams(code: string): seq[int] =
+proc parseParams*(code: string): seq[int] =
   assert code[0] == '['
   let parts = strutils.split(code[1 ..< code.len], ";")
   for part in parts:

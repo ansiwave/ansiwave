@@ -1083,13 +1083,46 @@ proc resetAttributes*(tb: var TerminalBuffer) =
   tb.setForegroundColor(fgWhite)
   tb.setStyle({})
 
+import strutils, ansi
+
+proc parseCode*(codes: var seq[string], ch: Rune): bool =
+  proc terminated(s: string): bool =
+    if s.len > 0:
+      let lastChar = s[s.len - 1]
+      return ansi.codeTerminators.contains(lastChar)
+    else:
+      return false
+  let s = $ch
+  if s == "\e":
+    codes.add(s)
+    return true
+  elif codes.len > 0 and not codes[codes.len - 1].terminated:
+    codes[codes.len - 1] &= s
+    return true
+  return false
+
 proc write*(tb: var TerminalBuffer, x, y: Natural, s: string) =
   ## Writes `s` into the terminal buffer at the specified position using
   ## the current text attributes. Lines do not wrap and attempting to write
   ## outside the extents of the buffer will not raise an error; the output
   ## will be just cropped to the extents of the buffer.
   var currX = x
+  var codes: seq[string]
   for ch in runes(s):
+    if parseCode(codes, ch):
+      continue
+    for code in codes:
+      let trimmed = code[1 ..< code.len - 1]
+      let params = ansi.parseParams(trimmed)
+      for param in params:
+        if param >= 30 and param <= 39:
+          tb.currFg = ForegroundColor(param)
+        elif param >= 40 and param <= 49:
+          tb.currBg = BackgroundColor(param)
+        elif param == 0:
+          tb.setBackgroundColor(bgNone)
+          tb.setForegroundColor(fgNone)
+          tb.setStyle({})
     var c = TerminalChar(ch: ch, fg: tb.currFg, bg: tb.currBg,
                          style: tb.currStyle)
     tb[currX, y] = c

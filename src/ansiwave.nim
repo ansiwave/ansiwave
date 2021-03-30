@@ -9,6 +9,39 @@ from strutils import nil
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 
+proc stripCodes(line: seq[Rune]): string =
+  var codes: seq[string]
+  for ch in line:
+    if parseCode(codes, ch):
+      continue
+    result &= $ch
+
+proc stripCodes(line: string): string =
+  stripCodes(line.toRunes)
+
+proc getRealX(line: seq[Rune], x: int): int =
+  result = 0
+  var fakeX = 0
+  var codes: seq[string]
+  for ch in line:
+    if parseCode(codes, ch):
+      result.inc
+      continue
+    if fakeX == x:
+      break
+    result.inc
+    fakeX.inc
+
+proc firstValidChar(line: seq[Rune]): int =
+  result = -1
+  var x = 0
+  var codes: seq[string]
+  for ch in line:
+    if not parseCode(codes, ch):
+      result = x
+      break
+    x.inc
+
 proc lineLen(line: string): int =
   if strutils.endsWith(line, "\n"):
     line.runeLen - 1
@@ -114,9 +147,9 @@ let rules =
           session.insert(id, CursorY, lines[].len - 1)
         else:
           if wrap:
-            if cursorX > lines[cursorY].lineLen:
+            if cursorX > lines[cursorY].stripCodes.lineLen:
               if cursorY == lines[].len - 1:
-                session.insert(id, CursorX, lines[cursorY].lineLen)
+                session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
               else:
                 session.insert(id, CursorY, cursorY + 1)
                 session.insert(id, CursorX, 0)
@@ -125,10 +158,10 @@ let rules =
                 session.insert(id, CursorX, 0)
               else:
                 session.insert(id, CursorY, cursorY - 1)
-                session.insert(id, CursorX, lines[cursorY - 1].lineLen)
+                session.insert(id, CursorX, lines[cursorY - 1].stripCodes.lineLen)
           else:
-            if cursorX > lines[cursorY].lineLen:
-              session.insert(id, CursorX, lines[cursorY].lineLen)
+            if cursorX > lines[cursorY].stripCodes.lineLen:
+              session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
             elif cursorX < 0:
               session.insert(id, CursorX, 0)
     rule wrapText(Fact):
@@ -263,7 +296,8 @@ proc onInput(ch: string, buffer: tuple) =
     if buffer.cursorX > 0:
       let
         line = buffer.lines[buffer.cursorY].toRunes
-        newLine = $line[0 ..< buffer.cursorX - 1] & $line[buffer.cursorX ..< line.len]
+        realX = getRealX(line, buffer.cursorX - 1)
+        newLine = $line[0 ..< realX] & $line[realX + 1 ..< line.len]
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
@@ -272,10 +306,11 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Del>":
     if not buffer.editable:
       return
-    if buffer.cursorX < buffer.lines[buffer.cursorY].lineLen:
+    if buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.lineLen:
       let
         line = buffer.lines[buffer.cursorY].toRunes
-        newLine = $line[0 ..< buffer.cursorX] & $line[buffer.cursorX + 1 ..< line.len]
+        realX = getRealX(line, buffer.cursorX)
+        newLine = $line[0 ..< realX] & $line[realX + 1 ..< line.len]
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
@@ -284,9 +319,10 @@ proc onInput(ch: string, buffer: tuple) =
     if not buffer.editable:
       return
     let
-      line = buffer.lines[buffer.cursorY]
-      before = line[0 ..< buffer.cursorX]
-      after = line[buffer.cursorX ..< line.len]
+      line = buffer.lines[buffer.cursorY].toRunes
+      realX = getRealX(line, buffer.cursorX)
+      before = line[0 ..< realX]
+      after = line[realX ..< line.len]
       keepCursorOnLine = buffer.wrap and
                          buffer.cursorX == 0 and
                          buffer.cursorY > 0 and
@@ -297,8 +333,8 @@ proc onInput(ch: string, buffer: tuple) =
     if keepCursorOnLine:
       newLines[newLines[].len - 1] &= "\n"
     else:
-      newLines[].add(before & "\n")
-    newLines[].add(after)
+      newLines[].add($before & "\n")
+    newLines[].add($after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, Width, buffer.width) # force refresh
@@ -322,8 +358,9 @@ proc onInput(ch: char, buffer: tuple) =
   if not buffer.editable:
     return
   let
-    line = buffer.lines[buffer.cursorY]
-    newLine = line[0 ..< buffer.cursorX] & $ch & line[buffer.cursorX ..< line.len]
+    line = buffer.lines[buffer.cursorY].toRunes
+    realX = getRealX(line, buffer.cursorX)
+    newLine = $line[0 ..< realX] & $ch & $line[realX ..< line.len]
   var newLines = buffer.lines
   newLines[buffer.cursorY] = newLine
   session.insert(buffer.id, Lines, newLines)
@@ -342,13 +379,17 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
       break
     var line = lines[i].toRunes
     line = line[0 ..< lines[i].lineLen]
-    if scrollX < line.lineLen:
+    if scrollX < line.stripCodes.lineLen:
       if scrollX > 0:
-        line = line[scrollX ..< line.lineLen]
+        var x = 0
+        while x < scrollX:
+          var firstChar = line.firstValidChar
+          if firstChar == -1:
+            break
+          line.delete(firstChar)
+          x.inc
     else:
       line = @[]
-    if line.lineLen > buffer.width:
-      line = line[0 ..< buffer.width]
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     screenLine += 1
 
@@ -370,9 +411,10 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
           while y > lines[].len - 1:
             lines[].add("")
           var line = lines[y].toRunes
-          while x > line.lineLen - 1:
+          while x > line.stripCodes.lineLen - 1:
             line.add(" ".runeAt(0))
-          line[x] = buffer.selectedChar.runeAt(0)
+          let realX = getRealX(line, x)
+          line[realX] = buffer.selectedChar.runeAt(0)
           lines[y] = $ line
   elif focused and buffer.mode == 0:
     let code = key.ord
