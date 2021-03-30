@@ -15,4 +15,3 @@ task dev, "Run dev version":
 
 requires "nim >= 1.4.4"
 requires "pararules >= 0.16.0"
-requires "illwill >= 0.2.0"

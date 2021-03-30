@@ -1,4 +1,4 @@
-import illwill as iw
+import ansiwavepkg/illwill as iw
 import tables
 import pararules
 import unicode
