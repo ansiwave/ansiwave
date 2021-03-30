@@ -405,8 +405,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
             session.insert(buffer.id, CursorY, info.y - (buffer.y + 1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
-            x = info.x - buffer.x - 1
-            y = info.y - buffer.y - 1
+            x = info.x - buffer.x - 1 + buffer.scrollX
+            y = info.y - buffer.y - 1 + buffer.scrollY
           var lines = buffer.lines
           while y > lines[].len - 1:
             lines[].add("")
