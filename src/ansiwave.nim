@@ -34,13 +34,45 @@ proc getRealX(line: seq[Rune], x: int): int =
 
 proc firstValidChar(line: seq[Rune]): int =
   result = -1
-  var x = 0
+  var realX = 0
   var codes: seq[string]
   for ch in line:
     if not parseCode(codes, ch):
-      result = x
+      result = realX
       break
+    realX.inc
+
+proc deleteBefore(line: var seq[Rune], count: int) =
+  var x = 0
+  while x < count:
+    var firstChar = line.firstValidChar
+    if firstChar == -1:
+      break
+    line.delete(firstChar)
     x.inc
+
+proc firstValidCharAfter(line: seq[Rune], count: int): int =
+  result = -1
+  var realX = 0
+  var fakeX = 0
+  var codes: seq[string]
+  for ch in line:
+    if not parseCode(codes, ch):
+      if fakeX > count:
+        result = realX
+        break
+      fakeX.inc
+    realX.inc
+
+proc deleteAfter(line: var seq[Rune], count: int) =
+  var x = 0
+  var codes: seq[string]
+  var firstCharAfter = 0
+  while firstCharAfter != -1:
+    firstCharAfter = line.firstValidCharAfter(count)
+    if firstCharAfter == -1:
+      break
+    line.delete(firstCharAfter)
 
 proc lineLen(line: string): int =
   if strutils.endsWith(line, "\n"):
@@ -381,15 +413,10 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
     line = line[0 ..< lines[i].lineLen]
     if scrollX < line.stripCodes.lineLen:
       if scrollX > 0:
-        var x = 0
-        while x < scrollX:
-          var firstChar = line.firstValidChar
-          if firstChar == -1:
-            break
-          line.delete(firstChar)
-          x.inc
+        deleteBefore(line, scrollX)
     else:
       line = @[]
+    deleteAfter(line, buffer.width - 1)
     iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     screenLine += 1
 
