@@ -1101,6 +1101,19 @@ proc parseCode*(codes: var seq[string], ch: Rune): bool =
     return true
   return false
 
+proc applyCode(tb: var TerminalBuffer, code: string) =
+  let trimmed = code[1 ..< code.len - 1]
+  let params = ansi.parseParams(trimmed)
+  for param in params:
+    if param >= 30 and param <= 39:
+      tb.currFg = ForegroundColor(param)
+    elif param >= 40 and param <= 49:
+      tb.currBg = BackgroundColor(param)
+    elif param == 0:
+      tb.setBackgroundColor(bgNone)
+      tb.setForegroundColor(fgNone)
+      tb.setStyle({})
+
 proc write*(tb: var TerminalBuffer, x, y: Natural, s: string) =
   ## Writes `s` into the terminal buffer at the specified position using
   ## the current text attributes. Lines do not wrap and attempting to write
@@ -1112,21 +1125,14 @@ proc write*(tb: var TerminalBuffer, x, y: Natural, s: string) =
     if parseCode(codes, ch):
       continue
     for code in codes:
-      let trimmed = code[1 ..< code.len - 1]
-      let params = ansi.parseParams(trimmed)
-      for param in params:
-        if param >= 30 and param <= 39:
-          tb.currFg = ForegroundColor(param)
-        elif param >= 40 and param <= 49:
-          tb.currBg = BackgroundColor(param)
-        elif param == 0:
-          tb.setBackgroundColor(bgNone)
-          tb.setForegroundColor(fgNone)
-          tb.setStyle({})
+      applyCode(tb, code)
     var c = TerminalChar(ch: ch, fg: tb.currFg, bg: tb.currBg,
                          style: tb.currStyle)
     tb[currX, y] = c
     inc(currX)
+    codes = @[]
+  for code in codes:
+    applyCode(tb, code)
   tb.currX = currX
   tb.currY = y
 
