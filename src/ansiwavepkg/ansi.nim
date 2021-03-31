@@ -291,6 +291,7 @@ proc clear() =
 proc newLine() =
   clear()
   stdout.write('\n')
+  clear()
 
 proc fillRestOfLine(curCol: var int) =
   while curCol < lineWidth:

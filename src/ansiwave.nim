@@ -8,6 +8,7 @@ import ansiwavepkg/ansi
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
+#quit()
 
 proc stripCodes(line: seq[Rune]): string =
   var codes: seq[string]
