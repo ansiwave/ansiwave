@@ -1083,7 +1083,7 @@ proc resetAttributes*(tb: var TerminalBuffer) =
   tb.setForegroundColor(fgWhite)
   tb.setStyle({})
 
-import strutils, ansi
+import strutils, sequtils, ansi
 
 proc parseCode*(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -1100,6 +1100,21 @@ proc parseCode*(codes: var seq[string], ch: Rune): bool =
     codes[codes.len - 1] &= s
     return true
   return false
+
+proc dedupeParams*(params: var seq[int]) =
+  var i = 0
+  while i < params.len:
+    let param = params[i]
+    if param == 0:
+      params = params[i ..< params.len]
+      i = 1
+    elif param >= 30 and param <= 39:
+      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
+      params = prevParams & params[i ..< params.len]
+    elif param >= 40 and param <= 49:
+      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
+      params = prevParams & params[i ..< params.len]
+    i.inc
 
 proc applyCode(tb: var TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]

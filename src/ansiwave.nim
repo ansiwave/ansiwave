@@ -4,8 +4,8 @@ import pararules
 import unicode
 from os import nil
 from strutils import nil
+import ansiwavepkg/ansi
 
-#import ansiwavepkg/ansi
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 
@@ -18,6 +18,33 @@ proc stripCodes(line: seq[Rune]): string =
 
 proc stripCodes(line: string): string =
   stripCodes(line.toRunes)
+
+proc dedupeCodes*(line: seq[Rune]): string =
+  var codes: seq[string]
+  proc addCodes(res: var string) =
+    var params: seq[int]
+    for code in codes:
+      if code[1] == '[' and code[code.len - 1] == 'm':
+        let trimmed = code[1 ..< code.len - 1]
+        params &= ansi.parseParams(trimmed)
+      # this is some other kind of code that we should just preserve
+      else:
+        res &= code
+    iw.dedupeParams(params)
+    if params.len > 0:
+      res &= "\e[" & strutils.join(params, ";") & "m"
+    codes = @[]
+  for ch in line:
+    if iw.parseCode(codes, ch):
+      continue
+    elif codes.len > 0:
+      addCodes(result)
+    result &= $ch
+  if codes.len > 0:
+    addCodes(result)
+
+proc dedupeCodes*(line: string): string =
+  dedupeCodes(line.toRunes)
 
 proc getRealX(line: seq[Rune], x: int): int =
   result = 0
@@ -348,7 +375,7 @@ proc onInput(ch: char, buffer: tuple) =
     prefix = buffer.makePrefix
     suffix = if prefix == "\e[0m": "" else: "\e[0m"
     chColored = prefix & $ch & suffix
-    newLine = $line[0 ..< realX] & chColored & $line[realX ..< line.len]
+    newLine = dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
   var newLines = buffer.lines
   newLines[buffer.cursorY] = newLine
   session.insert(buffer.id, Lines, newLines)
@@ -400,7 +427,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
           line[realX] = buffer.selectedChar.runeAt(0)
           let prefix = buffer.makePrefix
           let suffix = if prefix == "\e[0m": "" else: "\e[0m"
-          lines[y] = $line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]
+          lines[y] = dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len])
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
