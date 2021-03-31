@@ -338,7 +338,10 @@ proc onInput(ch: char, buffer: tuple) =
   let
     line = buffer.lines[buffer.cursorY].toRunes
     realX = getRealX(line, buffer.cursorX)
-    newLine = $line[0 ..< realX] & $ch & $line[realX ..< line.len]
+    prefix = buffer.selectedFgColor & buffer.selectedBgColor
+    suffix = if prefix == "": "" else: "\e[0m"
+    chColored = prefix & $ch & suffix
+    newLine = $line[0 ..< realX] & chColored & $line[realX ..< line.len]
   var newLines = buffer.lines
   newLines[buffer.cursorY] = newLine
   session.insert(buffer.id, Lines, newLines)
@@ -389,7 +392,9 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
             line.add(" ".runeAt(0))
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
-          lines[y] = $line[0 ..< realX] & buffer.selectedFgColor & buffer.selectedBgColor & buffer.selectedChar & "\e[0m" & $line[realX + 1 ..< line.len]
+          let prefix = buffer.selectedFgColor & buffer.selectedBgColor
+          let suffix = if prefix == "": "" else: "\e[0m"
+          lines[y] = $line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
