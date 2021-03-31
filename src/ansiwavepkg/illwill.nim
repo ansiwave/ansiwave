@@ -1105,14 +1105,18 @@ proc applyCode(tb: var TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]
   let params = ansi.parseParams(trimmed)
   for param in params:
-    if param >= 30 and param <= 39:
-      tb.currFg = ForegroundColor(param)
-    elif param >= 40 and param <= 49:
-      tb.currBg = BackgroundColor(param)
-    elif param == 0:
+    if param == 0:
       tb.setBackgroundColor(bgNone)
       tb.setForegroundColor(fgNone)
       tb.setStyle({})
+    elif param >= 1 and param <= 9:
+      var style = tb.getStyle()
+      style.incl(Style(param))
+      tb.setStyle(style)
+    elif param >= 30 and param <= 39:
+      tb.setForegroundColor(ForegroundColor(param))
+    elif param >= 40 and param <= 49:
+      tb.setBackgroundColor(BackgroundColor(param))
 
 proc write*(tb: var TerminalBuffer, x, y: Natural, s: string) =
   ## Writes `s` into the terminal buffer at the specified position using
