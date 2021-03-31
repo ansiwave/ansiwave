@@ -84,7 +84,8 @@ type
     CurrentBufferId, Lines,
     CurrentModalId,
     Editable, Mode,
-    SelectedChar, Prompt,
+    SelectedChar, SelectedFgColor, SelectedBgColor,
+    Prompt,
   PromptKind = enum
     None, DeleteLine,
   RefStrings = ref seq[string]
@@ -104,6 +105,8 @@ schema Fact(Id, Attr):
   Editable: bool
   Mode: int
   SelectedChar: string
+  SelectedFgColor: string
+  SelectedBgColor: string
   Prompt: PromptKind
 
 let rules =
@@ -172,6 +175,8 @@ let rules =
         (id, Editable, editable)
         (id, Mode, mode)
         (id, SelectedChar, selectedChar)
+        (id, SelectedFgColor, selectedFgColor)
+        (id, SelectedBgColor, selectedBgColor)
         (id, Prompt, prompt)
 
 var session* = initSession(Fact, autoFire = false)
@@ -237,6 +242,8 @@ proc init*() =
   session.insert(bufferId, Editable, true)
   session.insert(bufferId, Mode, 0)
   session.insert(bufferId, SelectedChar, "█")
+  session.insert(bufferId, SelectedFgColor, "")
+  session.insert(bufferId, SelectedBgColor, "")
   session.insert(bufferId, Prompt, None)
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
@@ -382,7 +389,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
             line.add(" ".runeAt(0))
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
-          lines[y] = $ line
+          lines[y] = $line[0 ..< realX] & buffer.selectedFgColor & buffer.selectedBgColor & buffer.selectedChar & "\e[0m" & $line[realX + 1 ..< line.len]
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
@@ -429,13 +436,46 @@ proc renderModal(tb: var TerminalBuffer, buffer: tuple, key: Key) =
   if key == iw.Key.Escape:
     session.insert(Global, CurrentModalId, -1)
 
-proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int): int =
   const
-    brushChars = ["█", "▓", "▒", "░"]
-    brushCharsJoined = strutils.join(brushChars, " ")
-    brushX = 16
+    colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
+    colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
+  result = colorX + colorFgCodes.len * 3
+  var colorChars = ""
+  for code in colorFgCodes:
+    if code == "":
+      colorChars &= "╳╳"
+    else:
+      colorChars &= code & "██\e[0m"
+    colorChars &= " "
+  let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
+  let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
+  iw.write(tb, colorX, 0, colorChars)
+  iw.write(tb, colorX + fgIndex * 3, 1, "F")
+  iw.write(tb, colorX + bgIndex * 3 + 1, 1, "B")
+  if key == Key.Mouse:
+    let info = getMouse()
+    if info.y == 0:
+      if info.action == mbaPressed:
+        if info.button == mbLeft:
+          let index = int((info.x - colorX) / 3)
+          if index >= 0 and index < colorFgCodes.len:
+            session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
+        elif info.button == mbRight:
+          let index = int((info.x - colorX) / 3)
+          if index >= 0 and index < colorBgCodes.len:
+            session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
+
+proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int): int =
+  const brushChars = ["█", "▓", "▒", "░"]
+  var brushCharsColored = ""
+  for ch in brushChars:
+    brushCharsColored &= buffer.selectedFgColor & buffer.selectedBgColor
+    brushCharsColored &= ch
+    brushCharsColored &= "\e[0m "
+  result = brushX + brushChars.len * 2
   let brushIndex = find(brushChars, buffer.selectedChar)
-  iw.write(tb, brushX, 0, brushCharsJoined)
+  iw.write(tb, brushX, 0, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, 1, "↑")
   if key == Key.Mouse:
     let info = getMouse()
@@ -460,8 +500,10 @@ proc tick*() =
 
   renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer, key)
 
+  let colorX = renderColors(tb, currentBuffer, key, 16)
+
   if currentBuffer.mode == 1:
-    renderBrushes(tb, currentBuffer, key)
+    discard renderBrushes(tb, currentBuffer, key, colorX + 2)
 
   renderBuffer(tb, currentBuffer, globals.currentModal == -1, key)
 
