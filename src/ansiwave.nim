@@ -317,7 +317,7 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Home>":
     session.insert(buffer.id, CursorX, 0)
   of "<End>":
-    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].runeLen)
+    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].stripCodes.runeLen)
   of "<Esc>":
     case buffer.prompt:
     of None:
