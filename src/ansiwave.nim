@@ -74,29 +74,6 @@ proc deleteAfter(line: var seq[Rune], count: int) =
       break
     line.delete(firstCharAfter)
 
-proc lineLen(line: string): int =
-  if strutils.endsWith(line, "\n"):
-    line.runeLen - 1
-  else:
-    line.runeLen
-
-proc lineLen(line: seq[Rune]): int =
-  if line.len > 0 and line[line.len - 1] == "\n".runeAt(0):
-    line.len - 1
-  else:
-    line.len
-
-proc splitLinesRetainingNewline(text: string): seq[string] =
-  var rest = text
-  while true:
-    let i = strutils.find(rest, "\n")
-    if i == -1:
-      result.add(rest)
-      break
-    else:
-      result.add(rest[0 .. i])
-      rest = rest[i + 1 ..< rest.len]
-
 type
   Id* = enum
     Global, TerminalWindow,
@@ -177,8 +154,8 @@ let rules =
         elif cursorY >= lines[].len:
           session.insert(id, CursorY, lines[].len - 1)
         else:
-          if cursorX > lines[cursorY].stripCodes.lineLen:
-            session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
+          if cursorX > lines[cursorY].stripCodes.runeLen:
+            session.insert(id, CursorX, lines[cursorY].stripCodes.runeLen)
           elif cursorX < 0:
             session.insert(id, CursorX, 0)
     rule getBuffer(Fact):
@@ -251,7 +228,7 @@ proc init*() =
   session.insert(bufferId, ScrollY, 0)
   var lines: RefStrings
   new lines
-  lines[] = splitLinesRetainingNewline(text)
+  lines[] = strutils.splitLines(text)
   session.insert(bufferId, Lines, lines)
   session.insert(bufferId, X, 0)
   session.insert(bufferId, Y, 2)
@@ -293,9 +270,9 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Del>":
     if not buffer.editable:
       return
-    if buffer.cursorX == buffer.lines[buffer.cursorY].stripCodes.lineLen:
+    if buffer.cursorX == buffer.lines[buffer.cursorY].stripCodes.runeLen:
       session.insert(buffer.id, Prompt, DeleteLine)
-    elif buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.lineLen:
+    elif buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.runeLen:
       let
         line = buffer.lines[buffer.cursorY].toRunes
         realX = getRealX(line, buffer.cursorX)
@@ -315,7 +292,7 @@ proc onInput(ch: string, buffer: tuple) =
     var newLines: ref seq[string]
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines[].add($before & "\n")
+    newLines[].add($before)
     newLines[].add($after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
@@ -333,7 +310,7 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Home>":
     session.insert(buffer.id, CursorX, 0)
   of "<End>":
-    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].lineLen)
+    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].runeLen)
   of "<Esc>":
     case buffer.prompt:
     of None:
@@ -372,8 +349,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
     if screenLine > buffer.height - 1:
       break
     var line = lines[i].toRunes
-    line = line[0 ..< lines[i].lineLen]
-    if scrollX < line.stripCodes.lineLen:
+    line = line[0 ..< lines[i].runeLen]
+    if scrollX < line.stripCodes.runeLen:
       if scrollX > 0:
         deleteBefore(line, scrollX)
     else:
@@ -401,7 +378,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
           while y > lines[].len - 1:
             lines[].add("")
           var line = lines[y].toRunes
-          while x > line.stripCodes.lineLen - 1:
+          while x > line.stripCodes.runeLen - 1:
             line.add(" ".runeAt(0))
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
