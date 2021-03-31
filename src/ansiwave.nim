@@ -409,6 +409,13 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCharBackground(tb, col, row, iw.bgYellow, true)
+    var
+      xBlock = tb[col, buffer.y]
+      yBlock = tb[buffer.x, row]
+    xBlock.fg = iw.fgYellow
+    yBlock.fg = iw.fgYellow
+    tb[col, buffer.y] = xBlock
+    tb[buffer.x, row] = yBlock
 
   case buffer.prompt:
   of None:
