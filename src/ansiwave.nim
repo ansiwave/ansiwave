@@ -12,7 +12,7 @@ from strutils import nil
 proc stripCodes(line: seq[Rune]): string =
   var codes: seq[string]
   for ch in line:
-    if parseCode(codes, ch):
+    if iw.parseCode(codes, ch):
       continue
     result &= $ch
 
@@ -24,7 +24,7 @@ proc getRealX(line: seq[Rune], x: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if parseCode(codes, ch):
+    if iw.parseCode(codes, ch):
       result.inc
       continue
     if fakeX == x:
@@ -37,7 +37,7 @@ proc firstValidChar(line: seq[Rune]): int =
   var realX = 0
   var codes: seq[string]
   for ch in line:
-    if not parseCode(codes, ch):
+    if not iw.parseCode(codes, ch):
       result = realX
       break
     realX.inc
@@ -57,7 +57,7 @@ proc firstValidCharAfter(line: seq[Rune], count: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if not parseCode(codes, ch):
+    if not iw.parseCode(codes, ch):
       if fakeX > count:
         result = realX
         break
@@ -332,14 +332,24 @@ proc onInput(ch: string, buffer: tuple) =
       if buffer.cursorY > newLines[].len - 1:
         session.insert(buffer.id, CursorY, newLines[].len - 1)
 
+proc makePrefix(buffer: tuple): string =
+  if buffer.selectedFgColor == "" and buffer.selectedBgColor != "":
+    result = "\e[0m" & buffer.selectedBgColor
+  elif buffer.selectedFgColor != "" and buffer.selectedBgColor == "":
+    result = "\e[0m" & buffer.selectedFgColor
+  elif buffer.selectedFgColor == "" and buffer.selectedBgColor == "":
+    result = "\e[0m"
+  elif buffer.selectedFgColor != "" and buffer.selectedBgColor != "":
+    result = buffer.selectedFgColor & buffer.selectedBgColor
+
 proc onInput(ch: char, buffer: tuple) =
   if not buffer.editable:
     return
   let
     line = buffer.lines[buffer.cursorY].toRunes
     realX = getRealX(line, buffer.cursorX)
-    prefix = buffer.selectedFgColor & buffer.selectedBgColor
-    suffix = if prefix == "": "" else: "\e[0m"
+    prefix = buffer.makePrefix
+    suffix = if prefix == "\e[0m": "" else: "\e[0m"
     chColored = prefix & $ch & suffix
     newLine = $line[0 ..< realX] & chColored & $line[realX ..< line.len]
   var newLines = buffer.lines
@@ -392,8 +402,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
             line.add(" ".runeAt(0))
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
-          let prefix = buffer.selectedFgColor & buffer.selectedBgColor
-          let suffix = if prefix == "": "" else: "\e[0m"
+          let prefix = buffer.makePrefix
+          let suffix = if prefix == "\e[0m": "" else: "\e[0m"
           lines[y] = $line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]
   elif focused and buffer.mode == 0:
     let code = key.ord
