@@ -1102,19 +1102,20 @@ proc parseCode*(codes: var seq[string], ch: Rune): bool =
   return false
 
 proc dedupeParams*(params: var seq[int]) =
-  var i = 0
-  while i < params.len:
+  var i = params.len - 1
+  while i > 0:
     let param = params[i]
     if param == 0:
       params = params[i ..< params.len]
-      i = 1
+      break
     elif param >= 30 and param <= 39:
       let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
       params = prevParams & params[i ..< params.len]
+      i = prevParams.len - 1
     elif param >= 40 and param <= 49:
       let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
       params = prevParams & params[i ..< params.len]
-    i.inc
+      i = prevParams.len - 1
 
 proc applyCode(tb: var TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]
