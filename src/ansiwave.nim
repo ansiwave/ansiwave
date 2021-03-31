@@ -106,7 +106,7 @@ type
     X, Y, Width, Height,
     CurrentBufferId, Lines,
     CurrentModalId,
-    Wrap, Editable, Mode,
+    Editable, Mode,
     SelectedChar, Prompt,
   PromptKind = enum
     None, DeleteLine,
@@ -124,7 +124,6 @@ schema Fact(Id, Attr):
   CurrentBufferId: int
   CurrentModalId: int
   Lines: RefStrings
-  Wrap: bool
   Editable: bool
   Mode: int
   SelectedChar: string
@@ -145,9 +144,7 @@ let rules =
         (id, Width, bufferWidth)
         (id, CursorX, cursorX)
         (id, ScrollX, scrollX, then = false)
-        (id, Wrap, wrap)
       cond:
-        wrap == false
         cursorX >= 0
       then:
         let scrollRight = scrollX + bufferWidth - 1
@@ -174,63 +171,16 @@ let rules =
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, Lines, lines, then = false)
-        (id, Wrap, wrap)
       then:
         if cursorY < 0:
           session.insert(id, CursorY, 0)
         elif cursorY >= lines[].len:
           session.insert(id, CursorY, lines[].len - 1)
         else:
-          if wrap:
-            if cursorX > lines[cursorY].stripCodes.lineLen:
-              if cursorY == lines[].len - 1:
-                session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
-              else:
-                session.insert(id, CursorY, cursorY + 1)
-                session.insert(id, CursorX, 0)
-            elif cursorX < 0:
-              if cursorY == 0:
-                session.insert(id, CursorX, 0)
-              else:
-                session.insert(id, CursorY, cursorY - 1)
-                session.insert(id, CursorX, lines[cursorY - 1].stripCodes.lineLen)
-          else:
-            if cursorX > lines[cursorY].stripCodes.lineLen:
-              session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
-            elif cursorX < 0:
-              session.insert(id, CursorX, 0)
-    rule wrapText(Fact):
-      what:
-        (id, Wrap, wrap)
-        (id, Lines, lines, then = false)
-        (id, Width, bufferWidth)
-      cond:
-        wrap
-        bufferWidth > 0
-      then:
-        let
-          fullLines = splitLinesRetainingNewline(strutils.join(lines[]))
-          lineColumns = bufferWidth - 1
-        var wrapLines: seq[seq[string]]
-        for line in fullLines:
-          var parts: seq[seq[Rune]]
-          var rest = line.toRunes
-          while true:
-            if rest.lineLen > lineColumns:
-              parts.add(rest[0 ..< lineColumns])
-              rest = rest[lineColumns ..< rest.len]
-            else:
-              parts.add(rest)
-              break
-          var strs: seq[string]
-          for part in parts:
-            strs.add($ part)
-          wrapLines.add(strs)
-        var newLines: ref seq[string]
-        new newLines
-        for line in wrapLines:
-          newLines[].add(line)
-        session.insert(id, Lines, newLines)
+          if cursorX > lines[cursorY].stripCodes.lineLen:
+            session.insert(id, CursorX, lines[cursorY].stripCodes.lineLen)
+          elif cursorX < 0:
+            session.insert(id, CursorX, 0)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -238,7 +188,6 @@ let rules =
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
         (id, Lines, lines)
-        (id, Wrap, wrap)
         (id, X, x)
         (id, Y, y)
         (id, Width, width)
@@ -308,7 +257,6 @@ proc init*() =
   session.insert(bufferId, Y, 2)
   session.insert(bufferId, Width, 80)
   session.insert(bufferId, Height, 0)
-  session.insert(bufferId, Wrap, false)
   session.insert(bufferId, Editable, true)
   session.insert(bufferId, Mode, 0)
   session.insert(bufferId, SelectedChar, "█")
@@ -364,24 +312,16 @@ proc onInput(ch: string, buffer: tuple) =
       realX = getRealX(line, buffer.cursorX)
       before = line[0 ..< realX]
       after = line[realX ..< line.len]
-      keepCursorOnLine = buffer.wrap and
-                         buffer.cursorX == 0 and
-                         buffer.cursorY > 0 and
-                         not strutils.endsWith(buffer.lines[buffer.cursorY - 1], "\n")
     var newLines: ref seq[string]
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    if keepCursorOnLine:
-      newLines[newLines[].len - 1] &= "\n"
-    else:
-      newLines[].add($before & "\n")
+    newLines[].add($before & "\n")
     newLines[].add($after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, Width, buffer.width) # force refresh
     session.insert(buffer.id, CursorX, 0)
-    if not keepCursorOnLine:
-      session.insert(buffer.id, CursorY, buffer.cursorY + 1)
+    session.insert(buffer.id, CursorY, buffer.cursorY + 1)
   of "<Up>":
     session.insert(buffer.id, CursorY, buffer.cursorY - 1)
   of "<Down>":
