@@ -1116,6 +1116,8 @@ proc dedupeParams*(params: var seq[int]) =
       let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
       params = prevParams & params[i ..< params.len]
       i = prevParams.len - 1
+    else:
+      i.dec
 
 proc applyCode(tb: var TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]
