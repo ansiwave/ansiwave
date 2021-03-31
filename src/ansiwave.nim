@@ -273,7 +273,6 @@ proc onInput(ch: string, buffer: tuple) =
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
       session.insert(buffer.id, CursorX, buffer.cursorX - 1)
-      session.insert(buffer.id, Width, buffer.width) # force refresh
   of "<Del>":
     if not buffer.editable:
       return
@@ -287,7 +286,6 @@ proc onInput(ch: string, buffer: tuple) =
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
-      session.insert(buffer.id, Width, buffer.width) # force refresh
   of "<Enter>":
     if not buffer.editable:
       return
@@ -303,7 +301,6 @@ proc onInput(ch: string, buffer: tuple) =
     newLines[].add($after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
-    session.insert(buffer.id, Width, buffer.width) # force refresh
     session.insert(buffer.id, CursorX, 0)
     session.insert(buffer.id, CursorY, buffer.cursorY + 1)
   of "<Up>":
@@ -356,7 +353,6 @@ proc onInput(ch: char, buffer: tuple) =
   newLines[buffer.cursorY] = newLine
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
-  session.insert(buffer.id, Width, buffer.width) # force refresh
 
 proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key) =
   tb.drawRect(buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
