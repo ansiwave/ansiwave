@@ -194,7 +194,6 @@ type
     ScrollX, ScrollY,
     X, Y, Width, Height,
     CurrentBufferId, Lines,
-    CurrentModalId,
     Editable, SelectedMode, SelectedTab,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt,
@@ -212,7 +211,6 @@ schema Fact(Id, Attr):
   Width: int
   Height: int
   CurrentBufferId: int
-  CurrentModalId: int
   Lines: RefStrings
   Editable: bool
   SelectedMode: int
@@ -227,7 +225,6 @@ let rules =
     rule getGlobals(Fact):
       what:
         (Global, CurrentBufferId, currentBuffer)
-        (Global, CurrentModalId, currentModal)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -350,7 +347,6 @@ proc init*() =
   let bufferId = Id.high.ord + 1
 
   session.insert(Global, CurrentBufferId, bufferId)
-  session.insert(Global, CurrentModalId, -1)
 
   session.insert(bufferId, CursorX, 0)
   session.insert(bufferId, CursorY, 0)
@@ -589,14 +585,6 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArra
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderModal(tb: var TerminalBuffer, buffer: tuple, key: Key) =
-  let spaces = strutils.repeat(' ', buffer.width)
-  for i in buffer.y ..< buffer.y + buffer.height:
-    iw.write(tb, buffer.x + 1, i, spaces)
-  renderBuffer(tb, buffer, true, key)
-  if key == iw.Key.Escape:
-    session.insert(Global, CurrentModalId, -1)
-
 proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int): int =
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
@@ -666,12 +654,9 @@ proc tick*() =
   if currentBuffer.mode == 1:
     x = renderBrushes(tb, currentBuffer, key, x + 2)
 
-  renderBuffer(tb, currentBuffer, globals.currentModal == -1, key)
+  renderBuffer(tb, currentBuffer, true, key)
 
   x = renderRadioButtons(tb, 0, windowHeight - 1, ["Editor", strutils.format("Errors ($1)", 0), "Help"], currentBuffer.id, SelectedTab, currentBuffer.tab, key, true)
-
-  if globals.currentModal != -1:
-    renderModal(tb, session.query(rules.getBuffer, id = globals.currentModal), key)
 
   session.fireRules()
 
