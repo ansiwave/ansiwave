@@ -375,14 +375,15 @@ proc init*() =
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
-proc setCharBackground(tb: var iw.TerminalBuffer, col: int, row: int, color: iw.BackgroundColor, cursor: bool) =
+proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
     return
   var ch = tb[col, row]
-  ch.bg = color
+  ch.bg = iw.bgYellow
+  if $ch.ch == "█":
+    ch.fg = iw.fgYellow
   tb[col, row] = ch
-  if cursor:
-    iw.setCursorPos(tb, col, row)
+  iw.setCursorPos(tb, col, row)
 
 proc onInput(ch: string, buffer: tuple) =
   case ch:
@@ -542,7 +543,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
     let
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
-    setCharBackground(tb, col, row, iw.bgYellow, true)
+    setCursor(tb, col, row)
     var
       xBlock = tb[col, buffer.y]
       yBlock = tb[buffer.x, row]
