@@ -1,19 +1,89 @@
-import ansiwavepkg/illwill as iw
+import illwill as iw
 import tables
 import pararules
 import unicode
 from os import nil
 from strutils import nil
+from sequtils import nil
 import ansiwavepkg/ansi
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 #quit()
 
+proc parseCode(codes: var seq[string], ch: Rune): bool =
+  proc terminated(s: string): bool =
+    if s.len > 0:
+      let lastChar = s[s.len - 1]
+      return ansi.codeTerminators.contains(lastChar)
+    else:
+      return false
+  let s = $ch
+  if s == "\e":
+    codes.add(s)
+    return true
+  elif codes.len > 0 and not codes[codes.len - 1].terminated:
+    codes[codes.len - 1] &= s
+    return true
+  return false
+
+proc dedupeParams(params: var seq[int]) =
+  var i = params.len - 1
+  while i > 0:
+    let param = params[i]
+    if param == 0:
+      params = params[i ..< params.len]
+      break
+    elif param >= 30 and param <= 39:
+      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
+      params = prevParams & params[i ..< params.len]
+      i = prevParams.len - 1
+    elif param >= 40 and param <= 49:
+      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
+      params = prevParams & params[i ..< params.len]
+      i = prevParams.len - 1
+    else:
+      i.dec
+
+proc applyCode(tb: var TerminalBuffer, code: string) =
+  let trimmed = code[1 ..< code.len - 1]
+  let params = ansi.parseParams(trimmed)
+  for param in params:
+    if param == 0:
+      tb.setBackgroundColor(bgNone)
+      tb.setForegroundColor(fgNone)
+      tb.setStyle({})
+    elif param >= 1 and param <= 9:
+      var style = tb.getStyle()
+      style.incl(Style(param))
+      tb.setStyle(style)
+    elif param >= 30 and param <= 39:
+      tb.setForegroundColor(ForegroundColor(param))
+    elif param >= 40 and param <= 49:
+      tb.setBackgroundColor(BackgroundColor(param))
+
+proc writeAnsi(tb: var TerminalBuffer, x, y: Natural, s: string) =
+  var currX = x
+  var codes: seq[string]
+  for ch in runes(s):
+    if parseCode(codes, ch):
+      continue
+    for code in codes:
+      applyCode(tb, code)
+    var c = TerminalChar(ch: ch, fg: tb.getForegroundColor, bg: tb.getBackgroundColor,
+                         style: tb.getStyle)
+    tb[currX, y] = c
+    inc(currX)
+    codes = @[]
+  for code in codes:
+    applyCode(tb, code)
+  tb.setCursorXPos(currX)
+  tb.setCursorYPos(y)
+
 proc stripCodes(line: seq[Rune]): string =
   var codes: seq[string]
   for ch in line:
-    if iw.parseCode(codes, ch):
+    if parseCode(codes, ch):
       continue
     result &= $ch
 
@@ -31,12 +101,12 @@ proc dedupeCodes*(line: seq[Rune]): string =
       # this is some other kind of code that we should just preserve
       else:
         res &= code
-    iw.dedupeParams(params)
+    dedupeParams(params)
     if params.len > 0:
       res &= "\e[" & strutils.join(params, ";") & "m"
     codes = @[]
   for ch in line:
-    if iw.parseCode(codes, ch):
+    if parseCode(codes, ch):
       continue
     elif codes.len > 0:
       addCodes(result)
@@ -52,7 +122,7 @@ proc getRealX(line: seq[Rune], x: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if iw.parseCode(codes, ch):
+    if parseCode(codes, ch):
       result.inc
       continue
     if fakeX == x:
@@ -64,7 +134,7 @@ proc getAllParamsBeforeX(line: seq[Rune], x: int): seq[int] =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if iw.parseCode(codes, ch):
+    if parseCode(codes, ch):
       continue
     if fakeX == x:
       break
@@ -73,7 +143,7 @@ proc getAllParamsBeforeX(line: seq[Rune], x: int): seq[int] =
     if code[1] == '[' and code[code.len - 1] == 'm':
       let trimmed = code[1 ..< code.len - 1]
       result &= ansi.parseParams(trimmed)
-  iw.dedupeParams(result)
+  dedupeParams(result)
 
 proc getAllParamsBeforeX(line: string, x: int): seq[int] =
   getAllParamsBeforeX(line.toRunes, x)
@@ -83,7 +153,7 @@ proc firstValidChar(line: seq[Rune]): int =
   var realX = 0
   var codes: seq[string]
   for ch in line:
-    if not iw.parseCode(codes, ch):
+    if not parseCode(codes, ch):
       result = realX
       break
     realX.inc
@@ -103,7 +173,7 @@ proc firstValidCharAfter(line: seq[Rune], count: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if not iw.parseCode(codes, ch):
+    if not parseCode(codes, ch):
       if fakeX > count:
         result = realX
         break
@@ -429,7 +499,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
     else:
       line = @[]
     deleteAfter(line, buffer.width - 1)
-    iw.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
+    writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     screenLine += 1
 
   if key == Key.Mouse:
@@ -525,7 +595,7 @@ proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int):
     colorChars &= " "
   let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
   let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
-  iw.write(tb, colorX, 0, colorChars)
+  writeAnsi(tb, colorX, 0, colorChars)
   iw.write(tb, colorX + fgIndex * 3, 1, "F")
   iw.write(tb, colorX + bgIndex * 3 + 1, 1, "B")
   if key == Key.Mouse:
@@ -550,7 +620,7 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int)
     brushCharsColored &= "\e[0m "
   result = brushX + brushChars.len * 2
   let brushIndex = find(brushChars, buffer.selectedChar)
-  iw.write(tb, brushX, 0, brushCharsColored)
+  writeAnsi(tb, brushX, 0, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, 1, "↑")
   if key == Key.Mouse:
     let info = getMouse()
