@@ -375,7 +375,9 @@ proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
     return
   var ch = tb[col, row]
   ch.bg = iw.bgYellow
-  if $ch.ch == "█":
+  if ch.fg == iw.fgYellow:
+    ch.fg = iw.fgWhite
+  elif $ch.ch == "█":
     ch.fg = iw.fgYellow
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
