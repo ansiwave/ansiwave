@@ -130,23 +130,19 @@ proc getRealX(line: seq[Rune], x: int): int =
     result.inc
     fakeX.inc
 
-proc getAllParamsBeforeX(line: seq[Rune], x: int): seq[int] =
-  var fakeX = 0
+proc getParamsBeforeRealX(line: seq[Rune], realX: int): seq[int] =
   var codes: seq[string]
-  for ch in line:
+  for ch in line[0 ..< realX]:
     if parseCode(codes, ch):
       continue
-    if fakeX == x:
-      break
-    fakeX.inc
   for code in codes:
     if code[1] == '[' and code[code.len - 1] == 'm':
       let trimmed = code[1 ..< code.len - 1]
       result &= ansi.parseParams(trimmed)
   dedupeParams(result)
 
-proc getAllParamsBeforeX(line: string, x: int): seq[int] =
-  getAllParamsBeforeX(line.toRunes, x)
+proc getParamsBeforeRealX(line: string, realX: int): seq[int] =
+  getParamsBeforeRealX(line.toRunes, realX)
 
 proc firstValidChar(line: seq[Rune]): int =
   result = -1
@@ -420,7 +416,7 @@ proc onInput(ch: string, buffer: tuple) =
     let
       line = buffer.lines[buffer.cursorY].toRunes
       realX = getRealX(line, buffer.cursorX)
-      prefix = "\e[" & strutils.join(@[0] & getAllParamsBeforeX(line, buffer.cursorX), ";") & "m"
+      prefix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
       before = line[0 ..< realX]
       after = line[realX ..< line.len]
     var newLines: ref seq[string]
@@ -475,7 +471,7 @@ proc onInput(ch: char, buffer: tuple) =
     line = buffer.lines[buffer.cursorY].toRunes
     realX = getRealX(line, buffer.cursorX)
     prefix = buffer.makePrefix
-    suffix = "\e[" & strutils.join(@[0] & getAllParamsBeforeX(line, buffer.cursorX), ";") & "m"
+    suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
     chColored = prefix & $ch & suffix
     newLine = dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
   var newLines = buffer.lines
@@ -528,7 +524,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
           let prefix = buffer.makePrefix
-          let suffix = "\e[" & strutils.join(@[0] & getAllParamsBeforeX(line, buffer.cursorX), ";") & "m"
+          let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
           lines[y] = dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len])
   elif focused and buffer.mode == 0:
     let code = key.ord
