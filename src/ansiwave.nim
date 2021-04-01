@@ -591,7 +591,7 @@ proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int):
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
-  result = colorX + colorFgCodes.len * 3
+  result = colorX + colorFgCodes.len * 3 + 1
   var colorChars = ""
   for code in colorFgCodes:
     if code == "":
@@ -654,7 +654,7 @@ proc tick*() =
   x = renderColors(tb, currentBuffer, key, x)
 
   if currentBuffer.mode == 1:
-    x = renderBrushes(tb, currentBuffer, key, x + 2)
+    x = renderBrushes(tb, currentBuffer, key, x)
 
   renderBuffer(tb, currentBuffer, true, key)
 
