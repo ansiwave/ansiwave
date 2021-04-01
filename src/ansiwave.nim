@@ -395,7 +395,7 @@ proc onInput(ch: string, buffer: tuple) =
       let
         line = buffer.lines[buffer.cursorY].toRunes
         realX = getRealX(line, buffer.cursorX - 1)
-        newLine = $line[0 ..< realX] & $line[realX + 1 ..< line.len]
+        newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
@@ -409,7 +409,7 @@ proc onInput(ch: string, buffer: tuple) =
       let
         line = buffer.lines[buffer.cursorY].toRunes
         realX = getRealX(line, buffer.cursorX)
-        newLine = $line[0 ..< realX] & $line[realX + 1 ..< line.len]
+        newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
       newLines[buffer.cursorY] = newLine
       session.insert(buffer.id, Lines, newLines)
