@@ -419,13 +419,14 @@ proc onInput(ch: string, buffer: tuple) =
     let
       line = buffer.lines[buffer.cursorY].toRunes
       realX = getRealX(line, buffer.cursorX)
+      prefix = "\e[" & strutils.join(@[0] & getAllParamsBeforeX(line, buffer.cursorX), ";") & "m"
       before = line[0 ..< realX]
       after = line[realX ..< line.len]
     var newLines: ref seq[string]
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
     newLines[].add($before)
-    newLines[].add($after)
+    newLines[].add(prefix & $after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, CursorX, 0)
