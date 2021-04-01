@@ -195,7 +195,7 @@ type
     X, Y, Width, Height,
     CurrentBufferId, Lines,
     CurrentModalId,
-    Editable, Mode,
+    Editable, SelectedMode, SelectedTab,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt,
   PromptKind = enum
@@ -215,7 +215,8 @@ schema Fact(Id, Attr):
   CurrentModalId: int
   Lines: RefStrings
   Editable: bool
-  Mode: int
+  SelectedMode: int
+  SelectedTab: int
   SelectedChar: string
   SelectedFgColor: string
   SelectedBgColor: string
@@ -296,7 +297,8 @@ let rules =
         (id, Width, width)
         (id, Height, height)
         (id, Editable, editable)
-        (id, Mode, mode)
+        (id, SelectedMode, mode)
+        (id, SelectedTab, tab)
         (id, SelectedChar, selectedChar)
         (id, SelectedFgColor, selectedFgColor)
         (id, SelectedBgColor, selectedBgColor)
@@ -328,7 +330,7 @@ proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Height, height)
   let globals = session.query(rules.getGlobals)
   let currentBuffer = session.query(rules.getBuffer, id = globals.currentBuffer)
-  session.insert(currentBuffer.id, Height, height - 4)
+  session.insert(currentBuffer.id, Height, height - 5)
 
 proc exitProc() {.noconv.} =
   iw.illwillDeinit()
@@ -363,7 +365,8 @@ proc init*() =
   session.insert(bufferId, Width, 80)
   session.insert(bufferId, Height, 0)
   session.insert(bufferId, Editable, true)
-  session.insert(bufferId, Mode, 0)
+  session.insert(bufferId, SelectedMode, 0)
+  session.insert(bufferId, SelectedTab, 0)
   session.insert(bufferId, SelectedChar, "█")
   session.insert(bufferId, SelectedFgColor, "")
   session.insert(bufferId, SelectedBgColor, "")
@@ -554,22 +557,37 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   of DeleteLine:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to delete the current line")
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], buffer: tuple, key: Key) =
-  iw.write(tb, x, y + buffer.mode, "→")
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], bufferId: int, attr: Attr, selected: int, key: Key, horiz: bool): int =
   const space = 2
-  var i = 0
+  var
+    i = 0
+    xx = x
+    yy = y
   for label in labels:
-    let style = tb.getStyle()
-    iw.write(tb, x + space, y + i, label)
+    if i == selected:
+      iw.write(tb, xx, yy, "→")
+    iw.write(tb, xx + space, yy, label)
+    let
+      oldX = xx
+      newX = xx + space + label.len + 1
+      oldY = yy
+      newY = if horiz: yy else: yy + 1
     if key == Key.Mouse:
       let info = getMouse()
       if info.button == mbLeft and info.action == mbaPressed:
-        if info.x >= x + space and
-            info.x <= x + space + label.len and
-            info.y >= y + i and
-            info.y <= y + i + 1:
-          session.insert(buffer.id, Mode, i)
+        if info.x >= oldX and
+            info.x <= newX and
+            info.y == oldY:
+          session.insert(bufferId, attr, i)
+    if horiz:
+      xx = newX
+    else:
+      yy = newY
     i = i + 1
+  if not horiz:
+    let labelWidths = sequtils.map(labels, proc (x: string): int = x.len)
+    xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
+  return xx
 
 proc renderModal(tb: var TerminalBuffer, buffer: tuple, key: Key) =
   let spaces = strutils.repeat(' ', buffer.width)
@@ -641,14 +659,16 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer, key)
+  var x = renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer.id, SelectedMode, currentBuffer.mode, key, false)
 
-  let colorX = renderColors(tb, currentBuffer, key, 16)
+  x = renderColors(tb, currentBuffer, key, x)
 
   if currentBuffer.mode == 1:
-    discard renderBrushes(tb, currentBuffer, key, colorX + 2)
+    x = renderBrushes(tb, currentBuffer, key, x + 2)
 
   renderBuffer(tb, currentBuffer, globals.currentModal == -1, key)
+
+  x = renderRadioButtons(tb, 0, windowHeight - 1, ["Editor", strutils.format("Errors ($1)", 0), "Help"], currentBuffer.id, SelectedTab, currentBuffer.tab, key, true)
 
   if globals.currentModal != -1:
     renderModal(tb, session.query(rules.getBuffer, id = globals.currentModal), key)
