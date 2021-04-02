@@ -1,9 +1,9 @@
-import unicode, sequtils, tables, strutils
+import unicode, tables, strutils
 
 type
-  CommandText = object
-    text: string
-    line: int
+  CommandText* = object
+    text*: string
+    line*: int
   FormKind = enum
     Whitespace, Symbol, Number, Command,
   Form = object
@@ -14,15 +14,15 @@ type
       name: string
     of Command:
       tree: CommandTree
-  CommandTreeKind = enum
+  CommandTreeKind* = enum
     Valid, Error,
-  CommandTree = object
-    case kind: CommandTreeKind
+  CommandTree* = object
+    case kind*: CommandTreeKind
     of Valid:
-      name: string
-      args: seq[Form]
+      name*: string
+      args*: seq[Form]
     of Error:
-      message: string
+      message*: string
 
 const
   slash = "/".runeAt(0)

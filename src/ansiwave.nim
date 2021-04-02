@@ -6,6 +6,7 @@ from os import nil
 from strutils import nil
 from sequtils import nil
 import ansiwavepkg/ansi
+import ansiwavepkg/wavescript
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
@@ -196,10 +197,16 @@ type
     CurrentBufferId, Lines,
     Editable, SelectedMode, SelectedTab,
     SelectedChar, SelectedFgColor, SelectedBgColor,
-    Prompt,
+    Prompt, Commands, Errors, Links,
   PromptKind = enum
     None, DeleteLine,
   RefStrings = ref seq[string]
+  Command = tuple[line: int, tree: CommandTree]
+  RefCommands = ref seq[Command]
+  Link = object
+    icon: Rune
+    callback: proc ()
+  RefLinks = ref Table[int, Link]
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -219,6 +226,9 @@ schema Fact(Id, Attr):
   SelectedFgColor: string
   SelectedBgColor: string
   Prompt: PromptKind
+  Commands: RefCommands
+  Errors: RefCommands
+  Links: RefLinks
 
 let rules =
   ruleset:
@@ -282,6 +292,30 @@ let rules =
             shouldInsert = true
         if shouldInsert:
           session.insert(id, Lines, lines)
+    rule parseCommands(Fact):
+      what:
+        (id, Lines, lines)
+      then:
+        let
+          text = strutils.join(lines[], "\n").stripCodes
+          cmds = text.parse
+        var cmdsRef, errsRef: RefCommands
+        var linksRef: RefLinks
+        new cmdsRef
+        new errsRef
+        new linksRef
+        for cmd in cmds:
+          let tree = cmd.parse
+          case tree.kind:
+          of Valid:
+            cmdsRef[].add((cmd.line, tree))
+            linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = echo "play")
+          of Error:
+            errsRef[].add((cmd.line, tree))
+            linksRef[][cmd.line] = Link(icon: "⚠️".runeAt(0), callback: proc () = echo "error")
+        session.insert(id, Commands, cmdsRef)
+        session.insert(id, Errors, errsRef)
+        session.insert(id, Links, linksRef)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -300,6 +334,9 @@ let rules =
         (id, SelectedFgColor, selectedFgColor)
         (id, SelectedBgColor, selectedBgColor)
         (id, Prompt, prompt)
+        (id, Commands, commands)
+        (id, Errors, errors)
+        (id, Links, links)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -334,7 +371,7 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen."
+const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d"
 
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
@@ -367,6 +404,7 @@ proc init*() =
   session.insert(bufferId, SelectedFgColor, "")
   session.insert(bufferId, SelectedBgColor, "")
   session.insert(bufferId, Prompt, None)
+  session.fireRules
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
@@ -499,6 +537,14 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
       line = @[]
     deleteAfter(line, buffer.width - 1)
     writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
+    if buffer.links[].contains(i):
+      let linkY = buffer.y + 1 + screenLine
+      write(tb, buffer.x, linkY, $buffer.links[i].icon)
+      if key == Key.Mouse:
+        let info = getMouse()
+        if info.button == mbLeft and info.action == mbaPressed:
+          if info.x == buffer.x and info.y == linkY:
+            buffer.links[i].callback()
     screenLine += 1
 
   if key == Key.Mouse:
@@ -649,18 +695,22 @@ proc tick*() =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  var x = renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer.id, SelectedMode, currentBuffer.mode, key, false)
+  case currentBuffer.tab:
+  of 0:
+    var x = renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer.id, SelectedMode, currentBuffer.mode, key, false)
 
-  x = renderColors(tb, currentBuffer, key, x)
+    x = renderColors(tb, currentBuffer, key, x)
 
-  if currentBuffer.mode == 1:
-    x = renderBrushes(tb, currentBuffer, key, x)
+    if currentBuffer.mode == 1:
+      x = renderBrushes(tb, currentBuffer, key, x)
 
-  renderBuffer(tb, currentBuffer, true, key)
+    renderBuffer(tb, currentBuffer, true, key)
+  else:
+    discard
 
-  x = renderRadioButtons(tb, 0, windowHeight - 1, ["Editor", strutils.format("Errors ($1)", 0), "Help"], currentBuffer.id, SelectedTab, currentBuffer.tab, key, true)
+  discard renderRadioButtons(tb, 0, windowHeight - 1, ["Editor", strutils.format("Errors ($1)", currentBuffer.errors[].len), "Help"], currentBuffer.id, SelectedTab, currentBuffer.tab, key, true)
 
-  session.fireRules()
+  session.fireRules
 
   iw.display(tb)
 
