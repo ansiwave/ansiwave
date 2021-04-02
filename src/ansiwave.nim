@@ -322,18 +322,19 @@ let rules =
             cmdsRef[].add((cmd.line, tree))
             linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = echo "play")
           of Error:
-            var sess = session
-            let
-              cmdLine = cmd.line
-              errLine = errsRef[].len
-            sugar.capture cmdLine, errLine:
-              let cb =
-                proc () =
-                  sess.insert(Global, SelectedBuffer, Errors)
-                  sess.insert(Errors, CursorX, 0)
-                  sess.insert(Errors, CursorY, errLine)
-              linksRef[][cmdLine] = Link(icon: "⚠️".runeAt(0), callback: cb)
-            errsRef[].add((cmd.line, tree))
+            if id == Editor.ord:
+              var sess = session
+              let
+                cmdLine = cmd.line
+                errLine = errsRef[].len
+              sugar.capture cmdLine, errLine:
+                let cb =
+                  proc () =
+                    sess.insert(Global, SelectedBuffer, Errors)
+                    sess.insert(Errors, CursorX, 0)
+                    sess.insert(Errors, CursorY, errLine)
+                linksRef[][cmdLine] = Link(icon: "⚠️".runeAt(0), callback: cb)
+              errsRef[].add((cmd.line, tree))
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)
