@@ -2,9 +2,6 @@ import parasound/dr_wav
 import parasound/miniaudio
 import os
 
-when defined(linux):
-  {.passL: "-ldl -lm -lpthread".}
-
 proc play*(data: string | seq[uint8], sleepMsecs: int) =
   ## if `data` is a string, it is interpreted as a filename.
   ## if `data` is a byte sequence, it is interpreted as an in-memory buffer.
