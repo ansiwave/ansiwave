@@ -278,6 +278,8 @@ let rules =
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, Lines, lines, then = false)
+      cond:
+        lines[].len > 0
       then:
         if cursorY < 0:
           session.insert(id, CursorY, 0)
