@@ -5,9 +5,10 @@ import unicode
 from os import nil
 from strutils import nil
 from sequtils import nil
+from sugar import nil
 import ansiwavepkg/ansi
 import ansiwavepkg/wavescript
-from sugar import nil
+import ansiwavepkg/midi
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
@@ -322,7 +323,7 @@ let rules =
           case tree.kind:
           of Valid:
             cmdsRef[].add((cmd.line, tree))
-            linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = echo "play")
+            linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = midi.play())
           of Error:
             if id == Editor.ord:
               var sess = session
