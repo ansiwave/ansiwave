@@ -442,10 +442,12 @@ proc init*() =
   for r in rules.fields:
     session.add(r)
 
-  const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
-  insertBuffer(Editor, 0, 2, true, text)
+  const
+    editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
+    helpText = "ANSIWAVE Help"
+  insertBuffer(Editor, 0, 2, true, editorText)
   insertBuffer(Errors, 0, 0, false, "")
-  insertBuffer(Help, 0, 0, false, "")
+  insertBuffer(Help, 0, 0, false, helpText)
   session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
 
