@@ -242,10 +242,12 @@ let rules =
         (TerminalWindow, Height, windowHeight)
     rule updateBufferSize(Fact):
       what:
-        (TerminalWindow, Height, windowHeight)
+        (TerminalWindow, Width, width)
+        (TerminalWindow, Height, height)
         (id, Y, bufferY, then = false)
       then:
-        session.insert(id, Height, windowHeight - 3 - bufferY)
+        session.insert(id, Width, min(width - 2, 80))
+        session.insert(id, Height, height - 3 - bufferY)
     rule updateTerminalScrollX(Fact):
       what:
         (id, Width, bufferWidth)
@@ -425,7 +427,7 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, Lines, lines)
   session.insert(id, X, x)
   session.insert(id, Y, y)
-  session.insert(id, Width, 80)
+  session.insert(id, Width, 0)
   session.insert(id, Height, 0)
   session.insert(id, Editable, editable)
   session.insert(id, SelectedMode, 0)
