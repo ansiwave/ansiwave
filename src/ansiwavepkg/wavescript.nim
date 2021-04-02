@@ -3,7 +3,7 @@ import unicode, sequtils, tables, strutils
 type
   CommandText = object
     text: string
-    line, columnStart, columnEnd: int
+    line: int
   FormKind = enum
     Whitespace, Symbol, Number, Command,
   Form = object
@@ -32,26 +32,17 @@ proc parse*(text: string): seq[CommandText] =
   var
     i = 0
     line = 0
-    column = 0
     match: seq[Rune]
-    command = false
   proc flush(res: var seq[CommandText]) =
     if match.len > 0:
-      let columnStart = column
-      column += match.len
       if match[0] == slash:
-        res.add(CommandText(text: $match, line: line, columnStart: columnStart, columnEnd: column))
+        res.add(CommandText(text: $match, line: line))
       match = @[]
   for ch in runes(text):
     if ch == newline:
       flush(result)
       line += 1
-      column = 0
-      command = false
     else:
-      if ch == slash and not command:
-        flush(result)
-        command = true
       match.add(ch)
   flush(result)
 

@@ -1,5 +1,9 @@
 Hello, world!
 
 /piano c c# d
-  /piano c c# /octave 4 d
 /octave 3 // this is a comment
+
+these are ignored because the command must start
+at the beginning of the line:
+  /piano c c# /octave 4 d
+this is a comment /octave 3
