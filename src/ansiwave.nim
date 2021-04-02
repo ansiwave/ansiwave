@@ -618,6 +618,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
           let prefix = buffer.makePrefix
           let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
           lines[y] = dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len])
+          session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
     let code = key.ord
     if iwToSpecials.hasKey(code):
