@@ -692,8 +692,8 @@ proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int):
   let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
   let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
   writeAnsi(tb, colorX, 0, colorChars)
-  iw.write(tb, colorX + fgIndex * 3, 1, "F")
-  iw.write(tb, colorX + bgIndex * 3 + 1, 1, "B")
+  iw.write(tb, colorX + fgIndex * 3, 1, "↑")
+  writeAnsi(tb, colorX + bgIndex * 3 + 1, 1, "↑")
   if key == Key.Mouse:
     let info = getMouse()
     if info.y == 0:
