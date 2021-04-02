@@ -190,14 +190,15 @@ proc deleteAfter(line: var seq[Rune], count: int) =
 type
   Id* = enum
     Global, TerminalWindow,
+    Editor, Errors, Help,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
     X, Y, Width, Height,
-    CurrentBufferId, Lines,
-    Editable, SelectedMode, SelectedTab,
+    SelectedBuffer, Lines,
+    Editable, SelectedMode,
     SelectedChar, SelectedFgColor, SelectedBgColor,
-    Prompt, Commands, Errors, Links,
+    Prompt, ValidCommands, InvalidCommands, Links,
   PromptKind = enum
     None, DeleteLine,
   RefStrings = ref seq[string]
@@ -217,28 +218,33 @@ schema Fact(Id, Attr):
   Y: int
   Width: int
   Height: int
-  CurrentBufferId: int
+  SelectedBuffer: Id
   Lines: RefStrings
   Editable: bool
   SelectedMode: int
-  SelectedTab: int
   SelectedChar: string
   SelectedFgColor: string
   SelectedBgColor: string
   Prompt: PromptKind
-  Commands: RefCommands
-  Errors: RefCommands
+  ValidCommands: RefCommands
+  InvalidCommands: RefCommands
   Links: RefLinks
 
 let rules =
   ruleset:
     rule getGlobals(Fact):
       what:
-        (Global, CurrentBufferId, currentBuffer)
+        (Global, SelectedBuffer, selectedBuffer)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
         (TerminalWindow, Height, windowHeight)
+    rule updateBufferSize(Fact):
+      what:
+        (TerminalWindow, Height, windowHeight)
+        (id, Y, bufferY, then = false)
+      then:
+        session.insert(id, Height, windowHeight - 3 - bufferY)
     rule updateTerminalScrollX(Fact):
       what:
         (id, Width, bufferWidth)
@@ -313,8 +319,8 @@ let rules =
           of Error:
             errsRef[].add((cmd.line, tree))
             linksRef[][cmd.line] = Link(icon: "⚠️".runeAt(0), callback: proc () = echo "error")
-        session.insert(id, Commands, cmdsRef)
-        session.insert(id, Errors, errsRef)
+        session.insert(id, ValidCommands, cmdsRef)
+        session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)
     rule getBuffer(Fact):
       what:
@@ -329,13 +335,12 @@ let rules =
         (id, Height, height)
         (id, Editable, editable)
         (id, SelectedMode, mode)
-        (id, SelectedTab, tab)
         (id, SelectedChar, selectedChar)
         (id, SelectedFgColor, selectedFgColor)
         (id, SelectedBgColor, selectedBgColor)
         (id, Prompt, prompt)
-        (id, Commands, commands)
-        (id, Errors, errors)
+        (id, ValidCommands, commands)
+        (id, InvalidCommands, errors)
         (id, Links, links)
 
 var session* = initSession(Fact, autoFire = false)
@@ -362,16 +367,31 @@ const iwToSpecials =
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
-  let globals = session.query(rules.getGlobals)
-  let currentBuffer = session.query(rules.getBuffer, id = globals.currentBuffer)
-  session.insert(currentBuffer.id, Height, height - 5)
 
 proc exitProc() {.noconv.} =
   iw.illwillDeinit()
   iw.showCursor()
   quit(0)
 
-const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d"
+proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
+  session.insert(id, CursorX, 0)
+  session.insert(id, CursorY, 0)
+  session.insert(id, ScrollX, 0)
+  session.insert(id, ScrollY, 0)
+  var lines: RefStrings
+  new lines
+  lines[] = strutils.splitLines(text)
+  session.insert(id, Lines, lines)
+  session.insert(id, X, x)
+  session.insert(id, Y, y)
+  session.insert(id, Width, 80)
+  session.insert(id, Height, 0)
+  session.insert(id, Editable, editable)
+  session.insert(id, SelectedMode, 0)
+  session.insert(id, SelectedChar, "█")
+  session.insert(id, SelectedFgColor, "")
+  session.insert(id, SelectedBgColor, "")
+  session.insert(id, Prompt, None)
 
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
@@ -381,29 +401,11 @@ proc init*() =
   for r in rules.fields:
     session.add(r)
 
-  let bufferId = Id.high.ord + 1
-
-  session.insert(Global, CurrentBufferId, bufferId)
-
-  session.insert(bufferId, CursorX, 0)
-  session.insert(bufferId, CursorY, 0)
-  session.insert(bufferId, ScrollX, 0)
-  session.insert(bufferId, ScrollY, 0)
-  var lines: RefStrings
-  new lines
-  lines[] = strutils.splitLines(text)
-  session.insert(bufferId, Lines, lines)
-  session.insert(bufferId, X, 0)
-  session.insert(bufferId, Y, 2)
-  session.insert(bufferId, Width, 80)
-  session.insert(bufferId, Height, 0)
-  session.insert(bufferId, Editable, true)
-  session.insert(bufferId, SelectedMode, 0)
-  session.insert(bufferId, SelectedTab, 0)
-  session.insert(bufferId, SelectedChar, "█")
-  session.insert(bufferId, SelectedFgColor, "")
-  session.insert(bufferId, SelectedBgColor, "")
-  session.insert(bufferId, Prompt, None)
+  const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d"
+  insertBuffer(Editor, 0, 2, true, text)
+  insertBuffer(Errors, 0, 0, false, "")
+  insertBuffer(Help, 0, 0, false, "")
+  session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
@@ -601,19 +603,18 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   of DeleteLine:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to delete the current line")
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArray[string], bufferId: int, attr: Attr, selected: int, key: Key, horiz: bool): int =
+proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: Key, horiz: bool): int =
   const space = 2
   var
-    i = 0
     xx = x
     yy = y
-  for label in labels:
-    if i == selected:
+  for choice in choices:
+    if choice.id == selected:
       iw.write(tb, xx, yy, "→")
-    iw.write(tb, xx + space, yy, label)
+    iw.write(tb, xx + space, yy, choice.label)
     let
       oldX = xx
-      newX = xx + space + label.len + 1
+      newX = xx + space + choice.label.len + 1
       oldY = yy
       newY = if horiz: yy else: yy + 1
     if key == Key.Mouse:
@@ -622,14 +623,13 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, labels: openArra
         if info.x >= oldX and
             info.x <= newX and
             info.y == oldY:
-          session.insert(bufferId, attr, i)
+          choice.callback()
     if horiz:
       xx = newX
     else:
       yy = newY
-    i = i + 1
   if not horiz:
-    let labelWidths = sequtils.map(labels, proc (x: string): int = x.len)
+    let labelWidths = sequtils.map(choices, proc (x: tuple): int = x.label.len)
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
@@ -688,27 +688,35 @@ proc tick*() =
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
-    currentBuffer = session.query(rules.getBuffer, id = globals.currentBuffer)
+    selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
     width = iw.terminalWidth()
     height = iw.terminalHeight()
   var tb = iw.newTerminalBuffer(width, height)
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
-  case currentBuffer.tab:
-  of 0:
-    var x = renderRadioButtons(tb, 0, 0, ["Write Mode", "Draw Mode"], currentBuffer.id, SelectedMode, currentBuffer.mode, key, false)
+  if globals.selectedBuffer == Editor.ord:
+    let choices = [
+      (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
+      (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
+    ]
+    var x = renderRadioButtons(tb, 0, 0, choices, selectedBuffer.mode, key, false)
 
-    x = renderColors(tb, currentBuffer, key, x)
+    x = renderColors(tb, selectedBuffer, key, x)
 
-    if currentBuffer.mode == 1:
-      x = renderBrushes(tb, currentBuffer, key, x)
+    if selectedBuffer.mode == 1:
+      x = renderBrushes(tb, selectedBuffer, key, x)
 
-    renderBuffer(tb, currentBuffer, true, key)
-  else:
-    discard
+  renderBuffer(tb, selectedBuffer, true, key)
 
-  discard renderRadioButtons(tb, 0, windowHeight - 1, ["Editor", strutils.format("Errors ($1)", currentBuffer.errors[].len), "Help"], currentBuffer.id, SelectedTab, currentBuffer.tab, key, true)
+  let
+    errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
+    choices = [
+      (id: Editor.ord, label: "Editor", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
+      (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
+      (id: Help.ord, label: "Help", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Help)),
+    ]
+  discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
 
   session.fireRules
 
