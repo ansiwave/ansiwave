@@ -11,5 +11,7 @@ import ansiwavepkg/wavescript
 
 test "Parse commands":
   const text = staticRead("hello.ansiwave")
-  let cmds = text.parseCommands
-  check cmds.len == 2
+  let cmds = text.parse
+  check cmds.len == 3
+  for cmd in cmds:
+    echo cmd.parse
