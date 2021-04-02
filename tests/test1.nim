@@ -10,7 +10,7 @@ test "Dedupe codes":
 import ansiwavepkg/wavescript
 
 test "Parse commands":
-  const text = staticRead("hello.ansiwave")
+  const text = strutils.splitLines(staticRead("hello.ansiwave"))
   let cmds = text.parse
   check cmds.len == 2
   for cmd in cmds:

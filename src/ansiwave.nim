@@ -93,6 +93,9 @@ proc stripCodes(line: seq[Rune]): string =
 proc stripCodes(line: string): string =
   stripCodes(line.toRunes)
 
+proc stripCodes(line: ref string): string =
+  stripCodes(line[].toRunes)
+
 proc dedupeCodes*(line: seq[Rune]): string =
   var codes: seq[string]
   proc addCodes(res: var string) =
@@ -240,12 +243,6 @@ proc splitLines(text: string): RefStrings =
     s[] = line
     result[].add(s)
 
-proc joinLines(lines: RefStrings): string =
-  var s: seq[string]
-  for line in lines[]:
-    s.add(line[])
-  strutils.join(s, "\n")
-
 proc add(lines: var RefStrings, line: string) =
   var s: ref string
   new s
@@ -336,16 +333,14 @@ let rules =
       cond:
         id != Errors.ord
       then:
-        let
-          text = joinLines(lines).stripCodes
-          cmds = text.parse
+        let cmds = wavescript.parse(sequtils.map(lines[], stripCodes))
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
         new errsRef
         new linksRef
         for cmd in cmds:
-          let tree = cmd.parse
+          let tree = wavescript.parse(cmd)
           case tree.kind:
           of Valid:
             cmdsRef[].add((cmd.line, tree))

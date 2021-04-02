@@ -24,27 +24,12 @@ type
     of Error:
       message*: string
 
-const
-  slash = "/".runeAt(0)
-  newline = "\n".runeAt(0)
-
-proc parse*(text: string): seq[CommandText] =
-  var
-    i = 0
-    line = 0
-    match: seq[Rune]
-  proc flush(res: var seq[CommandText]) =
-    if match.len > 1:
-      if match[0] == slash and match[1] != slash: # don't add if it is a comment
-        res.add(CommandText(text: $match, line: line))
-      match = @[]
-  for ch in runes(text):
-    if ch == newline:
-      flush(result)
-      line += 1
-    else:
-      match.add(ch)
-  flush(result)
+proc parse*(lines: seq[string]): seq[CommandText] =
+  for i in 0 ..< lines.len:
+    let line = lines[i]
+    if line.len > 1:
+      if line[0] == '/' and line[1] != '/': # don't add if it is a comment
+        result.add(CommandText(text: line, line: i))
 
 const
   symbolChars = {'a'..'z', 'A'..'Z', '_', '#'}
