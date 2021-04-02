@@ -7,6 +7,7 @@ from strutils import nil
 from sequtils import nil
 import ansiwavepkg/ansi
 import ansiwavepkg/wavescript
+from sugar import nil
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
@@ -301,6 +302,8 @@ let rules =
     rule parseCommands(Fact):
       what:
         (id, Lines, lines)
+      cond:
+        id != Errors.ord
       then:
         let
           text = strutils.join(lines[], "\n").stripCodes
@@ -317,11 +320,46 @@ let rules =
             cmdsRef[].add((cmd.line, tree))
             linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = echo "play")
           of Error:
+            var sess = session
+            let
+              cmdLine = cmd.line
+              errLine = errsRef[].len
+            sugar.capture cmdLine, errLine:
+              let cb =
+                proc () =
+                  sess.insert(Global, SelectedBuffer, Errors)
+                  sess.insert(Errors, CursorX, 0)
+                  sess.insert(Errors, CursorY, errLine)
+              linksRef[][cmdLine] = Link(icon: "⚠️".runeAt(0), callback: cb)
             errsRef[].add((cmd.line, tree))
-            linksRef[][cmd.line] = Link(icon: "⚠️".runeAt(0), callback: proc () = echo "error")
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)
+    rule updateErrors(Fact):
+      what:
+        (Editor, InvalidCommands, errors)
+      then:
+        var newLines: RefStrings
+        var linksRef: RefLinks
+        new newLines
+        new linksRef
+        for error in errors[]:
+          var sess = session
+          let line = error.line
+          sugar.capture line:
+            let cb =
+              proc () =
+                sess.insert(Global, SelectedBuffer, Editor)
+                sess.insert(Editor, CursorX, 0)
+                sess.insert(Editor, CursorY, line)
+            linksRef[][newLines[].len] = Link(icon: "⚠️".runeAt(0), callback: cb)
+          newLines[].add(error.tree.message)
+        session.insert(Errors, Lines, newLines)
+        session.insert(Errors, CursorX, 0)
+        session.insert(Errors, CursorY, 0)
+        session.insert(Errors, ValidCommands, nil)
+        session.insert(Errors, InvalidCommands, nil)
+        session.insert(Errors, Links, linksRef)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -401,7 +439,7 @@ proc init*() =
   for r in rules.fields:
     session.add(r)
 
-  const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d"
+  const text = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
   insertBuffer(Editor, 0, 2, true, text)
   insertBuffer(Errors, 0, 0, false, "")
   insertBuffer(Help, 0, 0, false, "")
