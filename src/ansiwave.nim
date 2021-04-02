@@ -203,7 +203,7 @@ type
     Prompt, ValidCommands, InvalidCommands, Links,
   PromptKind = enum
     None, DeleteLine,
-  RefStrings = ref seq[string]
+  RefStrings = ref seq[ref string]
   Command = tuple[line: int, tree: CommandTree]
   RefCommands = ref seq[Command]
   Link = object
@@ -231,6 +231,32 @@ schema Fact(Id, Attr):
   ValidCommands: RefCommands
   InvalidCommands: RefCommands
   Links: RefLinks
+
+proc splitLines(text: string): RefStrings =
+  new result
+  for line in strutils.splitLines(text):
+    var s: ref string
+    new s
+    s[] = line
+    result[].add(s)
+
+proc joinLines(lines: RefStrings): string =
+  var s: seq[string]
+  for line in lines[]:
+    s.add(line[])
+  strutils.join(s, "\n")
+
+proc add(lines: var RefStrings, line: string) =
+  var s: ref string
+  new s
+  s[] = line
+  lines[].add(s)
+
+proc set(lines: var RefStrings, i: int, line: string) =
+  var s: ref string
+  new s
+  s[] = line
+  lines[i] = s
 
 let rules =
   ruleset:
@@ -289,8 +315,8 @@ let rules =
         elif cursorY >= lines[].len:
           session.insert(id, CursorY, lines[].len - 1)
         else:
-          if cursorX > lines[cursorY].stripCodes.runeLen:
-            session.insert(id, CursorX, lines[cursorY].stripCodes.runeLen)
+          if cursorX > lines[cursorY][].stripCodes.runeLen:
+            session.insert(id, CursorX, lines[cursorY][].stripCodes.runeLen)
           elif cursorX < 0:
             session.insert(id, CursorX, 0)
     rule addClearToBeginningOfEveryLine(Fact):
@@ -299,8 +325,8 @@ let rules =
       then:
         var shouldInsert = false
         for i in 0 ..< lines[].len:
-          if lines[i].len == 0 or not strutils.startsWith(lines[i], "\e[0"):
-            lines[i] = dedupeCodes("\e[0m" & lines[i])
+          if lines[i][].len == 0 or not strutils.startsWith(lines[i][], "\e[0"):
+            lines[i][] = dedupeCodes("\e[0m" & lines[i][])
             shouldInsert = true
         if shouldInsert:
           session.insert(id, Lines, lines)
@@ -311,7 +337,7 @@ let rules =
         id != Errors.ord
       then:
         let
-          text = strutils.join(lines[], "\n").stripCodes
+          text = joinLines(lines).stripCodes
           cmds = text.parse
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
@@ -359,7 +385,7 @@ let rules =
                 sess.insert(Editor, CursorX, 0)
                 sess.insert(Editor, CursorY, line)
             linksRef[][newLines[].len] = Link(icon: "⚠️".runeAt(0), callback: cb)
-          newLines[].add(error.tree.message)
+          newLines.add(error.tree.message)
         session.insert(Errors, Lines, newLines)
         session.insert(Errors, CursorX, 0)
         session.insert(Errors, CursorY, 0)
@@ -422,10 +448,7 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
-  var lines: RefStrings
-  new lines
-  lines[] = strutils.splitLines(text)
-  session.insert(id, Lines, lines)
+  session.insert(id, Lines, text.splitLines)
   session.insert(id, X, x)
   session.insert(id, Y, y)
   session.insert(id, Width, 0)
@@ -477,40 +500,40 @@ proc onInput(ch: string, buffer: tuple) =
       session.insert(buffer.id, Prompt, DeleteLine)
     elif buffer.cursorX > 0:
       let
-        line = buffer.lines[buffer.cursorY].toRunes
+        line = buffer.lines[buffer.cursorY][].toRunes
         realX = getRealX(line, buffer.cursorX - 1)
         newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
-      newLines[buffer.cursorY] = newLine
+      newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
       session.insert(buffer.id, CursorX, buffer.cursorX - 1)
   of "<Del>":
     if not buffer.editable:
       return
-    if buffer.cursorX == buffer.lines[buffer.cursorY].stripCodes.runeLen:
+    if buffer.cursorX == buffer.lines[buffer.cursorY][].stripCodes.runeLen:
       session.insert(buffer.id, Prompt, DeleteLine)
-    elif buffer.cursorX < buffer.lines[buffer.cursorY].stripCodes.runeLen:
+    elif buffer.cursorX < buffer.lines[buffer.cursorY][].stripCodes.runeLen:
       let
-        line = buffer.lines[buffer.cursorY].toRunes
+        line = buffer.lines[buffer.cursorY][].toRunes
         realX = getRealX(line, buffer.cursorX)
         newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
-      newLines[buffer.cursorY] = newLine
+      newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
   of "<Enter>":
     if not buffer.editable:
       return
     let
-      line = buffer.lines[buffer.cursorY].toRunes
+      line = buffer.lines[buffer.cursorY][].toRunes
       realX = getRealX(line, buffer.cursorX)
       prefix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
       before = line[0 ..< realX]
       after = line[realX ..< line.len]
-    var newLines: ref seq[string]
+    var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines[].add($before)
-    newLines[].add(prefix & $after)
+    newLines.add($before)
+    newLines.add(prefix & $after)
     newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, CursorX, 0)
@@ -526,7 +549,7 @@ proc onInput(ch: string, buffer: tuple) =
   of "<Home>":
     session.insert(buffer.id, CursorX, 0)
   of "<End>":
-    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY].stripCodes.runeLen)
+    session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
   of "<Esc>":
     case buffer.prompt:
     of None:
@@ -534,7 +557,7 @@ proc onInput(ch: string, buffer: tuple) =
     of DeleteLine:
       var newLines = buffer.lines
       if newLines[].len == 1:
-        newLines[0] = ""
+        newLines.set(0, "")
       else:
         newLines[].delete(buffer.cursorY)
       session.insert(buffer.id, Lines, newLines)
@@ -555,14 +578,14 @@ proc onInput(ch: char, buffer: tuple) =
   if not buffer.editable:
     return
   let
-    line = buffer.lines[buffer.cursorY].toRunes
+    line = buffer.lines[buffer.cursorY][].toRunes
     realX = getRealX(line, buffer.cursorX)
     prefix = buffer.makePrefix
     suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
     chColored = prefix & $ch & suffix
     newLine = dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
   var newLines = buffer.lines
-  newLines[buffer.cursorY] = newLine
+  newLines.set(buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
 
@@ -576,8 +599,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
   for i in scrollY ..< lines.len:
     if screenLine > buffer.height - 1:
       break
-    var line = lines[i].toRunes
-    line = line[0 ..< lines[i].runeLen]
+    var line = lines[i][].toRunes
+    line = line[0 ..< lines[i][].runeLen]
     if scrollX < line.stripCodes.runeLen:
       if scrollX > 0:
         deleteBefore(line, scrollX)
@@ -612,15 +635,15 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
             y = info.y - buffer.y - 1 + buffer.scrollY
           var lines = buffer.lines
           while y > lines[].len - 1:
-            lines[].add("")
-          var line = lines[y].toRunes
+            lines.add("")
+          var line = lines[y][].toRunes
           while x > line.stripCodes.runeLen - 1:
             line.add(" ".runeAt(0))
           let realX = getRealX(line, x)
           line[realX] = buffer.selectedChar.runeAt(0)
           let prefix = buffer.makePrefix
           let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
-          lines[y] = dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len])
+          lines.set(y, dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
           session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
     let code = key.ord
