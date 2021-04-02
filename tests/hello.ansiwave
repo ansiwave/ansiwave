@@ -2,6 +2,7 @@ Hello, world!
 
 /piano c c# d
 /octave 3 // this is a comment
+//this is a comment
 
 these are ignored because the command must start
 at the beginning of the line:

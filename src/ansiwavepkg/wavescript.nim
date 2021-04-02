@@ -34,8 +34,8 @@ proc parse*(text: string): seq[CommandText] =
     line = 0
     match: seq[Rune]
   proc flush(res: var seq[CommandText]) =
-    if match.len > 0:
-      if match[0] == slash:
+    if match.len > 1:
+      if match[0] == slash and match[1] != slash: # don't add if it is a comment
         res.add(CommandText(text: $match, line: line))
       match = @[]
   for ch in runes(text):
