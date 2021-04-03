@@ -274,7 +274,7 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc tick*()
+proc tick*(): TerminalBuffer
 
 let rules =
   ruleset:
@@ -351,6 +351,7 @@ let rules =
     rule parseCommands(Fact):
       what:
         (id, Lines, lines)
+        (id, Width, width)
       cond:
         id != Errors.ord
       then:
@@ -370,12 +371,18 @@ let rules =
               cb =
                 proc () =
                   sess.insert(id, Prompt, StopPlaying)
-                  tick() # to make the prompt display
+                  var tb = tick() # make the prompt display
                   let
                     (msecs, addrs) = midi.play()
                     secs = msecs.float / 1000
                     startTime = times.epochTime()
-                  while times.epochTime() - startTime < secs:
+                  while true:
+                    let currTime = times.epochTime() - startTime
+                    if currTime > secs:
+                      break
+                    iw.fill(tb, 0, 0, width + 1, 1, " ")
+                    iw.fill(tb, 0, 1, int((currTime / secs) * float(width + 1)), 1, "▓")
+                    iw.display(tb)
                     let key = iw.getKey()
                     if key == iw.Key.Escape:
                       break
@@ -476,14 +483,14 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
+proc insertBuffer(id: Id, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, Lines, text.splitLines)
-  session.insert(id, X, x)
-  session.insert(id, Y, y)
+  session.insert(id, X, 0)
+  session.insert(id, Y, 2)
   session.insert(id, Width, 0)
   session.insert(id, Height, 0)
   session.insert(id, Editable, editable)
@@ -504,9 +511,9 @@ proc init*() =
   const
     editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
     helpText = "ANSIWAVE Help"
-  insertBuffer(Editor, 0, 2, true, editorText)
-  insertBuffer(Errors, 0, 0, false, "")
-  insertBuffer(Help, 0, 0, false, helpText)
+  insertBuffer(Editor, true, editorText)
+  insertBuffer(Errors, false, "")
+  insertBuffer(Help, false, helpText)
   session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
 
@@ -788,7 +795,7 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
 
-proc tick*() =
+proc tick*(): TerminalBuffer =
   let key = iw.getKey()
 
   let
@@ -826,9 +833,11 @@ proc tick*() =
 
   iw.display(tb)
 
+  return tb
+
 when isMainModule:
   init()
   while true:
-    tick()
+    discard tick()
     session.fireRules
     os.sleep(sleepMsecs)
