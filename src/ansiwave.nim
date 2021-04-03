@@ -424,6 +424,7 @@ let rules =
                 sess.insert(Global, SelectedBuffer, Editor)
                 sess.insert(Editor, CursorX, 0)
                 sess.insert(Editor, CursorY, line)
+                sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
             linksRef[][newLines[].len] = Link(icon: "!".runeAt(0), callback: cb)
           newLines.add(error.tree.message)
         session.insert(Errors, Lines, newLines)
