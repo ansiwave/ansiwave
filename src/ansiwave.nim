@@ -268,7 +268,7 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc tickAndSleep(sleepMsecs: int): Key
+proc tick*()
 
 let rules =
   ruleset:
@@ -364,14 +364,17 @@ let rules =
               cb =
                 proc () =
                   sess.insert(id, Prompt, StopPlaying)
+                  tick() # to make the prompt display
                   let (msecs, addrs) = midi.play()
                   var total = 0
                   while total < msecs:
-                    let key = tickAndSleep(tickMsecs)
+                    os.sleep(tickMsecs)
                     total += tickMsecs
+                    let key = iw.getKey()
                     if key == iw.Key.Escape:
                       break
                   midi.stop(addrs)
+                  sess.insert(id, Prompt, None)
             linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: cb)
           of wavescript.Error:
             if id == Editor.ord:
@@ -612,7 +615,8 @@ proc onInput(ch: char, buffer: tuple) =
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
 
-proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key) =
+proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+  let focused = buffer.prompt != StopPlaying
   tb.drawRect(buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
   let
     lines = buffer.lines[]
@@ -777,7 +781,7 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
 
-proc tick*(): Key =
+proc tick*() =
   let key = iw.getKey()
 
   let
@@ -802,7 +806,7 @@ proc tick*(): Key =
     if selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x)
 
-  renderBuffer(tb, selectedBuffer, true, key)
+  renderBuffer(tb, selectedBuffer, key)
 
   let
     errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
@@ -817,13 +821,8 @@ proc tick*(): Key =
 
   iw.display(tb)
 
-  return key
-
-proc tickAndSleep(sleepMsecs: int): Key =
-  result = tick()
-  os.sleep(sleepMsecs)
-
 when isMainModule:
   init()
   while true:
-    discard tickAndSleep(tickMsecs)
+    tick()
+    os.sleep(tickMsecs)
