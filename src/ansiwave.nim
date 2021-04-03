@@ -1,4 +1,4 @@
-import illwill as iw
+from illwill as iw import `[]`, `[]=`
 import tables
 import pararules
 import unicode
@@ -10,7 +10,6 @@ from times import nil
 from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import nil
 from ansiwavepkg/midi import nil
-from ansiwavepkg/sound import nil
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
@@ -57,24 +56,24 @@ proc dedupeParams(params: var seq[int]) =
     else:
       i.dec
 
-proc applyCode(tb: var TerminalBuffer, code: string) =
+proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]
   let params = ansi.parseParams(trimmed)
   for param in params:
     if param == 0:
-      tb.setBackgroundColor(bgNone)
-      tb.setForegroundColor(fgNone)
-      tb.setStyle({})
+      iw.setBackgroundColor(tb, iw.bgNone)
+      iw.setForegroundColor(tb, iw.fgNone)
+      iw.setStyle(tb, {})
     elif param >= 1 and param <= 9:
-      var style = tb.getStyle()
-      style.incl(Style(param))
-      tb.setStyle(style)
+      var style = iw.getStyle(tb)
+      style.incl(iw.Style(param))
+      iw.setStyle(tb, style)
     elif param >= 30 and param <= 39:
-      tb.setForegroundColor(ForegroundColor(param))
+      iw.setForegroundColor(tb, iw.ForegroundColor(param))
     elif param >= 40 and param <= 49:
-      tb.setBackgroundColor(BackgroundColor(param))
+      iw.setBackgroundColor(tb, iw.BackgroundColor(param))
 
-proc writeAnsi(tb: var TerminalBuffer, x, y: Natural, s: string) =
+proc writeAnsi(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
   var currX = x
   var codes: seq[string]
   for ch in runes(s):
@@ -82,15 +81,15 @@ proc writeAnsi(tb: var TerminalBuffer, x, y: Natural, s: string) =
       continue
     for code in codes:
       applyCode(tb, code)
-    var c = TerminalChar(ch: ch, fg: tb.getForegroundColor, bg: tb.getBackgroundColor,
-                         style: tb.getStyle)
+    var c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
+                            style: iw.getStyle(tb))
     tb[currX, y] = c
     inc(currX)
     codes = @[]
   for code in codes:
     applyCode(tb, code)
-  tb.setCursorXPos(currX)
-  tb.setCursorYPos(y)
+  iw.setCursorXPos(tb, currX)
+  iw.setCursorYPos(tb, y)
 
 proc stripCodes(line: seq[Rune]): string =
   var codes: seq[string]
@@ -274,7 +273,7 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc tick*(): TerminalBuffer
+proc tick*(): iw.TerminalBuffer
 
 let rules =
   ruleset:
@@ -633,9 +632,9 @@ proc onInput(ch: char, buffer: tuple) =
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
 
-proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, key: Key) =
+proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   let focused = buffer.prompt != StopPlaying
-  tb.drawRect(buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
+  iw.drawRect(tb, buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
   let
     lines = buffer.lines[]
     scrollX = buffer.scrollX
@@ -655,17 +654,17 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, key: Key) =
     writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     if buffer.links[].contains(i):
       let linkY = buffer.y + 1 + screenLine
-      write(tb, buffer.x, linkY, $buffer.links[i].icon)
-      if key == Key.Mouse:
-        let info = getMouse()
-        if info.button == mbLeft and info.action == mbaPressed:
+      iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
+      if key == iw.Key.Mouse:
+        let info = iw.getMouse()
+        if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
           if info.x == buffer.x and info.y == linkY:
             buffer.links[i].callback()
     screenLine += 1
 
-  if key == Key.Mouse:
-    let info = getMouse()
-    if info.button == mbLeft and info.action == mbaPressed:
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
+    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
       if info.x > buffer.x and
           info.x <= buffer.x + buffer.width and
@@ -720,7 +719,7 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, key: Key) =
   of StopPlaying:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to stop playing")
 
-proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: Key, horiz: bool): int =
+proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool): int =
   const space = 2
   var
     xx = x
@@ -734,9 +733,9 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArr
       newX = xx + space + choice.label.runeLen + 1
       oldY = yy
       newY = if horiz: yy else: yy + 1
-    if key == Key.Mouse:
-      let info = getMouse()
-      if info.button == mbLeft and info.action == mbaPressed:
+    if key == iw.Key.Mouse:
+      let info = iw.getMouse()
+      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         if info.x >= oldX and
             info.x <= newX and
             info.y == oldY:
@@ -750,18 +749,18 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArr
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderButton(tb: var TerminalBuffer, text: string, x: int, y: int, key: Key, cb: proc ()): int =
+proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc ()): int =
   writeAnsi(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
-  if key == Key.Mouse:
-    let info = getMouse()
-    if info.button == mbLeft and info.action == mbaPressed:
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
+    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.x >= x and
           info.x <= result and
           info.y == y:
         cb()
 
-proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int): int =
+proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
@@ -778,20 +777,20 @@ proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int):
   writeAnsi(tb, colorX, 0, colorChars)
   iw.write(tb, colorX + fgIndex * 3, 1, "↑")
   writeAnsi(tb, colorX + bgIndex * 3 + 1, 1, "↑")
-  if key == Key.Mouse:
-    let info = getMouse()
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
     if info.y == 0:
-      if info.action == mbaPressed:
-        if info.button == mbLeft:
+      if info.action == iw.MouseButtonAction.mbaPressed:
+        if info.button == iw.MouseButton.mbLeft:
           let index = int((info.x - colorX) / 3)
           if index >= 0 and index < colorFgCodes.len:
             session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
-        elif info.button == mbRight:
+        elif info.button == iw.MouseButton.mbRight:
           let index = int((info.x - colorX) / 3)
           if index >= 0 and index < colorBgCodes.len:
             session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
 
-proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int): int =
+proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
   const brushChars = ["█", "▓", "▒", "░"]
   var brushCharsColored = ""
   for ch in brushChars:
@@ -802,15 +801,15 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int)
   let brushIndex = find(brushChars, buffer.selectedChar)
   writeAnsi(tb, brushX, 0, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, 1, "↑")
-  if key == Key.Mouse:
-    let info = getMouse()
-    if info.button == mbLeft and info.action == mbaPressed:
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
+    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.y == 0:
         let index = int((info.x - brushX) / 2)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
 
-proc tick*(): TerminalBuffer =
+proc tick*(): iw.TerminalBuffer =
   let key = iw.getKey()
 
   let
