@@ -354,7 +354,7 @@ let rules =
           case tree.kind:
           of Valid:
             cmdsRef[].add((cmd.line, tree))
-            linksRef[][cmd.line] = Link(icon: "▶️".runeAt(0), callback: proc () = midi.play())
+            linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: proc () = midi.play())
           of Error:
             if id == Editor.ord:
               var sess = session
@@ -367,7 +367,7 @@ let rules =
                     sess.insert(Global, SelectedBuffer, Errors)
                     sess.insert(Errors, CursorX, 0)
                     sess.insert(Errors, CursorY, errLine)
-                linksRef[][cmdLine] = Link(icon: "⚠️".runeAt(0), callback: cb)
+                linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
               errsRef[].add((cmd.line, tree))
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
@@ -389,7 +389,7 @@ let rules =
                 sess.insert(Global, SelectedBuffer, Editor)
                 sess.insert(Editor, CursorX, 0)
                 sess.insert(Editor, CursorY, line)
-            linksRef[][newLines[].len] = Link(icon: "⚠️".runeAt(0), callback: cb)
+            linksRef[][newLines[].len] = Link(icon: "!".runeAt(0), callback: cb)
           newLines.add(error.tree.message)
         session.insert(Errors, Lines, newLines)
         session.insert(Errors, CursorX, 0)
