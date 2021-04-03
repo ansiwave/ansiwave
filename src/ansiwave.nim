@@ -368,8 +368,9 @@ let rules =
                   tick() # to make the prompt display
                   let
                     (msecs, addrs) = midi.play()
-                    startTime = times.cpuTime()
-                  while times.cpuTime() - startTime < msecs.float / 1000:
+                    secs = msecs.float / 1000
+                    startTime = times.epochTime()
+                  while times.epochTime() - startTime < secs:
                     let key = iw.getKey()
                     if key == iw.Key.Escape:
                       break
