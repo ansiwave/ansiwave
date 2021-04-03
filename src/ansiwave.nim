@@ -380,8 +380,9 @@ let rules =
                     let currTime = times.epochTime() - startTime
                     if currTime > secs:
                       break
-                    iw.fill(tb, 0, 0, width + 1, 1, " ")
-                    iw.fill(tb, 0, 1, int((currTime / secs) * float(width + 1)), 1, "▓")
+                    # draw progress bar
+                    iw.fill(tb, 0, 0, width + 1, if id == Editor.ord: 1 else: 0, " ")
+                    iw.fill(tb, 0, 0, int((currTime / secs) * float(width + 1)), 0, "▓")
                     iw.display(tb)
                     let key = iw.getKey()
                     if key == iw.Key.Escape:
@@ -484,14 +485,14 @@ proc exitProc() {.noconv.} =
   iw.showCursor()
   quit(0)
 
-proc insertBuffer(id: Id, editable: bool, text: string) =
+proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, Lines, text.splitLines)
-  session.insert(id, X, 0)
-  session.insert(id, Y, 2)
+  session.insert(id, X, x)
+  session.insert(id, Y, y)
   session.insert(id, Width, 0)
   session.insert(id, Height, 0)
   session.insert(id, Editable, editable)
@@ -513,10 +514,10 @@ proc init*() =
     editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Editor, true, editorText)
-  insertBuffer(Errors, false, "")
-  insertBuffer(Tutorial, false, tutorialText)
-  insertBuffer(Publish, false, publishText)
+  insertBuffer(Editor, 0, 2, true, editorText)
+  insertBuffer(Errors, 0, 0, false, "")
+  insertBuffer(Tutorial, 0, 0, false, tutorialText)
+  insertBuffer(Publish, 0, 0, false, publishText)
   session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
 
