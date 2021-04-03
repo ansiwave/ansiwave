@@ -389,7 +389,7 @@ let rules =
                     os.sleep(sleepMsecs)
                   midi.stop(addrs)
                   sess.insert(id, Prompt, None)
-            linksRef[][cmd.line] = Link(icon: "►".runeAt(0), callback: cb)
+            linksRef[][cmd.line] = Link(icon: "♫".runeAt(0), callback: cb)
           of wavescript.Error:
             if id == Editor.ord:
               var sess = session
@@ -747,6 +747,17 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArr
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
+proc renderButton(tb: var TerminalBuffer, text: string, x: int, y: int, key: Key, cb: proc ()): int =
+  iw.write(tb, x, y, text)
+  result = x + text.len
+  if key == Key.Mouse:
+    let info = getMouse()
+    if info.button == mbLeft and info.action == mbaPressed:
+      if info.x >= x and
+          info.x <= result and
+          info.y == y:
+        cb()
+
 proc renderColors(tb: var TerminalBuffer, buffer: tuple, key: Key, colorX: int): int =
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
@@ -810,11 +821,19 @@ proc tick*(): TerminalBuffer =
     onWindowResize(width, height)
 
   if globals.selectedBuffer == Editor.ord:
+    let playX = renderButton(tb, "♫ Play", 0, 0, key, proc () = echo "play")
+    let publishX = renderButton(tb, "▲ Publish", 0, 1, key, proc () = echo "publish")
+    var x = max(playX, publishX)
+
+    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = echo "undo")
+    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = echo "redo")
+    x = max(undoX, redoX)
+
     let choices = [
       (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
       (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
     ]
-    var x = renderRadioButtons(tb, 0, 0, choices, selectedBuffer.mode, key, false)
+    x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false)
 
     x = renderColors(tb, selectedBuffer, key, x)
 
@@ -823,14 +842,15 @@ proc tick*(): TerminalBuffer =
 
   renderBuffer(tb, selectedBuffer, key)
 
-  let
-    errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
-    choices = [
-      (id: Editor.ord, label: "Editor", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
-      (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
-      (id: Help.ord, label: "Help", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Help)),
-    ]
-  discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
+  if selectedBuffer.prompt != StopPlaying:
+    let
+      errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
+      choices = [
+        (id: Editor.ord, label: "Editor", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
+        (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
+        (id: Help.ord, label: "Help", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Help)),
+      ]
+    discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
 
   iw.display(tb)
 
