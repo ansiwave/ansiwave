@@ -93,8 +93,18 @@ proc stripCodes(line: seq[Rune]): string =
 proc stripCodes(line: string): string =
   stripCodes(line.toRunes)
 
-proc stripCodes(line: ref string): string =
-  stripCodes(line[].toRunes)
+proc stripCodesIfCommand(line: ref string): string =
+  var
+    codes: seq[string]
+    foundFirstValidChar = false
+  for ch in runes(line[]):
+    if parseCode(codes, ch):
+      continue
+    if not foundFirstValidChar and ch.toUTF8[0] != '/':
+      return ""
+    else:
+      foundFirstValidChar = true
+      result &= $ch
 
 proc dedupeCodes*(line: seq[Rune]): string =
   var codes: seq[string]
@@ -333,7 +343,7 @@ let rules =
       cond:
         id != Errors.ord
       then:
-        let cmds = wavescript.parse(sequtils.map(lines[], stripCodes))
+        let cmds = wavescript.parse(sequtils.map(lines[], stripCodesIfCommand))
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
