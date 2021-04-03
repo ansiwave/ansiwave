@@ -6,6 +6,7 @@ from os import nil
 from strutils import nil
 from sequtils import nil
 from sugar import nil
+from times import nil
 from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import nil
 from ansiwavepkg/midi import nil
@@ -365,14 +366,14 @@ let rules =
                 proc () =
                   sess.insert(id, Prompt, StopPlaying)
                   tick() # to make the prompt display
-                  let (msecs, addrs) = midi.play()
-                  var total = 0
-                  while total < msecs:
-                    os.sleep(tickMsecs)
-                    total += tickMsecs
+                  let
+                    (msecs, addrs) = midi.play()
+                    startTime = times.cpuTime()
+                  while times.cpuTime() - startTime < msecs.float / 1000:
                     let key = iw.getKey()
                     if key == iw.Key.Escape:
                       break
+                    os.sleep(tickMsecs)
                   midi.stop(addrs)
                   sess.insert(id, Prompt, None)
             linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: cb)
