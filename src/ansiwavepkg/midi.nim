@@ -14,7 +14,7 @@ const
        1/8, {-d, -a, e, fx}, a, +d, +cx, +e, +d, b, +cx,
        1/2, {-e, c, a}, 1/2, {c, e}))
 
-proc play*() =
+proc play*(): (int, sound.Addrs) =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
@@ -30,4 +30,8 @@ proc play*() =
   # create the wav file and play it
   const padding = 500f # add a half second so it doesn't cut off abruptly
   let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
-  sound.play(wav, int(res.seconds * 1000f + padding))
+  let addrs = sound.play(wav)
+  (int(res.seconds * 1000f + padding), addrs)
+
+proc stop*(addrs: sound.Addrs) =
+  sound.stop(addrs[0], addrs[1])

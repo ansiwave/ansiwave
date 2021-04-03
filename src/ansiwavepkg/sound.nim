@@ -1,8 +1,10 @@
 import parasound/dr_wav
 import parasound/miniaudio
-import os
 
-proc play*(data: string | seq[uint8], sleepMsecs: int) =
+type
+  Addrs* = (ptr ma_decoder, ptr ma_device)
+
+proc play*(data: string | seq[uint8]): Addrs =
   ## if `data` is a string, it is interpreted as a filename.
   ## if `data` is a byte sequence, it is interpreted as an in-memory buffer.
   var
@@ -31,7 +33,9 @@ proc play*(data: string | seq[uint8], sleepMsecs: int) =
     discard ma_decoder_uninit(decoderAddr)
     quit("Failed to start playback device.")
 
-  sleep(sleepMsecs)
+  (decoderAddr, deviceAddr)
+
+proc stop*(decoderAddr: ptr ma_decoder, deviceAddr: ptr ma_device) =
   discard ma_device_stop(deviceAddr)
   ma_device_uninit(deviceAddr)
   discard ma_decoder_uninit(decoderAddr)

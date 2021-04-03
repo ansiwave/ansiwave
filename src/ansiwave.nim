@@ -6,13 +6,16 @@ from os import nil
 from strutils import nil
 from sequtils import nil
 from sugar import nil
-import ansiwavepkg/ansi
-import ansiwavepkg/wavescript
-import ansiwavepkg/midi
+from ansiwavepkg/ansi import nil
+from ansiwavepkg/wavescript import nil
+from ansiwavepkg/midi import nil
+from ansiwavepkg/sound import nil
 
 #const content = staticRead("../luke_and_yoda.ans")
 #print(ansiToUtf8(content))
 #quit()
+
+const tickMsecs = 5
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -215,9 +218,9 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
   PromptKind = enum
-    None, DeleteLine,
+    None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
-  Command = tuple[line: int, tree: CommandTree]
+  Command = tuple[line: int, tree: wavescript.CommandTree]
   RefCommands = ref seq[Command]
   Link = object
     icon: Rune
@@ -264,6 +267,8 @@ proc set(lines: var RefStrings, i: int, line: string) =
   new s
   s[] = line
   lines[i] = s
+
+proc tickAndSleep(sleepMsecs: int): Key
 
 let rules =
   ruleset:
@@ -352,10 +357,23 @@ let rules =
         for cmd in cmds:
           let tree = wavescript.parse(cmd)
           case tree.kind:
-          of Valid:
+          of wavescript.Valid:
             cmdsRef[].add((cmd.line, tree))
-            linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: proc () = midi.play())
-          of Error:
+            var sess = session
+            let
+              cb =
+                proc () =
+                  sess.insert(id, Prompt, StopPlaying)
+                  let (msecs, addrs) = midi.play()
+                  var total = 0
+                  while total < msecs:
+                    let key = tickAndSleep(tickMsecs)
+                    total += tickMsecs
+                    if key == iw.Key.Escape:
+                      break
+                  midi.stop(addrs)
+            linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: cb)
+          of wavescript.Error:
             if id == Editor.ord:
               var sess = session
               let
@@ -557,7 +575,7 @@ proc onInput(ch: string, buffer: tuple) =
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
   of "<Esc>":
     case buffer.prompt:
-    of None:
+    of None, StopPlaying:
       discard
     of DeleteLine:
       var newLines = buffer.lines
@@ -677,6 +695,8 @@ proc renderBuffer(tb: var TerminalBuffer, buffer: tuple, focused: bool, key: Key
     discard
   of DeleteLine:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to delete the current line")
+  of StopPlaying:
+    iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to stop playing")
 
 proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: Key, horiz: bool): int =
   const space = 2
@@ -757,7 +777,7 @@ proc renderBrushes(tb: var TerminalBuffer, buffer: tuple, key: Key, brushX: int)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
 
-proc tick*() =
+proc tick*(): Key =
   let key = iw.getKey()
 
   let
@@ -797,8 +817,13 @@ proc tick*() =
 
   iw.display(tb)
 
+  return key
+
+proc tickAndSleep(sleepMsecs: int): Key =
+  result = tick()
+  os.sleep(sleepMsecs)
+
 when isMainModule:
   init()
   while true:
-    tick()
-    os.sleep(10)
+    discard tickAndSleep(tickMsecs)
