@@ -16,7 +16,12 @@ from ansiwavepkg/sound import nil
 #print(ansiToUtf8(content))
 #quit()
 
-const tickMsecs = 5
+const sleepMsecs =
+  # sleep for less time on windows because cmd.exe gets laggy
+  when defined(windows):
+    1
+  else:
+    10
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -374,7 +379,7 @@ let rules =
                     let key = iw.getKey()
                     if key == iw.Key.Escape:
                       break
-                    os.sleep(tickMsecs)
+                    os.sleep(sleepMsecs)
                   midi.stop(addrs)
                   sess.insert(id, Prompt, None)
             linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: cb)
@@ -826,4 +831,4 @@ when isMainModule:
   while true:
     tick()
     session.fireRules
-    os.sleep(tickMsecs)
+    os.sleep(sleepMsecs)
