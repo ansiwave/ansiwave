@@ -389,7 +389,7 @@ let rules =
                     os.sleep(sleepMsecs)
                   midi.stop(addrs)
                   sess.insert(id, Prompt, None)
-            linksRef[][cmd.line] = Link(icon: "→".runeAt(0), callback: cb)
+            linksRef[][cmd.line] = Link(icon: "►".runeAt(0), callback: cb)
           of wavescript.Error:
             if id == Editor.ord:
               var sess = session
