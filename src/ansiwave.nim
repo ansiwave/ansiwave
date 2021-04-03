@@ -511,7 +511,7 @@ proc init*() =
 
   const
     editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
-    helpText = "ANSIWAVE Help"
+    helpText = "\e[3m≈ANSIWAVE≈\e[0m Help"
   insertBuffer(Editor, true, editorText)
   insertBuffer(Errors, false, "")
   insertBuffer(Help, false, helpText)
