@@ -214,7 +214,7 @@ proc deleteAfter(line: var seq[Rune], count: int) =
 type
   Id* = enum
     Global, TerminalWindow,
-    Editor, Errors, Help, Publish,
+    Editor, Errors, Tutorial, Publish,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
@@ -511,11 +511,11 @@ proc init*() =
 
   const
     editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
-    helpText = staticRead("ansiwavepkg/assets/help.ansiwave")
+    tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
   insertBuffer(Editor, true, editorText)
   insertBuffer(Errors, false, "")
-  insertBuffer(Help, false, helpText)
+  insertBuffer(Tutorial, false, tutorialText)
   insertBuffer(Publish, false, publishText)
   session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
@@ -854,7 +854,7 @@ proc tick*(): TerminalBuffer =
       choices = [
         (id: Editor.ord, label: "Editor", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
         (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
-        (id: Help.ord, label: "Help", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Help)),
+        (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
       ]
     discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
