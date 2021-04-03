@@ -728,7 +728,7 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArr
     iw.write(tb, xx + space, yy, choice.label)
     let
       oldX = xx
-      newX = xx + space + choice.label.len + 1
+      newX = xx + space + choice.label.runeLen + 1
       oldY = yy
       newY = if horiz: yy else: yy + 1
     if key == Key.Mouse:
@@ -743,13 +743,13 @@ proc renderRadioButtons(tb: var TerminalBuffer, x: int, y: int, choices: openArr
     else:
       yy = newY
   if not horiz:
-    let labelWidths = sequtils.map(choices, proc (x: tuple): int = x.label.len)
+    let labelWidths = sequtils.map(choices, proc (x: tuple): int = x.label.runeLen)
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
 proc renderButton(tb: var TerminalBuffer, text: string, x: int, y: int, key: Key, cb: proc ()): int =
-  iw.write(tb, x, y, text)
-  result = x + text.len
+  writeAnsi(tb, x, y, text)
+  result = x + text.stripCodes.runeLen + 2
   if key == Key.Mouse:
     let info = getMouse()
     if info.button == mbLeft and info.action == mbaPressed:
@@ -821,8 +821,12 @@ proc tick*(): TerminalBuffer =
     onWindowResize(width, height)
 
   if globals.selectedBuffer == Editor.ord:
-    let playX = renderButton(tb, "♫ Play", 0, 0, key, proc () = echo "play")
-    let publishX = renderButton(tb, "▲ Publish", 0, 1, key, proc () = echo "publish")
+    let playX =
+      if selectedBuffer.commands[].len > 0:
+        renderButton(tb, "♫ Play", 1, 0, key, proc () = echo "play")
+      else:
+        renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 0, 0, key, proc () = discard)
+    let publishX = renderButton(tb, "▲ Publish", 1, 1, key, proc () = echo "publish")
     var x = max(playX, publishX)
 
     let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = echo "undo")
