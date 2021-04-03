@@ -15,12 +15,7 @@ from ansiwavepkg/midi import nil
 #print(ansiToUtf8(content))
 #quit()
 
-const sleepMsecs =
-  # sleep for less time on windows because cmd.exe gets laggy
-  when defined(windows):
-    1
-  else:
-    10
+const sleepMsecs = 10
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -370,7 +365,7 @@ let rules =
               cb =
                 proc () =
                   sess.insert(id, Prompt, StopPlaying)
-                  var tb = tick() # make the prompt display
+                  var tb = tick()
                   let
                     (msecs, addrs) = midi.play()
                     secs = msecs.float / 1000
@@ -859,13 +854,16 @@ proc tick*(): iw.TerminalBuffer =
       ]
     discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
 
-  iw.display(tb)
-
   return tb
 
 when isMainModule:
   init()
+  var tickCount = 0
   while true:
-    discard tick()
+    var tb = tick()
+    # don't render every tick because it's wasteful
+    if tickCount mod 10 == 0:
+      iw.display(tb)
     session.fireRules
     os.sleep(sleepMsecs)
+    tickCount.inc
