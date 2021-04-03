@@ -819,12 +819,11 @@ proc tick*() =
     ]
   discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
 
-  session.fireRules
-
   iw.display(tb)
 
 when isMainModule:
   init()
   while true:
     tick()
+    session.fireRules
     os.sleep(tickMsecs)
