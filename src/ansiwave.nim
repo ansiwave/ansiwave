@@ -509,9 +509,9 @@ proc init*() =
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
   insertBuffer(Editor, 0, 2, true, editorText)
-  insertBuffer(Errors, 0, 0, false, "")
-  insertBuffer(Tutorial, 0, 0, false, tutorialText)
-  insertBuffer(Publish, 0, 0, false, publishText)
+  insertBuffer(Errors, 0, 1, false, "")
+  insertBuffer(Tutorial, 0, 1, false, tutorialText)
+  insertBuffer(Publish, 0, 1, false, publishText)
   session.insert(Global, SelectedBuffer, Editor)
   session.fireRules
 
@@ -817,8 +817,8 @@ proc tick*(): iw.TerminalBuffer =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
+  let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
   if globals.selectedBuffer == Editor.ord:
-    let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
     let playX =
       if selectedBuffer.commands[].len > 0:
         renderButton(tb, "♫ Play", 1, 1, key, proc () = echo "play")
