@@ -56,7 +56,6 @@ proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
     result["/" & $length] = (argc: 0, kind: Length)
   result["/length"] = (argc: 1, kind: Attribute)
   result["/octave"] = (argc: 1, kind: Attribute)
-  result["/mode"] = (argc: 1, kind: Attribute)
   result["/tempo"] = (argc: 1, kind: Attribute)
 
 const
