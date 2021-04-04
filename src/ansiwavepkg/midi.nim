@@ -32,6 +32,8 @@ proc play*(score: JsonNode): Result =
       compile(score)
     except Exception as e:
       return Result(kind: Error, message: e.msg)
+  if compiledScore.len == 0:
+    return Result(kind: Error, message: "Nothing to play")
   var res = render[cshort](compiledScore, sf, sampleRate)
   # create the wav file and play it
   const padding = 500f # add a half second so it doesn't cut off abruptly
