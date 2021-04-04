@@ -58,8 +58,10 @@ proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
   result["/tempo"] = (argc: 1, kind: Attribute)
 
 const
-  symbolChars = {'a'..'z', 'A'..'Z', '_', '#'}
+  symbolChars = {'a'..'z', '#', '-', '+', '&'}
   numberChars = {'0'..'9'}
+  invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '*', '(', ')', '{', '}',
+                  '[', ']', '_', '=', ':', ';', '<', '>', '.', ',', '"', '\'', '|', '\\', '?'}
   commands = makeCommands()
 
 proc parse*(command: CommandText): CommandTree =
@@ -74,29 +76,33 @@ proc parse*(command: CommandText): CommandTree =
     let c = ch.toUTF8[0]
     case form.kind:
     of Whitespace:
-      if symbolChars.contains(c) or c == '/':
+      if symbolChars.contains(c) or invalidChars.contains(c) or c == '/':
         form = Form(kind: Symbol, name: $c)
       elif numberChars.contains(c):
         form = Form(kind: Number, name: $c)
-    of Symbol:
+    of Symbol, Number:
       if c == '/':
         if form.name == "/": # this is a comment, so ignore everything else
           form = Form(kind: Whitespace)
           break
         else:
           return CommandTree(kind: Error, message: "Misplaced / character")
-      elif symbolChars.contains(c) or numberChars.contains(c):
-        form.name &= $c
-      else:
-        flush()
-    of Number:
-      if numberChars.contains(c):
+      elif symbolChars.contains(c) or invalidChars.contains(c) or numberChars.contains(c):
         form.name &= $c
       else:
         flush()
     of Command:
       discard
   flush()
+  for form in forms:
+    if form.kind == Symbol or form.kind == Number:
+      let invalidIdx = strutils.find(form.name, invalidChars)
+      if invalidIdx >= 0:
+        return CommandTree(kind: Error, message: "$1 has an invalid character: $2".format(form.name, form.name[invalidIdx]))
+      if form.kind == Number:
+        let symbolIdx = strutils.find(form.name, symbolChars)
+        if symbolIdx >= 0:
+          return CommandTree(kind: Error, message: "$1 may not contain $2 because it is a number".format(form.name, form.name[symbolIdx]))
   proc getNextCommand(head: Form, forms: var seq[Form]): CommandTree =
     result = CommandTree(kind: Valid, name: head.name)
     if commands.contains(head.name):
