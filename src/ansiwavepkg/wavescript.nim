@@ -1,4 +1,5 @@
-import unicode, tables, strutils
+import unicode, tables, strutils, paramidi/constants
+import json
 
 type
   CommandText* = object
@@ -31,13 +32,35 @@ proc parse*(lines: seq[string]): seq[CommandText] =
       if line[0] == '/' and line[1] != '/': # don't add if it is a comment
         result.add(CommandText(text: line, line: i))
 
+proc formToJson(form: Form): JsonNode
+
+proc instrumentToJson(name: string, args: seq[Form]): JsonNode =
+  result = JsonNode(kind: JArray)
+  result.elems.add(JsonNode(kind: JString, str: name[1 ..< name.len]))
+  for arg in args:
+    result.elems.add(formToJson(arg))
+
+proc attributeToJson(name: string, args: seq[Form]): JsonNode =
+  result = JsonNode(kind: JObject)
+  assert args.len == 1
+  result.fields[name[1 ..< name.len]] = args[0].formToJson
+
+type
+  CommandKind = enum
+    Instrument, Attribute,
+
+proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
+  for inst in constants.instruments[1 ..< constants.instruments.len]:
+    result["/" & inst] = (argc: -1, kind: Instrument)
+  result["/length"] = (argc: 1, kind: Attribute)
+  result["/octave"] = (argc: 1, kind: Attribute)
+  result["/mode"] = (argc: 1, kind: Attribute)
+  result["/tempo"] = (argc: 1, kind: Attribute)
+
 const
   symbolChars = {'a'..'z', 'A'..'Z', '_', '#'}
   numberChars = {'0'..'9'}
-  commands = {
-    "/piano": (argc: -1),
-    "/octave": (argc: 1),
-  }.toTable
+  commands = makeCommands()
 
 proc parse*(command: CommandText): CommandTree =
   var
@@ -77,7 +100,7 @@ proc parse*(command: CommandText): CommandTree =
   proc getNextCommand(head: Form, forms: var seq[Form]): CommandTree =
     result = CommandTree(kind: Valid, name: head.name)
     if commands.contains(head.name):
-      let (argc) = commands[head.name]
+      let (argc, kind) = commands[head.name]
       var argcFound = 0
       while forms.len > 0:
         if argc >= 0 and argcFound == argc:
@@ -105,3 +128,23 @@ proc parse*(command: CommandText): CommandTree =
     for form in forms:
       extraInput &= form.name & " "
     result = CommandTree(kind: Error, message: "Extra input: $1".format(extraInput))
+
+proc formToJson(form: Form): JsonNode =
+  case form.kind:
+  of Whitespace:
+    raise newException(Exception, "Whitespace cannot be converted to JSON")
+  of Symbol:
+    result = JsonNode(kind: JString, str: form.name)
+  of Number:
+    result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
+  of Command:
+    let cmd = commands[form.tree.name]
+    case cmd.kind:
+    of Instrument:
+      result = instrumentToJson(form.tree.name, form.tree.args)
+    of Attribute:
+      result = attributeToJson(form.tree.name, form.tree.args)
+
+proc toJson*(tree: CommandTree): JsonNode =
+  formToJson(Form(kind: Command, tree: tree))
+

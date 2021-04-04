@@ -8,7 +8,7 @@ from sequtils import nil
 from sugar import nil
 from times import nil
 from ansiwavepkg/ansi import nil
-from ansiwavepkg/wavescript import nil
+from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 
 #const content = staticRead("../luke_and_yoda.ans")
@@ -355,49 +355,73 @@ let rules =
         new cmdsRef
         new errsRef
         new linksRef
+        var sess = session
+        proc setErrorLink(cmdLine: int, errLine: int) =
+          let cb =
+            proc () =
+              sess.insert(Global, SelectedBuffer, Errors)
+              sess.insert(Errors, CursorX, 0)
+              sess.insert(Errors, CursorY, errLine)
+          linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
         for cmd in cmds:
           let tree = wavescript.parse(cmd)
           case tree.kind:
           of wavescript.Valid:
             cmdsRef[].add((cmd.line, tree))
-            var sess = session
-            let
-              cb =
-                proc () =
-                  sess.insert(id, Prompt, StopPlaying)
-                  var tb = tick()
-                  let
-                    (msecs, addrs) = midi.play()
-                    secs = msecs.float / 1000
-                    startTime = times.epochTime()
-                  while true:
-                    let currTime = times.epochTime() - startTime
-                    if currTime > secs:
-                      break
-                    # draw progress bar
-                    iw.fill(tb, 0, 0, width + 1, if id == Editor.ord: 1 else: 0, " ")
-                    iw.fill(tb, 0, 0, int((currTime / secs) * float(width + 1)), 0, "▓")
-                    iw.display(tb)
-                    let key = iw.getKey()
-                    if key == iw.Key.Escape:
-                      break
-                    os.sleep(sleepMsecs)
-                  midi.stop(addrs)
-                  sess.insert(id, Prompt, None)
-            linksRef[][cmd.line] = Link(icon: "♫".runeAt(0), callback: cb)
+            let cmdLine = cmd.line
+            sugar.capture cmdLine, tree:
+              let
+                cb =
+                  proc () =
+                    sess.insert(id, Prompt, StopPlaying)
+                    let res = midi.play(wavescript.toJson(tree))
+                    case res.kind:
+                    of midi.Valid:
+                      var tb = tick()
+                      let
+                        secs = res.msecs.float / 1000
+                        startTime = times.epochTime()
+                      while true:
+                        let currTime = times.epochTime() - startTime
+                        if currTime > secs:
+                          break
+                        # draw progress bar
+                        iw.fill(tb, 0, 0, width + 1, if id == Editor.ord: 1 else: 0, " ")
+                        iw.fill(tb, 0, 0, int((currTime / secs) * float(width + 1)), 0, "▓")
+                        iw.display(tb)
+                        let key = iw.getKey()
+                        if key == iw.Key.Escape:
+                          break
+                        os.sleep(sleepMsecs)
+                      midi.stop(res.addrs)
+                    of midi.Error:
+                      var cmdIndex = -1
+                      for i in 0 ..< cmdsRef[].len:
+                        if cmdsRef[0].line == cmdLine:
+                          cmdIndex = i
+                          break
+                      if cmdIndex >= 0:
+                        cmdsRef[].delete(cmdIndex)
+                        sess.insert(id, ValidCommands, cmdsRef)
+                      var errIndex = -1
+                      for i in 0 ..< errsRef[].len:
+                        if errsRef[0].line == cmdLine:
+                          errIndex = i
+                          break
+                      if errIndex >= 0:
+                        errsRef[].delete(errIndex)
+                      sess.insert(id, InvalidCommands, errsRef)
+                      setErrorLink(cmdLine, errsRef[].len)
+                      errsRef[].add((cmdLine, wavescript.CommandTree(kind: wavescript.Error, message: res.message)))
+                    sess.insert(id, Prompt, None)
+              linksRef[][cmdLine] = Link(icon: "♫".runeAt(0), callback: cb)
           of wavescript.Error:
             if id == Editor.ord:
-              var sess = session
               let
                 cmdLine = cmd.line
                 errLine = errsRef[].len
               sugar.capture cmdLine, errLine:
-                let cb =
-                  proc () =
-                    sess.insert(Global, SelectedBuffer, Errors)
-                    sess.insert(Errors, CursorX, 0)
-                    sess.insert(Errors, CursorY, errLine)
-                linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
+                setErrorLink(cmdLine, errLine)
               errsRef[].add((cmd.line, tree))
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)

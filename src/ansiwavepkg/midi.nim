@@ -2,19 +2,20 @@ from sound import nil
 import paramidi
 import paramidi/tsf
 import paramidi_soundfonts
+import json
 
-const
-  score =
-    (piano,
-      (tempo: 74),
-      (1/8, {-d, -a, e, fx}, a,
-       1/2, {fx, +d},
-       1/8, {-e, e, +c}, a,
-       1/2, {c, e},
-       1/8, {-d, -a, e, fx}, a, +d, +cx, +e, +d, b, +cx,
-       1/2, {-e, c, a}, 1/2, {c, e}))
+type
+  ResultKind* = enum
+    Valid, Error,
+  Result* = object
+    case kind*: ResultKind
+    of Valid:
+      msecs*: int
+      addrs*: sound.Addrs
+    of Error:
+      message*: string
 
-proc play*(): (int, sound.Addrs) =
+proc play*(score: JsonNode): Result =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
@@ -26,12 +27,17 @@ proc play*(): (int, sound.Addrs) =
   # render the score
   const sampleRate = 44100
   tsf_set_output(sf, TSF_MONO, sampleRate, 0)
-  var res = render[cshort](compile(score), sf, sampleRate)
+  let compiledScore =
+    try:
+      compile(score)
+    except Exception as e:
+      return Result(kind: Error, message: e.msg)
+  var res = render[cshort](compiledScore, sf, sampleRate)
   # create the wav file and play it
   const padding = 500f # add a half second so it doesn't cut off abruptly
   let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
   let addrs = sound.play(wav)
-  (int(res.seconds * 1000f + padding), addrs)
+  Result(kind: Valid, msecs: int(res.seconds * 1000f + padding), addrs: addrs)
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
