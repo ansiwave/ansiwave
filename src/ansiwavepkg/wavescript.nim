@@ -146,5 +146,8 @@ proc formToJson(form: Form): JsonNode =
       result = attributeToJson(form.tree.name, form.tree.args)
 
 proc toJson*(tree: CommandTree): JsonNode =
-  formToJson(Form(kind: Command, tree: tree))
+  result = formToJson(Form(kind: Command, tree: tree))
+  # add a quarter note rest to prevent it from ending abruptly
+  result.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
+  result.elems.add(JsonNode(kind: JString, str: "r"))
 

@@ -36,10 +36,9 @@ proc play*(score: JsonNode): Result =
     return Result(kind: Error, message: "Nothing to play")
   var res = render[cshort](compiledScore, sf, sampleRate)
   # create the wav file and play it
-  const padding = 500f # add a half second so it doesn't cut off abruptly
   let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
   let addrs = sound.play(wav)
-  Result(kind: Valid, msecs: int(res.seconds * 1000f + padding), addrs: addrs)
+  Result(kind: Valid, msecs: int(res.seconds * 1000f), addrs: addrs)
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
