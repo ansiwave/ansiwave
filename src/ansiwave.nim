@@ -862,7 +862,7 @@ when isMainModule:
   while true:
     var tb = tick()
     # don't render every tick because it's wasteful
-    if tickCount mod 10 == 0:
+    if tickCount mod 5 == 0:
       iw.display(tb)
     session.fireRules
     os.sleep(sleepMsecs)
