@@ -13,5 +13,10 @@ test "Parse commands":
   const text = strutils.splitLines(staticRead("hello.ansiwave"))
   let cmds = text.parse
   check cmds.len == 2
+
+test "Parse operators":
+  const text = @["/rock-organ c#+3 /octave 3 /2 1/2 c&d"]
+  let cmds = text.parse
+  check cmds.len == 1
   for cmd in cmds:
     echo cmd.parse

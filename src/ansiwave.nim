@@ -374,7 +374,11 @@ let rules =
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
-                    let res = midi.play(wavescript.toJson(tree))
+                    let res =
+                      try:
+                        midi.play(wavescript.toJson(tree))
+                      except Exception as e:
+                        midi.Result(kind: midi.Error, message: e.msg)
                     case res.kind:
                     of midi.Valid:
                       var tb = tick()
