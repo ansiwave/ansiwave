@@ -47,11 +47,13 @@ proc attributeToJson(name: string, args: seq[Form]): JsonNode =
 
 type
   CommandKind = enum
-    Instrument, Attribute,
+    Instrument, Attribute, Length,
 
 proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
   for inst in constants.instruments[1 ..< constants.instruments.len]:
     result["/" & inst] = (argc: -1, kind: Instrument)
+  for length in [2, 4, 8]:
+    result["/" & $length] = (argc: 0, kind: Length)
   result["/length"] = (argc: 1, kind: Attribute)
   result["/octave"] = (argc: 1, kind: Attribute)
   result["/mode"] = (argc: 1, kind: Attribute)
@@ -150,6 +152,8 @@ proc formToJson(form: Form): JsonNode =
       result = instrumentToJson(form.tree.name, form.tree.args)
     of Attribute:
       result = attributeToJson(form.tree.name, form.tree.args)
+    of Length:
+      result = JsonNode(kind: JFloat, fnum: 1 / strutils.parseInt(form.tree.name[1 ..< form.tree.name.len]))
 
 proc toJson*(tree: CommandTree): JsonNode =
   result = formToJson(Form(kind: Command, tree: tree))
