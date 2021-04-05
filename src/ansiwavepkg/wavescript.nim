@@ -60,7 +60,7 @@ type
     Instrument, Attribute, Length, LengthWithNumerator, Concurrent,
 
 proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
-  for inst in constants.instruments[1 ..< constants.instruments.len]:
+  for inst in constants.instruments:
     result["/" & inst] = (argc: -1, kind: Instrument)
   for length in [2, 4, 8]:
     result["/" & $length] = (argc: 0, kind: Length)
