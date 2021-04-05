@@ -50,7 +50,7 @@ type
   CommandKind = enum
     Instrument, Attribute, Length, LengthWithNumerator, Concurrent,
 
-proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
+proc initCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
   for inst in constants.instruments:
     result["/" & inst] = (argc: -1, kind: Instrument)
   for length in [2, 4, 8]:
@@ -77,7 +77,7 @@ const
   invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '&', '*', '(', ')', '{', '}',
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars = {' '}
-  commands = makeCommands()
+  commands = initCommands()
 
 proc parse*(command: CommandText): CommandTree =
   var
