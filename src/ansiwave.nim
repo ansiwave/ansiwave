@@ -479,25 +479,6 @@ let rules =
 
 var session* = initSession(Fact, autoFire = false)
 
-const iwToSpecials =
-  {iw.Key.Backspace.ord: "<BS>",
-   iw.Key.Delete.ord: "<Del>",
-   iw.Key.Tab.ord: "<Tab>",
-   iw.Key.Enter.ord: "<Enter>",
-   iw.Key.Escape.ord: "<Esc>",
-   iw.Key.Up.ord: "<Up>",
-   iw.Key.Down.ord: "<Down>",
-   iw.Key.Left.ord: "<Left>",
-   iw.Key.Right.ord: "<Right>",
-   iw.Key.Home.ord: "<Home>",
-   iw.Key.End.ord: "<End>",
-   iw.Key.PageUp.ord: "<PageUp>",
-   iw.Key.PageDown.ord: "<PageDown>",
-   iw.Key.CtrlD.ord: "<C-D>",
-   iw.Key.CtrlR.ord: "<C-R>",
-   iw.Key.CtrlU.ord: "<C-U>",
-   iw.Key.CtrlV.ord: "<C-V>",}.toTable
-
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
@@ -557,11 +538,11 @@ proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
 
-proc onInput(ch: string, buffer: tuple) =
-  case ch:
-  of "<BS>":
+proc onInput(key: iw.Key, buffer: tuple): bool =
+  case key:
+  of iw.Key.Backspace:
     if not buffer.editable:
-      return
+      return false
     if buffer.cursorX == 0:
       session.insert(buffer.id, Prompt, DeleteLine)
     elif buffer.cursorX > 0:
@@ -573,9 +554,9 @@ proc onInput(ch: string, buffer: tuple) =
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
       session.insert(buffer.id, CursorX, buffer.cursorX - 1)
-  of "<Del>":
+  of iw.Key.Delete:
     if not buffer.editable:
-      return
+      return false
     if buffer.cursorX == buffer.lines[buffer.cursorY][].stripCodes.runeLen:
       session.insert(buffer.id, Prompt, DeleteLine)
     elif buffer.cursorX < buffer.lines[buffer.cursorY][].stripCodes.runeLen:
@@ -586,9 +567,9 @@ proc onInput(ch: string, buffer: tuple) =
       var newLines = buffer.lines
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
-  of "<Enter>":
+  of iw.Key.Enter:
     if not buffer.editable:
-      return
+      return false
     let
       line = buffer.lines[buffer.cursorY][].toRunes
       realX = getRealX(line, buffer.cursorX)
@@ -604,19 +585,19 @@ proc onInput(ch: string, buffer: tuple) =
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, CursorX, 0)
     session.insert(buffer.id, CursorY, buffer.cursorY + 1)
-  of "<Up>":
+  of iw.Key.Up:
     session.insert(buffer.id, CursorY, buffer.cursorY - 1)
-  of "<Down>":
+  of iw.Key.Down:
     session.insert(buffer.id, CursorY, buffer.cursorY + 1)
-  of "<Left>":
+  of iw.Key.Left:
     session.insert(buffer.id, CursorX, buffer.cursorX - 1)
-  of "<Right>":
+  of iw.Key.Right:
     session.insert(buffer.id, CursorX, buffer.cursorX + 1)
-  of "<Home>":
+  of iw.Key.Home:
     session.insert(buffer.id, CursorX, 0)
-  of "<End>":
+  of iw.Key.End:
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
-  of "<Esc>":
+  of iw.Key.Escape:
     case buffer.prompt:
     of None, StopPlaying:
       discard
@@ -629,6 +610,9 @@ proc onInput(ch: string, buffer: tuple) =
       session.insert(buffer.id, Lines, newLines)
       if buffer.cursorY > newLines[].len - 1:
         session.insert(buffer.id, CursorY, newLines[].len - 1)
+  else:
+    return false
+  true
 
 proc makePrefix(buffer: tuple): string =
   if buffer.selectedFgColor == "" and buffer.selectedBgColor != "":
@@ -640,9 +624,16 @@ proc makePrefix(buffer: tuple): string =
   elif buffer.selectedFgColor != "" and buffer.selectedBgColor != "":
     result = buffer.selectedFgColor & buffer.selectedBgColor
 
-proc onInput(ch: char, buffer: tuple) =
+proc onInput(code: int, buffer: tuple): bool =
+  if code < 32:
+    return false
+  let ch =
+    try:
+      char(code)
+    except:
+      return false
   if not buffer.editable:
-    return
+    return false
   let
     line = buffer.lines[buffer.cursorY][].toRunes
     realX = getRealX(line, buffer.cursorX)
@@ -654,6 +645,7 @@ proc onInput(ch: char, buffer: tuple) =
   newLines.set(buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
+  true
 
 proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   let focused = buffer.prompt != StopPlaying
@@ -713,13 +705,9 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
           lines.set(y, dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
           session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
-    let code = key.ord
-    if iwToSpecials.hasKey(code):
+    if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
-      onInput(iwToSpecials[code], buffer)
-    elif code >= 32:
-      session.insert(buffer.id, Prompt, None)
-      onInput(char(code), buffer)
+    discard onInput(key, buffer) or onInput(key.ord, buffer)
 
   if focused and buffer.mode == 0:
     let
