@@ -26,15 +26,6 @@ type
     of Error:
       message*: string
 
-proc `$`(form: Form): string =
-  case form.kind:
-  of Whitespace:
-    ""
-  of Symbol, Operator, Number:
-    form.name
-  of Command:
-    form.tree.name
-
 proc parse*(lines: seq[string]): seq[CommandText] =
   for i in 0 ..< lines.len:
     let line = lines[i]
@@ -69,6 +60,15 @@ proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
   result["/tempo"] = (argc: 1, kind: Attribute)
   result["/"] = (argc: 2, kind: LengthWithNumerator)
   result[","] = (argc: 2, kind: Concurrent)
+
+proc toStr(form: Form): string =
+  case form.kind:
+  of Whitespace:
+    ""
+  of Symbol, Operator, Number:
+    form.name
+  of Command:
+    form.tree.name
 
 const
   symbolChars = {'a'..'z', '#'}
@@ -200,7 +200,7 @@ proc parse*(command: CommandText): CommandTree =
           result.args.add(form)
         argcFound.inc
       if argcFound < argc:
-        return CommandTree(kind: Error, message: "$1 expects $2 arguments, but only $3 given".format($head, argc, argcFound))
+        return CommandTree(kind: Error, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
     else:
       return CommandTree(kind: Error, message: "Command not found: $1".format(head.name))
   let head = forms[0]
@@ -209,7 +209,7 @@ proc parse*(command: CommandText): CommandTree =
   if result.kind == Valid and forms.len > 0:
     var extraInput = ""
     for form in forms:
-      extraInput &= $form & " "
+      extraInput &= form.toStr & " "
     result = CommandTree(kind: Error, message: "Extra input: $1".format(extraInput))
 
 proc formToJson(form: Form): JsonNode =
