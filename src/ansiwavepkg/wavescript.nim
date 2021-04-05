@@ -139,17 +139,24 @@ proc parse*(command: CommandText): CommandTree =
   while i < forms.len:
     # / with whitespace on the left but not on the right should form a single symbol
     if forms[i].kind == Operator and
+        forms[i].name == "/" and
         (i == 0 or forms[i-1].kind == Whitespace) and
-        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}) and
-        forms[i].name == "/":
+        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}):
       newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
       i += 2
     # + and - with whitespace on the left and number on the right should form a single number
     elif forms[i].kind == Operator and
+        (forms[i].name == "+" or forms[i].name == "-") and
         (i == 0 or forms[i-1].kind == Whitespace) and
-        (i != forms.len - 1 and forms[i+1].kind == Number) and
-        (forms[i].name == "+" or forms[i].name == "-"):
+        (i != forms.len - 1 and forms[i+1].kind == Number):
       newForms.add(Form(kind: Number, name: forms[i].name & forms[i+1].name))
+      i += 2
+    # + and - with whitespace on the left and symbol on the right should form a command
+    elif forms[i].kind == Operator and
+        (forms[i].name == "+" or forms[i].name == "-") and
+        (i == 0 or forms[i-1].kind == Whitespace) and
+        (i != forms.len - 1 and forms[i+1].kind == Symbol):
+      newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, name: forms[i].name, args: @[forms[i+1]])))
       i += 2
     # + and - with a symbol on the left and a symbol/number on the right should form a single symbol
     elif forms[i].kind == Operator and
