@@ -132,20 +132,21 @@ proc parse*(command: CommandText): CommandTree =
         let symbolIdx = strutils.find(form.name, symbolChars)
         if symbolIdx >= 0:
           return CommandTree(kind: Error, message: "$1 may not contain $2 because it is a number".format(form.name, form.name[symbolIdx]))
-  # merge operators with symbols
+  # merge operators with adjacent tokens in some cases
   var
     newForms: seq[Form]
     i = 0
   while i < forms.len:
-    # if there is whitespace on the left and not on the right
+    # / with whitespace on the left but not on the right should form a single symbol
     if forms[i].kind == Operator and
         (i == 0 or forms[i-1].kind == Whitespace) and
         (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}):
-      if forms[i].name != "/":
-        return CommandTree(kind: Error, message: "Either remove the space before $1 or add a space after".format(forms[i].name))
-      else:
+      if forms[i].name == "/":
         newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
         i += 2
+      else:
+        newForms.add(forms[i])
+        i.inc
     # + and - with a symbol on the left and a symbol/number on the right should form a single symbol
     elif forms[i].kind == Operator and
         (forms[i].name == "+" or forms[i].name == "-") and
@@ -154,10 +155,6 @@ proc parse*(command: CommandText): CommandTree =
       let lastItem = newForms.pop()
       newForms.add(Form(kind: Symbol, name: lastItem.name & forms[i].name & forms[i+1].name))
       i += 2
-    elif forms[i].kind == Operator and
-        (i == 0 or forms[i-1].kind in {Symbol, Number}) and
-        (i != forms.len - 1 and forms[i+1].kind == Whitespace):
-      return CommandTree(kind: Error, message: "Either remove the space after $1 or add a space before".format(forms[i].name))
     else:
       if forms[i].kind != Whitespace:
         newForms.add(forms[i])
