@@ -140,13 +140,17 @@ proc parse*(command: CommandText): CommandTree =
     # / with whitespace on the left but not on the right should form a single symbol
     if forms[i].kind == Operator and
         (i == 0 or forms[i-1].kind == Whitespace) and
-        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}):
-      if forms[i].name == "/":
-        newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
-        i += 2
-      else:
-        newForms.add(forms[i])
-        i.inc
+        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}) and
+        forms[i].name == "/":
+      newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
+      i += 2
+    # + and - with whitespace on the left and number on the right should form a single number
+    elif forms[i].kind == Operator and
+        (i == 0 or forms[i-1].kind == Whitespace) and
+        (i != forms.len - 1 and forms[i+1].kind == Number) and
+        (forms[i].name == "+" or forms[i].name == "-"):
+      newForms.add(Form(kind: Number, name: forms[i].name & forms[i+1].name))
+      i += 2
     # + and - with a symbol on the left and a symbol/number on the right should form a single symbol
     elif forms[i].kind == Operator and
         (forms[i].name == "+" or forms[i].name == "-") and
