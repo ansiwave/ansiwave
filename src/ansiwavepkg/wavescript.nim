@@ -75,6 +75,7 @@ const
   numberChars = {'0'..'9'}
   invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '*', '(', ')', '{', '}',
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', ',', '"', '\'', '|', '\\', '?'}
+  whitespaceChars = {' '}
   commands = makeCommands()
 
 proc parse*(command: CommandText): CommandTree =
@@ -115,7 +116,8 @@ proc parse*(command: CommandText): CommandTree =
           form.name &= $c
       else:
         flush()
-        flush() # second flush to add the whitespace
+        if whitespaceChars.contains(c):
+          flush() # second flush to add the whitespace
     of Command:
       discard
   flush()
