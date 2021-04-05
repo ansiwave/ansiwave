@@ -68,14 +68,14 @@ proc makeCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
   result["/octave"] = (argc: 1, kind: Attribute)
   result["/tempo"] = (argc: 1, kind: Attribute)
   result["/"] = (argc: 2, kind: LengthWithNumerator)
-  result["&"] = (argc: 2, kind: Concurrent)
+  result[","] = (argc: 2, kind: Concurrent)
 
 const
   symbolChars = {'a'..'z', '#'}
-  operatorChars = {'&', '/', '-', '+'}
+  operatorChars = {',', '/', '-', '+'}
   numberChars = {'0'..'9'}
-  invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '*', '(', ')', '{', '}',
-                  '[', ']', '_', '=', ':', ';', '<', '>', '.', ',', '"', '\'', '|', '\\', '?'}
+  invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '&', '*', '(', ')', '{', '}',
+                  '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars = {' '}
   commands = makeCommands()
 
