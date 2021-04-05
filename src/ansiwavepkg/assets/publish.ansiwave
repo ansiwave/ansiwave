@@ -1,8 +1,13 @@
-The address has been copied to your clipboard, so now you can paste it in your
+The address has been copied to your clipboard! Now you can paste it in your
 web browser and share it with others.
 
-To save the URL to a file, run this in a new terminal:
+The following are some useful commands you can run in your terminal.
+
+To save the URL to a file:
 ansiwave hello.ansiwave hello.url
 
-To save your music as a .wav file:
+To save your music as a wav file:
 ansiwave hello.ansiwave hello.wav
+
+To convert an ans file (old-school ANSI art) into an ansiwave:
+ansiwave old.ans new.ansiwave
