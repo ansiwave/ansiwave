@@ -183,7 +183,7 @@ proc parse*(command: CommandText): CommandTree =
   # create a hierarchical tree of commands
   proc getNextCommand(head: Form, forms: var seq[Form]): CommandTree =
     if head.kind == Command:
-      return head.tree
+      return CommandTree(kind: Error, message: "$1 is not in a valid place".format(head.tree.name))
     result = CommandTree(kind: Valid, name: head.name)
     if commands.contains(head.name):
       let (argc, kind) = commands[head.name]
