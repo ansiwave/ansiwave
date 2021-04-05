@@ -1,4 +1,5 @@
-import unicode, tables, strutils, paramidi/constants
+import unicode, tables, paramidi/constants
+from strutils import format
 import json
 
 type
