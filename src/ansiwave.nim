@@ -11,10 +11,6 @@ from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 
-#const content = staticRead("../luke_and_yoda.ans")
-#print(ansiToUtf8(content))
-#quit()
-
 const sleepMsecs = 10
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
