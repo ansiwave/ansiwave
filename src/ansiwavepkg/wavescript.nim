@@ -50,11 +50,12 @@ type
   CommandKind = enum
     Instrument, Attribute, Length, LengthWithNumerator, Concurrent,
 
-proc initCommands(): Table[string, tuple[argc: int, kind: CommandKind]] =
+type
+  CommandMetadata = tuple[argc: int, kind: CommandKind]
+
+proc initCommands(): Table[string, CommandMetadata] =
   for inst in constants.instruments:
     result["/" & inst] = (argc: -1, kind: Instrument)
-  for length in [2, 4, 8]:
-    result["/" & $length] = (argc: 0, kind: Length)
   result["/length"] = (argc: 1, kind: Attribute)
   result["/octave"] = (argc: 1, kind: Attribute)
   result["/tempo"] = (argc: 1, kind: Attribute)
@@ -78,6 +79,17 @@ const
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars = {' '}
   commands = initCommands()
+
+proc getCommand(meta: var CommandMetadata, name: string): bool =
+  if commands.contains(name):
+    meta = commands[name]
+  else:
+    try:
+      discard strutils.parseInt(name[1 ..< name.len])
+      meta = (argc: 0, kind: Length)
+    except:
+      return false
+  true
 
 proc parse*(command: CommandText): CommandTree =
   var
@@ -193,8 +205,9 @@ proc parse*(command: CommandText): CommandTree =
     if head.kind == Command:
       return CommandTree(kind: Error, message: "$1 is not in a valid place".format(head.tree.name))
     result = CommandTree(kind: Valid, name: head.name)
-    if commands.contains(head.name):
-      let (argc, kind) = commands[head.name]
+    var cmd: CommandMetadata
+    if getCommand(cmd, head.name):
+      let (argc, kind) = cmd
       var argcFound = 0
       while forms.len > 0:
         if argc >= 0 and argcFound == argc:
@@ -232,9 +245,9 @@ proc formToJson(form: Form): JsonNode =
   of Number:
     result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
   of Command:
-    if not commands.contains(form.tree.name):
+    var cmd: CommandMetadata
+    if not getCommand(cmd, form.tree.name):
       raise newException(Exception, "Command not found: " & form.tree.name)
-    let cmd = commands[form.tree.name]
     case cmd.kind:
     of Instrument:
       result = instrumentToJson(form.tree.name, form.tree.args)
