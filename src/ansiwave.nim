@@ -703,7 +703,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
-    discard onInput(key, buffer) or onInput(key.ord, buffer)
+      discard onInput(key, buffer) or onInput(key.ord, buffer)
 
   if focused and buffer.mode == 0:
     let
