@@ -10,6 +10,8 @@ from times import nil
 from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
+from paramidi import nil
+from json import nil
 
 const sleepMsecs = 10
 
@@ -266,6 +268,95 @@ proc set(lines: var RefStrings, i: int, line: string) =
 
 proc tick*(): iw.TerminalBuffer
 
+proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int) =
+  if events.len == 0:
+    return
+  var tb = tick()
+  let
+    (msecs, addrs) = midi.play(events)
+    secs = msecs.float / 1000
+    startTime = times.epochTime()
+  while true:
+    let currTime = times.epochTime() - startTime
+    if currTime > secs:
+      break
+    # draw progress bar
+    iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
+    iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
+    iw.display(tb)
+    let key = iw.getKey()
+    if key == iw.Key.Escape:
+      break
+    os.sleep(sleepMsecs)
+  midi.stop(addrs)
+
+proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int) =
+  var sess = session
+  let cb =
+    proc () =
+      sess.insert(Global, SelectedBuffer, Errors)
+      sess.insert(Errors, CursorX, 0)
+      sess.insert(Errors, CursorY, errLine)
+  linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
+
+proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string) =
+  var cmdIndex = -1
+  for i in 0 ..< cmdsRef[].len:
+    if cmdsRef[0].line == line:
+      cmdIndex = i
+      break
+  if cmdIndex >= 0:
+    cmdsRef[].delete(cmdIndex)
+    session.insert(bufferId, ValidCommands, cmdsRef)
+  var errIndex = -1
+  for i in 0 ..< errsRef[].len:
+    if errsRef[0].line == line:
+      errIndex = i
+      break
+  if errIndex >= 0:
+    errsRef[].delete(errIndex)
+  setErrorLink(session, linksRef, line, errsRef[].len)
+  errsRef[].add((line, wavescript.CommandTree(kind: wavescript.Error, message: message)))
+  session.insert(bufferId, InvalidCommands, errsRef)
+  session.insert(bufferId, Links, linksRef)
+  session.insert(bufferId, CursorX, 0)
+  session.insert(bufferId, CursorY, line)
+
+proc compileAndPlayAll(session: var auto, buffer: tuple) =
+  session.insert(buffer.id, Prompt, StopPlaying)
+  var
+    noErrors = true
+    nodes = json.JsonNode(kind: json.JArray)
+  for cmd in buffer.commands[]:
+    let
+      (line, tree) = cmd
+      res =
+        try:
+          let node = wavescript.toJson(tree)
+          nodes.elems.add(node)
+          midi.compile(node)
+        except Exception as e:
+          midi.CompileResult(kind: midi.Error, message: e.msg)
+    case res.kind:
+    of midi.Valid:
+      discard
+    of midi.Error:
+      setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, line, res.message)
+      noErrors = false
+      break
+  if noErrors:
+    let res =
+      try:
+        midi.compile(nodes)
+      except Exception as e:
+        midi.CompileResult(kind: midi.Error, message: e.msg)
+    case res.kind:
+    of midi.Valid:
+      play(res.events, buffer.id, buffer.width)
+    of midi.Error:
+      discard
+  session.insert(buffer.id, Prompt, None)
+
 let rules =
   ruleset:
     rule getGlobals(Fact):
@@ -352,13 +443,6 @@ let rules =
         new errsRef
         new linksRef
         var sess = session
-        proc setErrorLink(cmdLine: int, errLine: int) =
-          let cb =
-            proc () =
-              sess.insert(Global, SelectedBuffer, Errors)
-              sess.insert(Errors, CursorX, 0)
-              sess.insert(Errors, CursorY, errLine)
-          linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
         for cmd in cmds:
           let tree = wavescript.parse(cmd)
           case tree.kind:
@@ -372,56 +456,19 @@ let rules =
                     sess.insert(id, Prompt, StopPlaying)
                     let res =
                       try:
-                        midi.play(wavescript.toJson(tree))
+                        midi.compile(wavescript.toJson(tree))
                       except Exception as e:
-                        midi.Result(kind: midi.Error, message: e.msg)
+                        midi.CompileResult(kind: midi.Error, message: e.msg)
                     case res.kind:
                     of midi.Valid:
-                      var tb = tick()
-                      let
-                        secs = res.msecs.float / 1000
-                        startTime = times.epochTime()
-                      while true:
-                        let currTime = times.epochTime() - startTime
-                        if currTime > secs:
-                          break
-                        # draw progress bar
-                        iw.fill(tb, 0, 0, width + 1, if id == Editor.ord: 1 else: 0, " ")
-                        iw.fill(tb, 0, 0, int((currTime / secs) * float(width + 1)), 0, "▓")
-                        iw.display(tb)
-                        let key = iw.getKey()
-                        if key == iw.Key.Escape:
-                          break
-                        os.sleep(sleepMsecs)
-                      midi.stop(res.addrs)
+                      play(res.events, id, width)
                     of midi.Error:
-                      var cmdIndex = -1
-                      for i in 0 ..< cmdsRef[].len:
-                        if cmdsRef[0].line == cmdLine:
-                          cmdIndex = i
-                          break
-                      if cmdIndex >= 0:
-                        cmdsRef[].delete(cmdIndex)
-                        sess.insert(id, ValidCommands, cmdsRef)
-                      var errIndex = -1
-                      for i in 0 ..< errsRef[].len:
-                        if errsRef[0].line == cmdLine:
-                          errIndex = i
-                          break
-                      if errIndex >= 0:
-                        errsRef[].delete(errIndex)
-                      sess.insert(id, InvalidCommands, errsRef)
-                      setErrorLink(cmdLine, errsRef[].len)
-                      errsRef[].add((cmdLine, wavescript.CommandTree(kind: wavescript.Error, message: res.message)))
+                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, cmdLine, res.message)
                     sess.insert(id, Prompt, None)
               linksRef[][cmdLine] = Link(icon: "♫".runeAt(0), callback: cb)
           of wavescript.Error:
             if id == Editor.ord:
-              let
-                cmdLine = cmd.line
-                errLine = errsRef[].len
-              sugar.capture cmdLine, errLine:
-                setErrorLink(cmdLine, errLine)
+              setErrorLink(sess, linksRef, cmd.line, errsRef[].len)
               errsRef[].add((cmd.line, tree))
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
@@ -833,7 +880,7 @@ proc tick*(): iw.TerminalBuffer =
   if globals.selectedBuffer == Editor.ord:
     let playX =
       if selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = echo "play")
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer))
       else:
         0
     var x = max(titleX, playX)

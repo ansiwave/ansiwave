@@ -263,8 +263,5 @@ proc formToJson(form: Form): JsonNode =
       result = %*[{"mode": "concurrent"}, form.tree.args[0].formToJson, form.tree.args[1].formToJson]
 
 proc toJson*(tree: CommandTree): JsonNode =
-  result = formToJson(Form(kind: Command, tree: tree))
-  # add a quarter note rest to prevent it from ending abruptly
-  result.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
-  result.elems.add(JsonNode(kind: JString, str: "r"))
+  formToJson(Form(kind: Command, tree: tree))
 

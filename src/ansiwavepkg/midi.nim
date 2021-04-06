@@ -7,15 +7,27 @@ import json
 type
   ResultKind* = enum
     Valid, Error,
-  Result* = object
+  CompileResult* = object
     case kind*: ResultKind
     of Valid:
-      msecs*: int
-      addrs*: sound.Addrs
+      events*: seq[Event]
     of Error:
       message*: string
 
-proc play*(score: JsonNode): Result =
+proc compile*(score: JsonNode): CompileResult =
+  # add a quarter note rest to prevent it from ending abruptly
+  var s = score
+  if s.kind == JArray:
+    s.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
+    s.elems.add(JsonNode(kind: JString, str: "r"))
+  let compiledScore =
+    try:
+      paramidi.compile(s)
+    except Exception as e:
+      return CompileResult(kind: Error, message: e.msg)
+  CompileResult(kind: Valid, events: compiledScore)
+
+proc play*(events: seq[Event]): tuple[msecs: int, addrs: sound.Addrs] =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
@@ -27,18 +39,11 @@ proc play*(score: JsonNode): Result =
   # render the score
   const sampleRate = 44100
   tsf_set_output(sf, TSF_MONO, sampleRate, 0)
-  let compiledScore =
-    try:
-      compile(score)
-    except Exception as e:
-      return Result(kind: Error, message: e.msg)
-  if compiledScore.len == 0:
-    return Result(kind: Error, message: "Nothing to play")
-  var res = render[cshort](compiledScore, sf, sampleRate)
+  var res = render[cshort](events, sf, sampleRate)
   # create the wav file and play it
   let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
   let addrs = sound.play(wav)
-  Result(kind: Valid, msecs: int(res.seconds * 1000f), addrs: addrs)
+  (msecs: int(res.seconds * 1000f), addrs: addrs)
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
