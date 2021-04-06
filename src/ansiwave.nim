@@ -667,7 +667,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       line = @[]
     deleteAfter(line, buffer.width - 1)
     writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
-    if buffer.links[].contains(i):
+    if buffer.prompt != StopPlaying and buffer.links[].contains(i):
       let linkY = buffer.y + 1 + screenLine
       iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
       if key == iw.Key.Mouse:
