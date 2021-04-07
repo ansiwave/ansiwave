@@ -73,7 +73,8 @@ proc toStr(form: Form): string =
 
 const
   symbolChars = {'a'..'z', '#'}
-  operatorChars = {',', '/', '-', '+'}
+  operatorChars = {'/', '-', '+'}
+  operatorSingleChars = {','} # operator chars that can only exist on their own
   numberChars = {'0'..'9'}
   invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '&', '*', '(', ')', '{', '}',
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
@@ -104,6 +105,9 @@ proc parse*(command: CommandText): CommandTree =
     of Whitespace:
       if operatorChars.contains(c):
         form = Form(kind: Operator, name: $c)
+      elif operatorSingleChars.contains(c):
+        form = Form(kind: Operator, name: $c)
+        flush()
       elif symbolChars.contains(c) or invalidChars.contains(c):
         form = Form(kind: Symbol, name: $c)
       elif numberChars.contains(c):
@@ -118,6 +122,10 @@ proc parse*(command: CommandText): CommandTree =
         else:
           flush()
           form = Form(kind: Operator, name: $c)
+      elif operatorSingleChars.contains(c):
+        flush()
+        form = Form(kind: Operator, name: $c)
+        flush()
       elif symbolChars.contains(c) or invalidChars.contains(c) or numberChars.contains(c):
         if form.kind == Operator:
           flush()
@@ -170,14 +178,17 @@ proc parse*(command: CommandText): CommandTree =
         (i != forms.len - 1 and forms[i+1].kind == Symbol):
       newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, name: forms[i].name, args: @[forms[i+1]])))
       i += 2
-    # + and - with a symbol on the left and a symbol/number on the right should form a single symbol
+    # + and - with a symbol on the left should form a single symbol (including symbol/number on the right if it exists)
     elif forms[i].kind == Operator and
         (forms[i].name == "+" or forms[i].name == "-") and
-        (i > 0 and forms[i-1].kind == Symbol) and
-        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}):
+        (i > 0 and forms[i-1].kind == Symbol):
       let lastItem = newForms.pop()
-      newForms.add(Form(kind: Symbol, name: lastItem.name & forms[i].name & forms[i+1].name))
-      i += 2
+      if i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}:
+        newForms.add(Form(kind: Symbol, name: lastItem.name & forms[i].name & forms[i+1].name))
+        i += 2
+      else:
+        newForms.add(Form(kind: Symbol, name: lastItem.name & forms[i].name))
+        i.inc
     else:
       if forms[i].kind != Whitespace:
         newForms.add(forms[i])

@@ -19,7 +19,7 @@ test "Parse commands":
   check cmds.len == 2
 
 test "Parse operators":
-  const text = @["/rock-organ c#+3 /octave 3 /2 1/2 c,d"]
+  const text = @["/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+"]
   let cmds = text.parse
   check cmds.len == 1
   for cmd in cmds:
