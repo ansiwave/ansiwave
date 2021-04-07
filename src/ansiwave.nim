@@ -474,6 +474,8 @@ let rules =
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
+                    sess.insert(id, CursorX, 0)
+                    sess.insert(id, CursorY, cmdLine)
                     var ctx = context
                     ctx.time = 0
                     new ctx.events
