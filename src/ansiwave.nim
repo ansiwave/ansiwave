@@ -266,20 +266,29 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
+proc moveCursor(bufferId: int, x: int, y: int)
 proc tick*(): iw.TerminalBuffer
 
-proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int) =
+proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if events.len == 0:
     return
-  var tb = tick()
+  var
+    tb = tick()
+    lineTimesIdx = -1
   let
-    (msecs, addrs) = midi.play(events)
-    secs = msecs.float / 1000
+    (secs, addrs) = midi.play(events)
     startTime = times.epochTime()
   while true:
     let currTime = times.epochTime() - startTime
     if currTime > secs:
       break
+    # go to the right line
+    if lineTimesIdx + 1 < lineTimes.len:
+      let (line, time) = lineTimes[lineTimesIdx + 1]
+      if currTime >= time:
+        lineTimesIdx.inc
+        moveCursor(bufferId, 0, line)
+        tb = tick()
     # draw progress bar
     iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
     iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
@@ -327,6 +336,9 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
   var
     noErrors = true
     nodes = json.JsonNode(kind: json.JArray)
+    lineTimes: seq[tuple[line: int, time: float]]
+    context = paramidi.initContext()
+    lastTime = 0.0
   for cmd in buffer.commands[]:
     let
       (line, tree) = cmd
@@ -334,25 +346,27 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
         try:
           let node = wavescript.toJson(tree)
           nodes.elems.add(node)
-          midi.compileScore(node)
+          midi.compileScore(context, node, false)
         except Exception as e:
           midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      discard
+      lineTimes.add((line, lastTime))
+      lastTime = context.seconds
     of midi.Error:
       setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, line, res.message)
       noErrors = false
       break
   if noErrors:
+    context = paramidi.initContext()
     let res =
       try:
-        midi.compileScore(nodes)
+        midi.compileScore(context, nodes, true)
       except Exception as e:
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      play(res.events, buffer.id, buffer.width)
+      play(res.events, buffer.id, buffer.width, lineTimes)
     of midi.Error:
       discard
   session.insert(buffer.id, Prompt, None)
@@ -446,15 +460,14 @@ let rules =
         new cmdsRef
         new errsRef
         new linksRef
-        var sess = session
+        var
+          sess = session
+          context = paramidi.initContext()
         for cmd in cmds:
           let tree = wavescript.parse(cmd)
           case tree.kind:
           of wavescript.Valid:
-            # create a context object that has attributes set by previous lines
-            var context = paramidi.initContext()
-            for (_, prevTree) in cmdsRef[]:
-              discard paramidi.compile(context, wavescript.toJson(prevTree))
+            # set the play button in the gutter to play the line
             let cmdLine = cmd.line
             sugar.capture cmdLine, tree, context:
               let
@@ -466,17 +479,24 @@ let rules =
                     new ctx.events
                     let res =
                       try:
-                        midi.compileScore(ctx, wavescript.toJson(tree))
+                        midi.compileScore(ctx, wavescript.toJson(tree), true)
                       except Exception as e:
                         midi.CompileResult(kind: midi.Error, message: e.msg)
                     case res.kind:
                     of midi.Valid:
-                      play(res.events, id, width)
+                      play(res.events, id, width, @[])
                     of midi.Error:
                       setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, cmdLine, res.message)
                     sess.insert(id, Prompt, None)
               linksRef[][cmdLine] = Link(icon: "♫".runeAt(0), callback: cb)
             cmdsRef[].add((cmd.line, tree))
+            # compile the line so the context object updates
+            # this is important so attributes changed by previous lines
+            # affect the play button
+            try:
+              discard paramidi.compile(context, wavescript.toJson(tree))
+            except:
+              discard
           of wavescript.Error:
             if id == Editor.ord:
               setErrorLink(sess, linksRef, cmd.line, errsRef[].len)
@@ -532,6 +552,11 @@ let rules =
         (id, Links, links)
 
 var session* = initSession(Fact, autoFire = false)
+
+proc moveCursor(bufferId: int, x: int, y: int) =
+  session.insert(bufferId, CursorX, x)
+  session.insert(bufferId, CursorY, y)
+  session.fireRules
 
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
@@ -763,7 +788,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       session.insert(buffer.id, Prompt, None)
       discard onInput(key, buffer) or onInput(key.ord, buffer)
 
-  if focused and buffer.mode == 0:
+  if buffer.mode == 0:
     let
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY

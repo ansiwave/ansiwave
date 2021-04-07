@@ -14,10 +14,10 @@ type
     of Error:
       message*: string
 
-proc compileScore*(ctx: var Context, score: JsonNode): CompileResult =
+proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileResult =
   # add a quarter note rest to prevent it from ending abruptly
   var s = score
-  if s.kind == JArray:
+  if padding and s.kind == JArray:
     s.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
     s.elems.add(JsonNode(kind: JString, str: "r"))
   let compiledScore =
@@ -27,11 +27,7 @@ proc compileScore*(ctx: var Context, score: JsonNode): CompileResult =
       return CompileResult(kind: Error, message: e.msg)
   CompileResult(kind: Valid, events: compiledScore)
 
-proc compileScore*(score: JsonNode): CompileResult =
-  var ctx = initContext()
-  compileScore(ctx, score)
-
-proc play*(events: seq[Event]): tuple[msecs: int, addrs: sound.Addrs] =
+proc play*(events: seq[Event]): tuple[secs: float, addrs: sound.Addrs] =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
@@ -47,7 +43,7 @@ proc play*(events: seq[Event]): tuple[msecs: int, addrs: sound.Addrs] =
   # create the wav file and play it
   let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
   let addrs = sound.play(wav)
-  (msecs: int(res.seconds * 1000f), addrs: addrs)
+  (secs: res.seconds, addrs: addrs)
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
