@@ -113,9 +113,14 @@ proc parse*(command: CommandText): CommandTree =
       elif numberChars.contains(c):
         form = Form(kind: Number, name: $c)
     of Symbol, Operator, Number:
-      if form.name == "/" and c == '/': # this is a comment, so ignore everything else
+      # this is a comment, so ignore everything else
+      if form.name == "/" and c == '/':
         form = Form(kind: Whitespace)
         break
+      # single operator chars following a slash should be merged
+      elif form.name == "/" and operatorSingleChars.contains(c):
+        form.name &= $c
+        flush()
       elif operatorChars.contains(c):
         if form.kind == Operator:
           form.name &= $c
@@ -157,7 +162,7 @@ proc parse*(command: CommandText): CommandTree =
     newForms: seq[Form]
     i = 0
   while i < forms.len:
-    # / with whitespace on the left but not on the right should form a single symbol
+    # / with whitespace on the left and symbol/number on the right should form a single symbol
     if forms[i].kind == Operator and
         forms[i].name == "/" and
         (i == 0 or forms[i-1].kind == Whitespace) and
