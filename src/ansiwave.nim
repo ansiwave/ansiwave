@@ -10,7 +10,7 @@ from times import nil
 from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
-from paramidi import nil
+from paramidi import Context
 from json import nil
 
 const sleepMsecs = 10
@@ -334,7 +334,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
         try:
           let node = wavescript.toJson(tree)
           nodes.elems.add(node)
-          midi.compile(node)
+          midi.compileScore(node)
         except Exception as e:
           midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
@@ -347,7 +347,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
   if noErrors:
     let res =
       try:
-        midi.compile(nodes)
+        midi.compileScore(nodes)
       except Exception as e:
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
@@ -451,16 +451,22 @@ let rules =
           let tree = wavescript.parse(cmd)
           case tree.kind:
           of wavescript.Valid:
-            cmdsRef[].add((cmd.line, tree))
+            # create a context object that has attributes set by previous lines
+            var context = paramidi.initContext()
+            for (_, prevTree) in cmdsRef[]:
+              discard paramidi.compile(context, wavescript.toJson(prevTree))
             let cmdLine = cmd.line
-            sugar.capture cmdLine, tree:
+            sugar.capture cmdLine, tree, context:
               let
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
+                    var ctx = context
+                    ctx.time = 0
+                    new ctx.events
                     let res =
                       try:
-                        midi.compile(wavescript.toJson(tree))
+                        midi.compileScore(ctx, wavescript.toJson(tree))
                       except Exception as e:
                         midi.CompileResult(kind: midi.Error, message: e.msg)
                     case res.kind:
@@ -470,6 +476,7 @@ let rules =
                       setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, cmdLine, res.message)
                     sess.insert(id, Prompt, None)
               linksRef[][cmdLine] = Link(icon: "♫".runeAt(0), callback: cb)
+            cmdsRef[].add((cmd.line, tree))
           of wavescript.Error:
             if id == Editor.ord:
               setErrorLink(sess, linksRef, cmd.line, errsRef[].len)

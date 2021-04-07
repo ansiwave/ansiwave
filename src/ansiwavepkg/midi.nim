@@ -14,7 +14,7 @@ type
     of Error:
       message*: string
 
-proc compile*(score: JsonNode): CompileResult =
+proc compileScore*(ctx: var Context, score: JsonNode): CompileResult =
   # add a quarter note rest to prevent it from ending abruptly
   var s = score
   if s.kind == JArray:
@@ -22,10 +22,14 @@ proc compile*(score: JsonNode): CompileResult =
     s.elems.add(JsonNode(kind: JString, str: "r"))
   let compiledScore =
     try:
-      paramidi.compile(s)
+      paramidi.compile(ctx, s)
     except Exception as e:
       return CompileResult(kind: Error, message: e.msg)
   CompileResult(kind: Valid, events: compiledScore)
+
+proc compileScore*(score: JsonNode): CompileResult =
+  var ctx = initContext()
+  compileScore(ctx, score)
 
 proc play*(events: seq[Event]): tuple[msecs: int, addrs: sound.Addrs] =
   # get the sound font
