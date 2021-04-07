@@ -790,7 +790,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       session.insert(buffer.id, Prompt, None)
       discard onInput(key, buffer) or onInput(key.ord, buffer)
 
-  if buffer.mode == 0:
+  if buffer.mode == 0 or buffer.prompt == StopPlaying:
     let
       col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
       row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
