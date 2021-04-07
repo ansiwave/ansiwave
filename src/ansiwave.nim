@@ -762,9 +762,9 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
-      if info.x > buffer.x and
+      if info.x >= buffer.x and
           info.x <= buffer.x + buffer.width and
-          info.y > buffer.y and
+          info.y >= buffer.y and
           info.y <= buffer.y + buffer.height:
         if buffer.mode == 0:
             session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
@@ -773,18 +773,19 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
           let
             x = info.x - buffer.x - 1 + buffer.scrollX
             y = info.y - buffer.y - 1 + buffer.scrollY
-          var lines = buffer.lines
-          while y > lines[].len - 1:
-            lines.add("")
-          var line = lines[y][].toRunes
-          while x > line.stripCodes.runeLen - 1:
-            line.add(" ".runeAt(0))
-          let realX = getRealX(line, x)
-          line[realX] = buffer.selectedChar.runeAt(0)
-          let prefix = buffer.makePrefix
-          let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
-          lines.set(y, dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
-          session.insert(buffer.id, Lines, lines)
+          if x >= 0 and y >= 0:
+            var lines = buffer.lines
+            while y > lines[].len - 1:
+              lines.add("")
+            var line = lines[y][].toRunes
+            while x > line.stripCodes.runeLen - 1:
+              line.add(" ".runeAt(0))
+            let realX = getRealX(line, x)
+            line[realX] = buffer.selectedChar.runeAt(0)
+            let prefix = buffer.makePrefix
+            let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
+            lines.set(y, dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
+            session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
