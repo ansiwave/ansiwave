@@ -1,6 +1,6 @@
 import unicode, tables, paramidi/constants
 from strutils import format
-import json
+import json, sets
 
 type
   CommandText* = object
@@ -25,6 +25,8 @@ type
       args*: seq[Form]
     of Error:
       message*: string
+    line*: int
+    skip*: bool
 
 proc parse*(lines: seq[string]): seq[CommandText] =
   for i in 0 ..< lines.len:
@@ -48,7 +50,8 @@ proc attributeToJson(name: string, args: seq[Form]): JsonNode =
 
 type
   CommandKind = enum
-    Instrument, Attribute, Length, LengthWithNumerator, Concurrent,
+    Instrument, Attribute, Length, LengthWithNumerator,
+    Concurrent, ConcurrentLines,
 
 type
   CommandMetadata = tuple[argc: int, kind: CommandKind]
@@ -61,6 +64,7 @@ proc initCommands(): Table[string, CommandMetadata] =
   result["/tempo"] = (argc: 1, kind: Attribute)
   result["/"] = (argc: 2, kind: LengthWithNumerator)
   result[","] = (argc: 2, kind: Concurrent)
+  result["/,"] = (argc: 0, kind: ConcurrentLines)
 
 proc toStr(form: Form): string =
   case form.kind:
@@ -79,6 +83,7 @@ const
   invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '&', '*', '(', ')', '{', '}',
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars = {' '}
+  operatorCommands = ["/,"].toHashSet
   commands = initCommands()
 
 proc getCommand(meta: var CommandMetadata, name: string): bool =
@@ -117,10 +122,6 @@ proc parse*(command: CommandText): CommandTree =
       if form.name == "/" and c == '/':
         form = Form(kind: Whitespace)
         break
-      # single operator chars following a slash should be merged
-      elif form.name == "/" and operatorSingleChars.contains(c):
-        form.name &= $c
-        flush()
       elif operatorChars.contains(c):
         if form.kind == Operator:
           form.name &= $c
@@ -152,21 +153,21 @@ proc parse*(command: CommandText): CommandTree =
     if form.kind in {Symbol, Number}:
       let invalidIdx = strutils.find(form.name, invalidChars)
       if invalidIdx >= 0:
-        return CommandTree(kind: Error, message: "$1 has an invalid character: $2".format(form.name, form.name[invalidIdx]))
+        return CommandTree(kind: Error, line: command.line, message: "$1 has an invalid character: $2".format(form.name, form.name[invalidIdx]))
       if form.kind == Number:
         let symbolIdx = strutils.find(form.name, symbolChars)
         if symbolIdx >= 0:
-          return CommandTree(kind: Error, message: "$1 may not contain $2 because it is a number".format(form.name, form.name[symbolIdx]))
+          return CommandTree(kind: Error, line: command.line, message: "$1 may not contain $2 because it is a number".format(form.name, form.name[symbolIdx]))
   # merge operators with adjacent tokens in some cases
   var
     newForms: seq[Form]
     i = 0
   while i < forms.len:
-    # / with whitespace on the left and symbol/number on the right should form a single symbol
+    # / with whitespace on the left and symbol/number/operator on the right should form a single symbol
     if forms[i].kind == Operator and
         forms[i].name == "/" and
         (i == 0 or forms[i-1].kind == Whitespace) and
-        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}):
+        (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number, Operator}):
       newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
       i += 2
     # + and - with whitespace on the left and number on the right should form a single number
@@ -181,7 +182,7 @@ proc parse*(command: CommandText): CommandTree =
         (forms[i].name == "+" or forms[i].name == "-") and
         (i == 0 or forms[i-1].kind == Whitespace) and
         (i != forms.len - 1 and forms[i+1].kind == Symbol):
-      newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, name: forms[i].name, args: @[forms[i+1]])))
+      newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, line: command.line, name: forms[i].name, args: @[forms[i+1]])))
       i += 2
     # + and - with a symbol on the left should form a single symbol (including symbol/number on the right if it exists)
     elif forms[i].kind == Operator and
@@ -205,12 +206,12 @@ proc parse*(command: CommandText): CommandTree =
   while i < forms.len:
     if forms[i].kind == Operator:
       if i == 0 or i == forms.len - 1:
-        return CommandTree(kind: Error, message: "$1 is not in a valid place".format(forms[i].name))
+        return CommandTree(kind: Error, line: command.line, message: "$1 is not in a valid place".format(forms[i].name))
       elif not {Symbol, Number, Command}.contains(forms[i-1].kind) or not {Symbol, Number, Command}.contains(forms[i+1].kind):
-        return CommandTree(kind: Error, message: "$1 must be surrounded by valid operands".format(forms[i].name))
+        return CommandTree(kind: Error, line: command.line, message: "$1 must be surrounded by valid operands".format(forms[i].name))
       else:
         let lastItem = newForms.pop()
-        newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, name: forms[i].name, args: @[lastItem, forms[i+1]])))
+        newForms.add(Form(kind: Command, tree: CommandTree(kind: Valid, line: command.line, name: forms[i].name, args: @[lastItem, forms[i+1]])))
         i += 2
     else:
       newForms.add(forms[i])
@@ -219,8 +220,8 @@ proc parse*(command: CommandText): CommandTree =
   # create a hierarchical tree of commands
   proc getNextCommand(head: Form, forms: var seq[Form]): CommandTree =
     if head.kind == Command:
-      return CommandTree(kind: Error, message: "$1 is not in a valid place".format(head.tree.name))
-    result = CommandTree(kind: Valid, name: head.name)
+      return CommandTree(kind: Error, line: command.line, message: "$1 is not in a valid place".format(head.tree.name))
+    result = CommandTree(kind: Valid, line: command.line, name: head.name)
     var cmd: CommandMetadata
     if getCommand(cmd, head.name):
       let (argc, kind) = cmd
@@ -240,17 +241,52 @@ proc parse*(command: CommandText): CommandTree =
           result.args.add(form)
         argcFound.inc
       if argcFound < argc:
-        return CommandTree(kind: Error, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
+        return CommandTree(kind: Error, line: command.line, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
     else:
-      return CommandTree(kind: Error, message: "Command not found: $1".format(head.name))
+      return CommandTree(kind: Error, line: command.line, message: "Command not found: $1".format(head.name))
   let head = forms[0]
   forms = forms[1 ..< forms.len]
   result = getNextCommand(head, forms)
+  # error if there is any extra input
   if result.kind == Valid and forms.len > 0:
     var extraInput = ""
     for form in forms:
       extraInput &= form.toStr & " "
-    result = CommandTree(kind: Error, message: "Extra input: $1".format(extraInput))
+    result = CommandTree(kind: Error, line: command.line, message: "Extra input: $1".format(extraInput))
+
+proc parseOperatorCommands*(trees: seq[CommandTree]): seq[CommandTree] =
+  var
+    i = 0
+    treesMut = trees
+  while i < treesMut.len:
+    var tree = treesMut[i]
+    if tree.kind == Valid and operatorCommands.contains(tree.name):
+      var lastNonSkippedLine = i-1
+      while lastNonSkippedLine >= 0:
+        if not treesMut[lastNonSkippedLine].skip:
+          break
+        lastNonSkippedLine.dec
+      if i == 0 or i == treesMut.len - 1 or
+          lastNonSkippedLine == -1 or
+          treesMut[lastNonSkippedLine].kind == Error or
+          treesMut[i+1].kind == Error:
+        result.add(CommandTree(kind: Error, line: tree.line, message: "$1 must have a valid command above and below it".format(tree.name)))
+        i.inc
+      else:
+        var prevLine = result[lastNonSkippedLine]
+        prevLine.skip = true # skip prev line when playing all lines
+        var nextLine = treesMut[i+1]
+        nextLine.skip = true # skip next line when playing all lines
+        result[lastNonSkippedLine] = prevLine
+        treesMut[i+1] = nextLine
+        tree.args.add(Form(kind: Command, tree: prevLine))
+        tree.args.add(Form(kind: Command, tree: nextLine))
+        result.add(tree)
+        result.add(nextLine)
+        i += 2
+    else:
+      result.add(tree)
+      i.inc
 
 proc formToJson(form: Form): JsonNode =
   case form.kind:
@@ -276,6 +312,10 @@ proc formToJson(form: Form): JsonNode =
         raise newException(Exception, "Only numbers can be divided")
       result = JsonNode(kind: JFloat, fnum: strutils.parseInt(form.tree.args[0].name) / strutils.parseInt(form.tree.args[1].name))
     of Concurrent:
+      result = %*[{"mode": "concurrent"}, form.tree.args[0].formToJson, form.tree.args[1].formToJson]
+    of ConcurrentLines:
+      if form.tree.args.len != 2:
+        raise newException(Exception, "/, doesn't belong here -- try using , instead (without the slash)")
       result = %*[{"mode": "concurrent"}, form.tree.args[0].formToJson, form.tree.args[1].formToJson]
 
 proc toJson*(tree: CommandTree): JsonNode =

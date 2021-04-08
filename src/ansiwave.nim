@@ -218,8 +218,7 @@ type
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
-  Command = tuple[line: int, tree: wavescript.CommandTree]
-  RefCommands = ref seq[Command]
+  RefCommands = ref seq[wavescript.CommandTree]
   Link = object
     icon: Rune
     callback: proc ()
@@ -325,7 +324,7 @@ proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefComman
   if errIndex >= 0:
     errsRef[].delete(errIndex)
   setErrorLink(session, linksRef, line, errsRef[].len)
-  errsRef[].add((line, wavescript.CommandTree(kind: wavescript.Error, message: message)))
+  errsRef[].add(wavescript.CommandTree(kind: wavescript.Error, line: line, message: message))
   session.insert(bufferId, InvalidCommands, errsRef)
   session.insert(bufferId, Links, linksRef)
   session.insert(bufferId, CursorX, 0)
@@ -340,21 +339,22 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
     context = paramidi.initContext()
     lastTime = 0.0
   for cmd in buffer.commands[]:
+    if cmd.skip:
+      continue
     let
-      (line, tree) = cmd
       res =
         try:
-          let node = wavescript.toJson(tree)
+          let node = wavescript.toJson(cmd)
           nodes.elems.add(node)
           midi.compileScore(context, node, false)
         except Exception as e:
           midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      lineTimes.add((line, lastTime))
+      lineTimes.add((cmd.line, lastTime))
       lastTime = context.seconds
     of midi.Error:
-      setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, line, res.message)
+      setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, cmd.line, res.message)
       noErrors = false
       break
   if noErrors:
@@ -454,7 +454,9 @@ let rules =
       cond:
         id != Errors.ord
       then:
-        let cmds = wavescript.parse(sequtils.map(lines[], stripCodesIfCommand))
+        let
+          cmds = wavescript.parse(sequtils.map(lines[], stripCodesIfCommand))
+          trees = wavescript.parseOperatorCommands(sequtils.map(cmds, wavescript.parse))
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
@@ -463,35 +465,34 @@ let rules =
         var
           sess = session
           context = paramidi.initContext()
-        for cmd in cmds:
-          let tree = wavescript.parse(cmd)
+        for tree in trees:
           case tree.kind:
           of wavescript.Valid:
             # set the play button in the gutter to play the line
-            let cmdLine = cmd.line
-            sugar.capture cmdLine, tree, context:
+            let treeLocal = tree
+            sugar.capture treeLocal, context:
               let
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
                     sess.insert(id, CursorX, 0)
-                    sess.insert(id, CursorY, cmdLine)
+                    sess.insert(id, CursorY, treeLocal.line)
                     var ctx = context
                     ctx.time = 0
                     new ctx.events
                     let res =
                       try:
-                        midi.compileScore(ctx, wavescript.toJson(tree), true)
+                        midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
                       except Exception as e:
                         midi.CompileResult(kind: midi.Error, message: e.msg)
                     case res.kind:
                     of midi.Valid:
                       play(res.events, id, width, @[])
                     of midi.Error:
-                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, cmdLine, res.message)
+                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
                     sess.insert(id, Prompt, None)
-              linksRef[][cmdLine] = Link(icon: "♫".runeAt(0), callback: cb)
-            cmdsRef[].add((cmd.line, tree))
+              linksRef[][treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
+            cmdsRef[].add(tree)
             # compile the line so the context object updates
             # this is important so attributes changed by previous lines
             # affect the play button
@@ -501,8 +502,8 @@ let rules =
               discard
           of wavescript.Error:
             if id == Editor.ord:
-              setErrorLink(sess, linksRef, cmd.line, errsRef[].len)
-              errsRef[].add((cmd.line, tree))
+              setErrorLink(sess, linksRef, tree.line, errsRef[].len)
+              errsRef[].add(tree)
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)
@@ -525,12 +526,12 @@ let rules =
                 sess.insert(Editor, CursorY, line)
                 sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
             linksRef[][newLines[].len] = Link(icon: "!".runeAt(0), callback: cb)
-          newLines.add(error.tree.message)
+          newLines.add(error.message)
         session.insert(Errors, Lines, newLines)
         session.insert(Errors, CursorX, 0)
         session.insert(Errors, CursorY, 0)
-        session.insert(Errors, ValidCommands, nil)
-        session.insert(Errors, InvalidCommands, nil)
+        session.insert(Errors, ValidCommands, cast[RefCommands](nil))
+        session.insert(Errors, InvalidCommands, cast[RefCommands](nil))
         session.insert(Errors, Links, linksRef)
     rule getBuffer(Fact):
       what:

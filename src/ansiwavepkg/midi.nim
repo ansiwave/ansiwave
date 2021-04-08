@@ -18,6 +18,7 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
   # add a quarter note rest to prevent it from ending abruptly
   var s = score
   if padding and s.kind == JArray:
+    s = JsonNode(kind: JArray, elems: @[s])
     s.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
     s.elems.add(JsonNode(kind: JString, str: "r"))
   let compiledScore =
