@@ -919,7 +919,7 @@ proc tick*(): iw.TerminalBuffer =
   let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
   if globals.selectedBuffer == Editor.ord:
     let playX =
-      if selectedBuffer.commands[].len > 0:
+      if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
         renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer))
       else:
         0
