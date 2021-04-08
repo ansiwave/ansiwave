@@ -263,12 +263,12 @@ proc parseOperatorCommands*(trees: seq[CommandTree]): seq[CommandTree] =
     if tree.kind == Valid and operatorCommands.contains(tree.name):
       var lastNonSkippedLine = i-1
       while lastNonSkippedLine >= 0:
-        if not treesMut[lastNonSkippedLine].skip:
+        if not result[lastNonSkippedLine].skip:
           break
         lastNonSkippedLine.dec
       if i == 0 or i == treesMut.len - 1 or
           lastNonSkippedLine == -1 or
-          treesMut[lastNonSkippedLine].kind == Error or
+          result[lastNonSkippedLine].kind == Error or
           treesMut[i+1].kind == Error:
         result.add(CommandTree(kind: Error, line: tree.line, message: "$1 must have a valid command above and below it".format(tree.name)))
         i.inc
