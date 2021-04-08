@@ -315,7 +315,7 @@ proc formToJson(form: Form): JsonNode =
       result = %*[{"mode": "concurrent"}, form.tree.args[0].formToJson, form.tree.args[1].formToJson]
     of ConcurrentLines:
       if form.tree.args.len != 2:
-        raise newException(Exception, "/, doesn't belong here -- try using , instead (without the slash)")
+        raise newException(Exception, "$1 is not in a valid place".format(form.tree.name))
       result = %*[{"mode": "concurrent"}, form.tree.args[0].formToJson, form.tree.args[1].formToJson]
 
 proc toJson*(tree: CommandTree): JsonNode =
