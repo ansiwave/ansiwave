@@ -222,6 +222,7 @@ type
   Link = object
     icon: Rune
     callback: proc ()
+    error: bool
   RefLinks = ref Table[int, Link]
 
 schema Fact(Id, Attr):
@@ -305,7 +306,7 @@ proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: 
       sess.insert(Global, SelectedBuffer, Errors)
       sess.insert(Errors, CursorX, 0)
       sess.insert(Errors, CursorY, errLine)
-  linksRef[][cmdLine] = Link(icon: "!".runeAt(0), callback: cb)
+  linksRef[cmdLine] = Link(icon: "!".runeAt(0), callback: cb, error: true)
 
 proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string) =
   var cmdIndex = -1
@@ -489,7 +490,7 @@ let rules =
                     of midi.Error:
                       setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
                     sess.insert(id, Prompt, None)
-              linksRef[][treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
+              linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
             cmdsRef[].add(tree)
             # compile the line so the context object updates
             # this is important so attributes changed by previous lines
@@ -523,7 +524,7 @@ let rules =
                 sess.insert(Editor, CursorX, 0)
                 sess.insert(Editor, CursorY, line)
                 sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
-            linksRef[][newLines[].len] = Link(icon: "!".runeAt(0), callback: cb)
+            linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
           newLines.add(error.message)
         session.insert(Errors, Lines, newLines)
         session.insert(Errors, CursorX, 0)
@@ -761,7 +762,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
           buffer.links[i].callback()
       # update prompt
       if i == buffer.cursorY:
-        if buffer.links[].contains(i) and buffer.prompt == None:
+        if buffer.prompt == None and buffer.links[].contains(i):
           session.insert(buffer.id, Prompt, StartPlaying)
     screenLine += 1
 
@@ -817,7 +818,16 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   of DeleteLine:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
   of StartPlaying:
-    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
+    if buffer.links[].contains(buffer.cursorY) and buffer.links[buffer.cursorY].error:
+      if buffer.id == Editor.ord:
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see the error")
+      elif buffer.id == Errors.ord:
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see where the error happened")
+    else:
+      if buffer.id == Editor.ord:
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
+      elif buffer.id == Tutorial.ord:
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
   of StopPlaying:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
 
