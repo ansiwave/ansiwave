@@ -293,7 +293,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
     iw.display(tb)
     let key = iw.getKey()
-    if key == iw.Key.Escape:
+    if key in {iw.Key.Escape, iw.Key.Tab}:
       break
     os.sleep(sleepMsecs)
   midi.stop(addrs)
@@ -819,7 +819,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   of StartPlaying:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
   of StopPlaying:
-    iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to stop playing")
+    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
 
 proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool): int =
   const space = 2
