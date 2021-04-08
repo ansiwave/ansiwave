@@ -216,7 +216,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
   PromptKind = enum
-    None, DeleteLine, StopPlaying,
+    None, DeleteLine, StartPlaying, StopPlaying,
   RefStrings = ref seq[ref string]
   RefCommands = ref seq[wavescript.CommandTree]
   Link = object
@@ -475,8 +475,6 @@ let rules =
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
-                    sess.insert(id, CursorX, 0)
-                    sess.insert(id, CursorY, treeLocal.line)
                     var ctx = context
                     ctx.time = 0
                     new ctx.events
@@ -679,11 +677,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     session.insert(buffer.id, CursorX, 0)
   of iw.Key.End:
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
-  of iw.Key.Escape:
-    case buffer.prompt:
-    of None, StopPlaying:
-      discard
-    of DeleteLine:
+  of iw.Key.Tab:
+    if buffer.prompt == DeleteLine:
       var newLines = buffer.lines
       if newLines[].len == 1:
         newLines.set(0, "")
@@ -732,6 +727,7 @@ proc onInput(code: int, buffer: tuple): bool =
 proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   let focused = buffer.prompt != StopPlaying
   iw.drawRect(tb, buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
+
   let
     lines = buffer.lines[]
     scrollX = buffer.scrollX
@@ -749,14 +745,24 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       line = @[]
     deleteAfter(line, buffer.width - 1)
     writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
-    if buffer.prompt != StopPlaying and buffer.links[].contains(i):
-      let linkY = buffer.y + 1 + screenLine
-      iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
-      if key == iw.Key.Mouse:
-        let info = iw.getMouse()
-        if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-          if info.x == buffer.x and info.y == linkY:
-            buffer.links[i].callback()
+    if buffer.prompt != StopPlaying:
+      # press gutter button with mouse or Tab
+      if buffer.links[].contains(i):
+        let linkY = buffer.y + 1 + screenLine
+        iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
+        if key == iw.Key.Mouse:
+          let info = iw.getMouse()
+          if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+            if info.x == buffer.x and info.y == linkY:
+              session.insert(buffer.id, CursorX, 0)
+              session.insert(buffer.id, CursorY, i)
+              buffer.links[i].callback()
+        elif i == buffer.cursorY and key == iw.Key.Tab and buffer.prompt == StartPlaying:
+          buffer.links[i].callback()
+      # update prompt
+      if i == buffer.cursorY:
+        if buffer.links[].contains(i) and buffer.prompt == None:
+          session.insert(buffer.id, Prompt, StartPlaying)
     screenLine += 1
 
   if key == iw.Key.Mouse:
@@ -809,7 +815,9 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   of None:
     discard
   of DeleteLine:
-    iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to delete the current line")
+    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
+  of StartPlaying:
+    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
   of StopPlaying:
     iw.write(tb, buffer.x + 1, buffer.y, "Press Esc to stop playing")
 
@@ -843,7 +851,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc ()): int =
+proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: iw.Key = iw.Key.None): int =
   writeAnsi(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
@@ -853,6 +861,8 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
           info.x <= result and
           info.y == y:
         cb()
+  elif shortcut != iw.Key.None and key == shortcut:
+    cb()
 
 proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
   const
@@ -920,7 +930,7 @@ proc tick*(): iw.TerminalBuffer =
   if globals.selectedBuffer == Editor.ord:
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer))
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), iw.Key.Escape)
       else:
         0
     var x = max(titleX, playX)
