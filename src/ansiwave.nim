@@ -916,7 +916,7 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
             session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
 
 proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
-  const brushChars = ["█", "▓", "▒", "░"]
+  const brushChars = ["█", "▓", "▒", "░", "▄", "▀", "▌", "▐"]
   var brushCharsColored = ""
   for ch in brushChars:
     brushCharsColored &= buffer.selectedFgColor & buffer.selectedBgColor
