@@ -297,7 +297,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
     iw.display(tb)
     let key = iw.getKey()
-    if key in {iw.Key.Escape, iw.Key.Tab}:
+    if key == iw.Key.Tab:
       break
     os.sleep(sleepMsecs)
   midi.stop(addrs)
@@ -811,7 +811,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       else:
         iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
     of StopPlaying:
-      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
+      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to stop playing")
 
 proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: iw.Key, hint: string]): int =
   const space = 2
@@ -959,7 +959,7 @@ proc tick*(): iw.TerminalBuffer =
   if globals.selectedBuffer == Editor.ord:
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: iw.Key.Escape, hint: "Hint: play all lines with Esc"))
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: iw.Key.CtrlP, hint: "Hint: play all lines with Ctrl P"))
       else:
         0
     var x = max(titleX, playX)
