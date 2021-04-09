@@ -10,10 +10,22 @@ from times import nil
 from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
+from ansiwavepkg/sound import nil
 from paramidi import Context
 from json import nil
 
 const sleepMsecs = 10
+
+proc exitClean(message: string) =
+  iw.illwillDeinit()
+  iw.showCursor()
+  if message.len > 0:
+    quit(message)
+  else:
+    quit(0)
+
+proc exitClean() {.noconv.} =
+  exitClean("")
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -281,8 +293,10 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     lineTimesIdx = -1
   iw.display(tb)
   let
-    (secs, addrs) = midi.play(events)
+    (secs, playResult) = midi.play(events)
     startTime = times.epochTime()
+  if playResult.kind == sound.Error:
+    exitClean(playResult.message)
   while true:
     let currTime = times.epochTime() - startTime
     if currTime > secs:
@@ -302,7 +316,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     if key == iw.Key.Tab:
       break
     os.sleep(sleepMsecs)
-  midi.stop(addrs)
+  midi.stop(playResult.addrs)
 
 proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int) =
   var sess = session
@@ -575,11 +589,6 @@ proc moveCursor(bufferId: int, x: int, y: int) =
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
-
-proc exitProc() {.noconv.} =
-  iw.illwillDeinit()
-  iw.showCursor()
-  quit(0)
 
 proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
@@ -927,7 +936,7 @@ proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX
 
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
-  setControlCHook(exitProc)
+  setControlCHook(exitClean)
   iw.hideCursor()
 
   for r in rules.fields:

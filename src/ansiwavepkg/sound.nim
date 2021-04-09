@@ -3,8 +3,16 @@ import parasound/miniaudio
 
 type
   Addrs* = (ptr ma_decoder, ptr ma_device)
+  ResultKind* = enum
+    Valid, Error,
+  PlayResult* = object
+    case kind*: ResultKind
+    of Valid:
+      addrs*: Addrs
+    of Error:
+      message*: string
 
-proc play*(data: string | seq[uint8]): Addrs =
+proc play*(data: string | seq[uint8]): PlayResult =
   ## if `data` is a string, it is interpreted as a filename.
   ## if `data` is a byte sequence, it is interpreted as an in-memory buffer.
   var
@@ -26,14 +34,14 @@ proc play*(data: string | seq[uint8]): Addrs =
   ma_device_config_init_with_decoder(deviceConfigAddr, ma_device_type_playback, decoderAddr, data_callback)
   if ma_device_init(nil, deviceConfigAddr, deviceAddr) != MA_SUCCESS:
     discard ma_decoder_uninit(decoderAddr)
-    quit("Failed to open playback device.")
+    return PlayResult(kind: Error, message: "Failed to open playback device.")
 
   if ma_device_start(deviceAddr) != MA_SUCCESS:
     ma_device_uninit(deviceAddr)
     discard ma_decoder_uninit(decoderAddr)
-    quit("Failed to start playback device.")
+    return PlayResult(kind: Error, message: "Failed to start playback device.")
 
-  (decoderAddr, deviceAddr)
+  PlayResult(kind: Valid, addrs: (decoderAddr, deviceAddr))
 
 proc stop*(decoderAddr: ptr ma_decoder, deviceAddr: ptr ma_device) =
   discard ma_device_stop(deviceAddr)
