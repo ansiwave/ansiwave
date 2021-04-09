@@ -269,6 +269,7 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
+proc getCurrentLine(bufferId: int): int
 proc moveCursor(bufferId: int, x: int, y: int)
 proc tick*(): iw.TerminalBuffer
 
@@ -331,8 +332,9 @@ proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefComman
   errsRef[].add(wavescript.CommandTree(kind: wavescript.Error, line: line, message: message))
   session.insert(bufferId, InvalidCommands, errsRef)
   session.insert(bufferId, Links, linksRef)
-  session.insert(bufferId, CursorX, 0)
-  session.insert(bufferId, CursorY, line)
+  if getCurrentLine(bufferId) != line:
+    session.insert(bufferId, CursorX, 0)
+    session.insert(bufferId, CursorY, line)
 
 proc compileAndPlayAll(session: var auto, buffer: tuple) =
   session.insert(buffer.id, Prompt, StopPlaying)
@@ -526,9 +528,10 @@ let rules =
             let cb =
               proc () =
                 sess.insert(Global, SelectedBuffer, Editor)
-                sess.insert(Editor, CursorX, 0)
-                sess.insert(Editor, CursorY, line)
                 sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
+                if getCurrentLine(Editor.ord) != line:
+                  sess.insert(Editor, CursorX, 0)
+                  sess.insert(Editor, CursorY, line)
             linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
           newLines.add(error.message)
         session.insert(Errors, Lines, newLines)
@@ -559,6 +562,9 @@ let rules =
         (id, Links, links)
 
 var session* = initSession(Fact, autoFire = false)
+
+proc getCurrentLine(bufferId: int): int =
+  session.query(rules.getBuffer, id = bufferId).cursorY
 
 proc moveCursor(bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
