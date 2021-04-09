@@ -812,24 +812,25 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     tb[col, buffer.y] = xBlock
     tb[buffer.x, row] = yBlock
 
-  case buffer.prompt:
-  of None:
-    discard
-  of DeleteLine:
-    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
-  of StartPlaying:
-    if buffer.links[].contains(buffer.cursorY) and buffer.links[buffer.cursorY].error:
-      if buffer.id == Editor.ord:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see the error")
-      elif buffer.id == Errors.ord:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see where the error happened")
-    else:
-      if buffer.id == Editor.ord:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
-      elif buffer.id == Tutorial.ord:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
-  of StopPlaying:
-    iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
+  if buffer.mode == 0:
+    case buffer.prompt:
+    of None:
+      discard
+    of DeleteLine:
+      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
+    of StartPlaying:
+      if buffer.links[].contains(buffer.cursorY) and buffer.links[buffer.cursorY].error:
+        if buffer.id == Editor.ord:
+          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see the error")
+        elif buffer.id == Errors.ord:
+          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see where the error happened")
+      else:
+        if buffer.id == Editor.ord:
+          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
+        elif buffer.id == Tutorial.ord:
+          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
+    of StopPlaying:
+      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
 
 proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool): int =
   const space = 2
