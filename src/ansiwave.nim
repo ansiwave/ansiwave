@@ -973,7 +973,7 @@ proc tick*(): iw.TerminalBuffer =
         (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
         (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
       ]
-      shortcut = (key: iw.Key.CtrlQ, hint: "Hint: switch modes with Ctrl Q")
+      shortcut = (key: iw.Key.CtrlE, hint: "Hint: switch modes with Ctrl E")
     x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
 
     x = renderColors(tb, selectedBuffer, key, x)
