@@ -279,6 +279,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
   var
     tb = tick()
     lineTimesIdx = -1
+  iw.display(tb)
   let
     (secs, addrs) = midi.play(events)
     startTime = times.epochTime()
