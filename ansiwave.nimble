@@ -2,7 +2,7 @@
 
 version       = "0.1.0"
 author        = "oakes"
-description   = "A new awesome nimble package"
+description   = "ANSI art + MIDI music"
 license       = "Public Domain"
 srcDir        = "src"
 installExt    = @["nim"]
