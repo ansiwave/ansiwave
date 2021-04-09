@@ -941,7 +941,7 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
 
 proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
   const
-    brushChars = ["█", "▓", "▒", "░", "▄", "▀", "▌", "▐"]
+    brushChars = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
     brushShortcuts = ['1', '2', '3', '4', '5', '6', '7', '8']
     brushShortcutsSet = {'1', '2', '3', '4', '5', '6', '7', '8'}
   var brushCharsColored = ""
