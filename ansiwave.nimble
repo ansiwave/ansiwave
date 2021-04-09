@@ -9,7 +9,9 @@ installExt    = @["nim"]
 bin           = @["ansiwave"]
 
 task dev, "Run dev version":
-  exec "nimble run ansiwave"
+  # this sets release mode because playing music
+  # is unstable in debug builds for some reason
+  exec "nimble -d:release run ansiwave"
 
 # Dependencies
 
