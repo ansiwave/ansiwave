@@ -809,10 +809,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
         elif buffer.id == Errors.ord:
           iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see where the error happened")
       else:
-        if buffer.id == Editor.ord:
-          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line or Esc to play all lines")
-        elif buffer.id == Tutorial.ord:
-          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
     of StopPlaying:
       iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
 
@@ -837,9 +834,9 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
         if info.x >= oldX and
             info.x <= newX and
             info.y == oldY:
-          choice.callback()
           session.insert(Global, HintText, shortcut.hint)
           session.insert(Global, HintTime, times.epochTime() + 5)
+          choice.callback()
     elif choice.id == selected and shortcut.key != iw.Key.None and shortcut.key == key:
       let nextChoice =
         if i+1 == choices.len:
@@ -856,7 +853,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: iw.Key = iw.Key.None): int =
+proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: iw.Key, hint: string] = (iw.Key.None, "")): int =
   writeAnsi(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
@@ -865,8 +862,11 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
       if info.x >= x and
           info.x <= result and
           info.y == y:
+        if shortcut.hint.len > 0:
+          session.insert(Global, HintText, shortcut.hint)
+          session.insert(Global, HintTime, times.epochTime() + 5)
         cb()
-  elif shortcut != iw.Key.None and key == shortcut:
+  elif shortcut.key != iw.Key.None and shortcut.key == key:
     cb()
 
 proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
@@ -954,17 +954,18 @@ proc tick*(): iw.TerminalBuffer =
   if width != windowWidth or height != windowHeight:
     onWindowResize(width, height)
 
+  # render top bar
   let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
   if globals.selectedBuffer == Editor.ord:
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), iw.Key.Escape)
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: iw.Key.Escape, hint: "Hint: play all lines with Esc"))
       else:
         0
     var x = max(titleX, playX)
 
-    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = echo "undo")
-    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = echo "redo")
+    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = echo("undo"), (key: iw.Key.CtrlZ, hint: "Hint: undo with Ctrl Z"))
+    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = echo("redo"), (key: iw.Key.CtrlR, hint: "Hint: redo with Ctrl R"))
     x = max(undoX, redoX)
 
     let
@@ -982,6 +983,8 @@ proc tick*(): iw.TerminalBuffer =
 
   renderBuffer(tb, selectedBuffer, key)
 
+  # render bottom bar
+  var x = 0
   if selectedBuffer.prompt != StopPlaying:
     let
       errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
@@ -992,27 +995,29 @@ proc tick*(): iw.TerminalBuffer =
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
       ]
       shortcut = (key: iw.Key.CtrlN, hint: "Hint: switch tabs with Ctrl N")
-    var x = renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
-    if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
-      session.insert(Global, HintText, "")
-      session.insert(Global, HintTime, 0.0)
-    else:
-      let
-        showHint = globals.hintText.len > 0
-        text =
-          if showHint:
-            globals.hintText
-          else:
-            "‼ Exit"
-        textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
-      if showHint:
-        iw.write(tb, textX, windowHeight - 1, globals.hintText)
-      else:
-        let cb =
-          proc () =
-            session.insert(Global, HintText, "Press Ctrl C to exit")
-            session.insert(Global, HintTime, times.epochTime() + 5)
-        discard renderButton(tb, text, textX, windowHeight - 1, key, cb)
+    x = renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
+
+  # render hints
+  if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
+    session.insert(Global, HintText, "")
+    session.insert(Global, HintTime, 0.0)
+  else:
+    let
+      showHint = globals.hintText.len > 0
+      text =
+        if showHint:
+          globals.hintText
+        else:
+          "‼ Exit"
+      textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
+    if showHint:
+      iw.write(tb, textX, windowHeight - 1, globals.hintText)
+    elif selectedBuffer.prompt != StopPlaying:
+      let cb =
+        proc () =
+          session.insert(Global, HintText, "Press Ctrl C to exit")
+          session.insert(Global, HintTime, times.epochTime() + 5)
+      discard renderButton(tb, text, textX, windowHeight - 1, key, cb)
 
   return tb
 
