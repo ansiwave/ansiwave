@@ -217,7 +217,7 @@ type
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime,
   PromptKind = enum
-    None, DeleteLine, StartPlaying, StopPlaying,
+    None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
   RefCommands = ref seq[wavescript.CommandTree]
   Link = object
@@ -741,13 +741,21 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
             if info.x == buffer.x and info.y == linkY:
               session.insert(buffer.id, CursorX, 0)
               session.insert(buffer.id, CursorY, i)
+              let hintText =
+                if buffer.links[i].error:
+                  if buffer.id == Editor.ord:
+                    "Hint: see the error with Tab"
+                  elif buffer.id == Errors.ord:
+                    "Hint: see where the error happened with Tab"
+                  else:
+                    ""
+                else:
+                  "Hint: play the current line with Tab"
+              session.insert(Global, HintText, hintText)
+              session.insert(Global, HintTime, times.epochTime() + 5)
               buffer.links[i].callback()
-        elif i == buffer.cursorY and key == iw.Key.Tab and buffer.prompt == StartPlaying:
+        elif i == buffer.cursorY and key == iw.Key.Tab and buffer.prompt == None:
           buffer.links[i].callback()
-      # update prompt
-      if i == buffer.cursorY:
-        if buffer.prompt == None and buffer.links[].contains(i):
-          session.insert(buffer.id, Prompt, StartPlaying)
     screenLine += 1
 
   if key == iw.Key.Mouse:
@@ -802,14 +810,6 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       discard
     of DeleteLine:
       iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
-    of StartPlaying:
-      if buffer.links[].contains(buffer.cursorY) and buffer.links[buffer.cursorY].error:
-        if buffer.id == Editor.ord:
-          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see the error")
-        elif buffer.id == Errors.ord:
-          iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to see where the error happened")
-      else:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to play the current line")
     of StopPlaying:
       iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to stop playing")
 
@@ -1011,7 +1011,7 @@ proc tick*(): iw.TerminalBuffer =
           "‼ Exit"
       textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      iw.write(tb, textX, windowHeight - 1, globals.hintText)
+      writeAnsi(tb, textX, windowHeight - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying:
       let cb =
         proc () =
