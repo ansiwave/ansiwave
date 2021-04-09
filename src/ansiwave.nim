@@ -14,7 +14,9 @@ from ansiwavepkg/sound import nil
 from paramidi import Context
 from json import nil
 
-const sleepMsecs = 10
+const
+  sleepMsecs = 10
+  hintSecs = 5
 
 proc exitClean(message: string) =
   iw.illwillDeinit()
@@ -768,7 +770,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
                 else:
                   "Hint: play the current line with Tab"
               session.insert(Global, HintText, hintText)
-              session.insert(Global, HintTime, times.epochTime() + 5)
+              session.insert(Global, HintTime, times.epochTime() + hintSecs)
               buffer.links[i].callback()
         elif i == buffer.cursorY and key == iw.Key.Tab and buffer.prompt == None:
           buffer.links[i].callback()
@@ -851,7 +853,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
             info.x <= newX and
             info.y == oldY:
           session.insert(Global, HintText, shortcut.hint)
-          session.insert(Global, HintTime, times.epochTime() + 5)
+          session.insert(Global, HintTime, times.epochTime() + hintSecs)
           choice.callback()
     elif choice.id == selected and shortcut.key != iw.Key.None and shortcut.key == key:
       let nextChoice =
@@ -880,7 +882,7 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
           info.y == y:
         if shortcut.hint.len > 0:
           session.insert(Global, HintText, shortcut.hint)
-          session.insert(Global, HintTime, times.epochTime() + 5)
+          session.insert(Global, HintTime, times.epochTime() + hintSecs)
         cb()
   elif shortcut.key != iw.Key.None and shortcut.key == key:
     cb()
@@ -889,6 +891,11 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
+    colorFgShortcuts = ['x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w']
+    colorFgShortcutsSet = {'x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w'}
+    colorBgShortcuts = ['X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W']
+    colorBgShortcutsSet = {'X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W'}
+    colorNames = ["default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
   result = colorX + colorFgCodes.len * 3 + 1
   var colorChars = ""
   for code in colorFgCodes:
@@ -910,13 +917,33 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
           let index = int((info.x - colorX) / 3)
           if index >= 0 and index < colorFgCodes.len:
             session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
+            if buffer.mode == 1:
+              session.insert(Global, HintText, "Hint: press " & colorFgShortcuts[index] & " for " & colorNames[index] & " foreground")
+              session.insert(Global, HintTime, times.epochTime() + hintSecs)
         elif info.button == iw.MouseButton.mbRight:
           let index = int((info.x - colorX) / 3)
           if index >= 0 and index < colorBgCodes.len:
             session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
+            if buffer.mode == 1:
+              session.insert(Global, HintText, "Hint: press " & colorBgShortcuts[index] & " for " & colorNames[index] & " background")
+              session.insert(Global, HintTime, times.epochTime() + hintSecs)
+  elif buffer.mode == 1:
+    try:
+      let ch = char(key.ord)
+      if ch in colorFgShortcutsSet:
+        let index = find(colorFgShortcuts, ch)
+        session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
+      elif ch in colorBgShortcutsSet:
+        let index = find(colorBgShortcuts, ch)
+        session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
+    except:
+      discard
 
 proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
-  const brushChars = ["█", "▓", "▒", "░", "▄", "▀", "▌", "▐"]
+  const
+    brushChars = ["█", "▓", "▒", "░", "▄", "▀", "▌", "▐"]
+    brushShortcuts = ['1', '2', '3', '4', '5', '6', '7', '8']
+    brushShortcutsSet = {'1', '2', '3', '4', '5', '6', '7', '8'}
   var brushCharsColored = ""
   for ch in brushChars:
     brushCharsColored &= buffer.selectedFgColor & buffer.selectedBgColor
@@ -933,6 +960,17 @@ proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX
         let index = int((info.x - brushX) / 2)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
+          if buffer.mode == 1:
+            session.insert(Global, HintText, "Hint: press " & brushShortcuts[index] & " for that brush")
+            session.insert(Global, HintTime, times.epochTime() + hintSecs)
+  elif buffer.mode == 1:
+    try:
+      let ch = char(key.ord)
+      if ch in brushShortcutsSet:
+        let index = find(brushShortcuts, ch)
+        session.insert(buffer.id, SelectedChar, brushChars[index])
+    except:
+      discard
 
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
@@ -1032,7 +1070,7 @@ proc tick*(): iw.TerminalBuffer =
       let cb =
         proc () =
           session.insert(Global, HintText, "Press Ctrl C to exit")
-          session.insert(Global, HintTime, times.epochTime() + 5)
+          session.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(tb, text, textX, windowHeight - 1, key, cb)
 
   return tb
