@@ -215,6 +215,7 @@ type
     Editable, SelectedMode,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
+    HintText, HintTime,
   PromptKind = enum
     None, DeleteLine, StartPlaying, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -245,6 +246,8 @@ schema Fact(Id, Attr):
   ValidCommands: RefCommands
   InvalidCommands: RefCommands
   Links: RefLinks
+  HintText: string
+  HintTime: float
 
 proc splitLines(text: string): RefStrings =
   new result
@@ -377,6 +380,8 @@ let rules =
     rule getGlobals(Fact):
       what:
         (Global, SelectedBuffer, selectedBuffer)
+        (Global, HintText, hintText)
+        (Global, HintTime, hintTime)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -585,27 +590,6 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, SelectedFgColor, "")
   session.insert(id, SelectedBgColor, "")
   session.insert(id, Prompt, None)
-
-proc init*() =
-  iw.illwillInit(fullscreen=true, mouse=true)
-  setControlCHook(exitProc)
-  iw.hideCursor()
-
-  for r in rules.fields:
-    session.add(r)
-
-  const
-    editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
-    tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
-    publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Editor, 0, 2, true, editorText)
-  insertBuffer(Errors, 0, 1, false, "")
-  insertBuffer(Tutorial, 0, 1, false, tutorialText)
-  insertBuffer(Publish, 0, 1, false, publishText)
-  session.insert(Global, SelectedBuffer, Editor)
-  session.fireRules
-
-  onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -832,12 +816,13 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     of StopPlaying:
       iw.write(tb, buffer.x + 1, buffer.y, "Press Tab or Esc to stop playing")
 
-proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool): int =
+proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: iw.Key, hint: string]): int =
   const space = 2
   var
     xx = x
     yy = y
-  for choice in choices:
+  for i in 0 ..< choices.len:
+    let choice = choices[i]
     if choice.id == selected:
       iw.write(tb, xx, yy, "→")
     iw.write(tb, xx + space, yy, choice.label)
@@ -853,6 +838,15 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
             info.x <= newX and
             info.y == oldY:
           choice.callback()
+          session.insert(Global, HintText, shortcut.hint)
+          session.insert(Global, HintTime, times.epochTime() + 5)
+    elif choice.id == selected and shortcut.key != iw.Key.None and shortcut.key == key:
+      let nextChoice =
+        if i+1 == choices.len:
+          choices[0]
+        else:
+          choices[i+1]
+      nextChoice.callback()
     if horiz:
       xx = newX
     else:
@@ -924,6 +918,29 @@ proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
 
+proc init*() =
+  iw.illwillInit(fullscreen=true, mouse=true)
+  setControlCHook(exitProc)
+  iw.hideCursor()
+
+  for r in rules.fields:
+    session.add(r)
+
+  const
+    editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
+    tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
+    publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
+  insertBuffer(Editor, 0, 2, true, editorText)
+  insertBuffer(Errors, 0, 1, false, "")
+  insertBuffer(Tutorial, 0, 1, false, tutorialText)
+  insertBuffer(Publish, 0, 1, false, publishText)
+  session.insert(Global, SelectedBuffer, Editor)
+  session.insert(Global, HintText, "")
+  session.insert(Global, HintTime, 0.0)
+  session.fireRules
+
+  onWindowResize(iw.terminalWidth(), iw.terminalHeight())
+
 proc tick*(): iw.TerminalBuffer =
   let key = iw.getKey()
 
@@ -950,11 +967,13 @@ proc tick*(): iw.TerminalBuffer =
     let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = echo "redo")
     x = max(undoX, redoX)
 
-    let choices = [
-      (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
-      (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
-    ]
-    x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false)
+    let
+      choices = [
+        (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
+        (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
+      ]
+      shortcut = (key: iw.Key.CtrlQ, hint: "Hint: switch modes with Ctrl Q")
+    x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
 
     x = renderColors(tb, selectedBuffer, key, x)
 
@@ -972,7 +991,28 @@ proc tick*(): iw.TerminalBuffer =
         (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
       ]
-    discard renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true)
+      shortcut = (key: iw.Key.CtrlN, hint: "Hint: switch tabs with Ctrl N")
+    var x = renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
+    if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
+      session.insert(Global, HintText, "")
+      session.insert(Global, HintTime, 0.0)
+    else:
+      let
+        showHint = globals.hintText.len > 0
+        text =
+          if showHint:
+            globals.hintText
+          else:
+            "‼ Exit"
+        textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
+      if showHint:
+        iw.write(tb, textX, windowHeight - 1, globals.hintText)
+      else:
+        let cb =
+          proc () =
+            session.insert(Global, HintText, "Press Ctrl C to exit")
+            session.insert(Global, HintTime, times.epochTime() + 5)
+        discard renderButton(tb, text, textX, windowHeight - 1, key, cb)
 
   return tb
 
