@@ -5,7 +5,7 @@ author        = "oakes"
 description   = "ANSI art + MIDI music"
 license       = "Public Domain"
 srcDir        = "src"
-installExt    = @["nim"]
+installExt    = @["nim", "ansiwave"]
 bin           = @["ansiwave"]
 
 task dev, "Run dev version":
