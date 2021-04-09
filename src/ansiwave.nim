@@ -992,10 +992,10 @@ proc tick*(): iw.TerminalBuffer =
       shortcut = (key: iw.Key.CtrlE, hint: "Hint: switch modes with Ctrl E")
     x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
 
-    x = renderColors(tb, selectedBuffer, key, x)
+    x = renderColors(tb, selectedBuffer, key, x + 1)
 
     if selectedBuffer.mode == 1:
-      x = renderBrushes(tb, selectedBuffer, key, x)
+      x = renderBrushes(tb, selectedBuffer, key, x + 2)
 
   renderBuffer(tb, selectedBuffer, key)
 
