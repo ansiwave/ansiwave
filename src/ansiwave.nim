@@ -887,7 +887,7 @@ proc tick*(): iw.TerminalBuffer =
 
   return tb
 
-when isMainModule:
+proc main*() =
   init()
   var tickCount = 0
   while true:
@@ -898,3 +898,6 @@ when isMainModule:
     session.fireRules
     os.sleep(sleepMsecs)
     tickCount.inc
+
+when isMainModule:
+  main()
