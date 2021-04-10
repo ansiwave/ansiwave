@@ -87,7 +87,7 @@ const
   commands = initCommands()
 
 proc getCommand(meta: var CommandMetadata, name: string): bool =
-  if commands.contains(name):
+  if name in commands:
     meta = commands[name]
   else:
     try:
@@ -105,37 +105,39 @@ proc parse*(command: CommandText): CommandTree =
     forms.add(form)
     form = Form(kind: Whitespace)
   for ch in runes(command.text):
-    let c = ch.toUTF8[0]
+    let
+      s = ch.toUTF8
+      c = s[0]
     case form.kind:
     of Whitespace:
-      if operatorChars.contains(c):
+      if c in operatorChars:
         form = Form(kind: Operator, name: $c)
-      elif operatorSingleChars.contains(c):
+      elif c in operatorSingleChars:
         form = Form(kind: Operator, name: $c)
         flush()
-      elif symbolChars.contains(c) or invalidChars.contains(c):
+      elif c in symbolChars or c in invalidChars:
         form = Form(kind: Symbol, name: $c)
-      elif numberChars.contains(c):
+      elif c in numberChars:
         form = Form(kind: Number, name: $c)
     of Symbol, Operator, Number:
       # this is a comment, so ignore everything else
       if form.name == "/" and c == '/':
         form = Form(kind: Whitespace)
         break
-      elif operatorChars.contains(c):
+      elif c in operatorChars:
         if form.kind == Operator:
           form.name &= $c
         else:
           flush()
           form = Form(kind: Operator, name: $c)
-      elif operatorSingleChars.contains(c):
+      elif c in operatorSingleChars:
         flush()
         form = Form(kind: Operator, name: $c)
         flush()
-      elif symbolChars.contains(c) or invalidChars.contains(c) or numberChars.contains(c):
+      elif c in symbolChars or c in invalidChars or c in numberChars:
         if form.kind == Operator:
           flush()
-          if numberChars.contains(c):
+          if c in numberChars:
             form = Form(kind: Number, name: $c)
           else:
             form = Form(kind: Symbol, name: $c)
@@ -143,7 +145,7 @@ proc parse*(command: CommandText): CommandTree =
           form.name &= $c
       else:
         flush()
-        if whitespaceChars.contains(c):
+        if s in whitespaceChars:
           flush() # second flush to add the whitespace
     of Command:
       discard
@@ -207,7 +209,7 @@ proc parse*(command: CommandText): CommandTree =
     if forms[i].kind == Operator:
       if i == 0 or i == forms.len - 1:
         return CommandTree(kind: Error, line: command.line, message: "$1 is not in a valid place".format(forms[i].name))
-      elif not {Symbol, Number, Command}.contains(forms[i-1].kind) or not {Symbol, Number, Command}.contains(forms[i+1].kind):
+      elif forms[i-1].kind notin {Symbol, Number, Command} or forms[i+1].kind notin {Symbol, Number, Command}:
         return CommandTree(kind: Error, line: command.line, message: "$1 must be surrounded by valid operands".format(forms[i].name))
       else:
         let lastItem = newForms.pop()
@@ -260,7 +262,7 @@ proc parseOperatorCommands*(trees: seq[CommandTree]): seq[CommandTree] =
     treesMut = trees
   while i < treesMut.len:
     var tree = treesMut[i]
-    if tree.kind == Valid and operatorCommands.contains(tree.name):
+    if tree.kind == Valid and tree.name in operatorCommands:
       var lastNonSkippedLine = i-1
       while lastNonSkippedLine >= 0:
         if not result[lastNonSkippedLine].skip:
