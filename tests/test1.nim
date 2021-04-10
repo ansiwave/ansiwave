@@ -13,8 +13,10 @@ test "Dedupe codes":
 
 from ansiwavepkg/wavescript import nil
 
+const hello = staticRead("hello.ansiwave")
+
 test "Parse commands":
-  const text = strutils.splitLines(staticRead("hello.ansiwave"))
+  const text = strutils.splitLines(hello)
   let
     cmds = wavescript.parse(text)
     trees = wavescript.parseOperatorCommands(sequtils.map(cmds, wavescript.parse))
@@ -37,3 +39,10 @@ test "/,":
     cmds = wavescript.parse(text)
     trees = wavescript.parseOperatorCommands(sequtils.map(cmds, wavescript.parse))
   check trees.len == 3
+
+from zippy import nil
+from base64 import nil
+
+test "zlib compression":
+  const output = zippy.compress(hello, dataFormat = zippy.dfZlib)
+  echo base64.encode(output, safe = true)
