@@ -1,5 +1,5 @@
 import unittest
-import ansiwave
+from ansiwavepkg/codes import nil
 import strutils, sequtils
 
 import ansiwavepkg/ansi
@@ -8,7 +8,7 @@ print(ansiToUtf8(content))
 
 test "Dedupe codes":
   const text = "\e[31m\e[32m\e[41;42;43mHello, world!\e[31m"
-  let newText = text.dedupeCodes
+  let newText = codes.dedupeCodes(text)
   check newText.escape == "\e[32;43mHello, world!\e[31m".escape
 
 from ansiwavepkg/wavescript import nil

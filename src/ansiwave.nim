@@ -7,215 +7,16 @@ from strutils import nil
 from sequtils import nil
 from sugar import nil
 from times import nil
-from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
+from ansiwavepkg/codes import stripCodes
 from paramidi import Context
 from json import nil
 
 const
   sleepMsecs = 10
   hintSecs = 5
-
-proc exitClean(message: string) =
-  iw.illwillDeinit()
-  iw.showCursor()
-  if message.len > 0:
-    quit(message)
-  else:
-    quit(0)
-
-proc exitClean() {.noconv.} =
-  exitClean("")
-
-proc parseCode(codes: var seq[string], ch: Rune): bool =
-  proc terminated(s: string): bool =
-    if s.len > 0:
-      let lastChar = s[s.len - 1]
-      return ansi.codeTerminators.contains(lastChar)
-    else:
-      return false
-  let s = $ch
-  if s == "\e":
-    codes.add(s)
-    return true
-  elif codes.len > 0 and not codes[codes.len - 1].terminated:
-    codes[codes.len - 1] &= s
-    return true
-  return false
-
-proc dedupeParams(params: var seq[int]) =
-  var i = params.len - 1
-  while i > 0:
-    let param = params[i]
-    if param == 0:
-      params = params[i ..< params.len]
-      break
-    elif param >= 30 and param <= 39:
-      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
-      params = prevParams & params[i ..< params.len]
-      i = prevParams.len - 1
-    elif param >= 40 and param <= 49:
-      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
-      params = prevParams & params[i ..< params.len]
-      i = prevParams.len - 1
-    else:
-      i.dec
-
-proc applyCode(tb: var iw.TerminalBuffer, code: string) =
-  let trimmed = code[1 ..< code.len - 1]
-  let params = ansi.parseParams(trimmed)
-  for param in params:
-    if param == 0:
-      iw.setBackgroundColor(tb, iw.bgNone)
-      iw.setForegroundColor(tb, iw.fgNone)
-      iw.setStyle(tb, {})
-    elif param >= 1 and param <= 9:
-      var style = iw.getStyle(tb)
-      style.incl(iw.Style(param))
-      iw.setStyle(tb, style)
-    elif param >= 30 and param <= 39:
-      iw.setForegroundColor(tb, iw.ForegroundColor(param))
-    elif param >= 40 and param <= 49:
-      iw.setBackgroundColor(tb, iw.BackgroundColor(param))
-
-proc writeAnsi(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
-  var currX = x
-  var codes: seq[string]
-  for ch in runes(s):
-    if parseCode(codes, ch):
-      continue
-    for code in codes:
-      applyCode(tb, code)
-    var c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
-                            style: iw.getStyle(tb))
-    tb[currX, y] = c
-    inc(currX)
-    codes = @[]
-  for code in codes:
-    applyCode(tb, code)
-  iw.setCursorXPos(tb, currX)
-  iw.setCursorYPos(tb, y)
-
-proc stripCodes(line: seq[Rune]): string =
-  var codes: seq[string]
-  for ch in line:
-    if parseCode(codes, ch):
-      continue
-    result &= $ch
-
-proc stripCodes(line: string): string =
-  stripCodes(line.toRunes)
-
-proc stripCodesIfCommand(line: ref string): string =
-  var
-    codes: seq[string]
-    foundFirstValidChar = false
-  for ch in runes(line[]):
-    if parseCode(codes, ch):
-      continue
-    if not foundFirstValidChar and ch.toUTF8[0] != '/':
-      return ""
-    else:
-      foundFirstValidChar = true
-      result &= $ch
-
-proc dedupeCodes*(line: seq[Rune]): string =
-  var codes: seq[string]
-  proc addCodes(res: var string) =
-    var params: seq[int]
-    for code in codes:
-      if code[1] == '[' and code[code.len - 1] == 'm':
-        let trimmed = code[1 ..< code.len - 1]
-        params &= ansi.parseParams(trimmed)
-      # this is some other kind of code that we should just preserve
-      else:
-        res &= code
-    dedupeParams(params)
-    if params.len > 0:
-      res &= "\e[" & strutils.join(params, ";") & "m"
-    codes = @[]
-  for ch in line:
-    if parseCode(codes, ch):
-      continue
-    elif codes.len > 0:
-      addCodes(result)
-    result &= $ch
-  if codes.len > 0:
-    addCodes(result)
-
-proc dedupeCodes*(line: string): string =
-  dedupeCodes(line.toRunes)
-
-proc getRealX(line: seq[Rune], x: int): int =
-  result = 0
-  var fakeX = 0
-  var codes: seq[string]
-  for ch in line:
-    if parseCode(codes, ch):
-      result.inc
-      continue
-    if fakeX == x:
-      break
-    result.inc
-    fakeX.inc
-
-proc getParamsBeforeRealX(line: seq[Rune], realX: int): seq[int] =
-  var codes: seq[string]
-  for ch in line[0 ..< realX]:
-    if parseCode(codes, ch):
-      continue
-  for code in codes:
-    if code[1] == '[' and code[code.len - 1] == 'm':
-      let trimmed = code[1 ..< code.len - 1]
-      result &= ansi.parseParams(trimmed)
-  dedupeParams(result)
-
-proc getParamsBeforeRealX(line: string, realX: int): seq[int] =
-  getParamsBeforeRealX(line.toRunes, realX)
-
-proc firstValidChar(line: seq[Rune]): int =
-  result = -1
-  var realX = 0
-  var codes: seq[string]
-  for ch in line:
-    if not parseCode(codes, ch):
-      result = realX
-      break
-    realX.inc
-
-proc deleteBefore(line: var seq[Rune], count: int) =
-  var x = 0
-  while x < count:
-    var firstChar = line.firstValidChar
-    if firstChar == -1:
-      break
-    line.delete(firstChar)
-    x.inc
-
-proc firstValidCharAfter(line: seq[Rune], count: int): int =
-  result = -1
-  var realX = 0
-  var fakeX = 0
-  var codes: seq[string]
-  for ch in line:
-    if not parseCode(codes, ch):
-      if fakeX > count:
-        result = realX
-        break
-      fakeX.inc
-    realX.inc
-
-proc deleteAfter(line: var seq[Rune], count: int) =
-  var x = 0
-  var codes: seq[string]
-  var firstCharAfter = 0
-  while firstCharAfter != -1:
-    firstCharAfter = line.firstValidCharAfter(count)
-    if firstCharAfter == -1:
-      break
-    line.delete(firstCharAfter)
 
 type
   Id* = enum
@@ -262,6 +63,17 @@ schema Fact(Id, Attr):
   Links: RefLinks
   HintText: string
   HintTime: float
+
+proc exitClean(message: string) =
+  iw.illwillDeinit()
+  iw.showCursor()
+  if message.len > 0:
+    quit(message)
+  else:
+    quit(0)
+
+proc exitClean() {.noconv.} =
+  exitClean("")
 
 proc splitLines(text: string): RefStrings =
   new result
@@ -468,7 +280,7 @@ let rules =
         var shouldInsert = false
         for i in 0 ..< lines[].len:
           if lines[i][].len == 0 or not strutils.startsWith(lines[i][], "\e[0"):
-            lines[i][] = dedupeCodes("\e[0m" & lines[i][])
+            lines[i][] = codes.dedupeCodes("\e[0m" & lines[i][])
             shouldInsert = true
         if shouldInsert:
           session.insert(id, Lines, lines)
@@ -480,7 +292,7 @@ let rules =
         id != Errors.ord
       then:
         let
-          cmds = wavescript.parse(sequtils.map(lines[], stripCodesIfCommand))
+          cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
           trees = wavescript.parseOperatorCommands(sequtils.map(cmds, wavescript.parse))
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
@@ -631,8 +443,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     elif buffer.cursorX > 0:
       let
         line = buffer.lines[buffer.cursorY][].toRunes
-        realX = getRealX(line, buffer.cursorX - 1)
-        newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
+        realX = codes.getRealX(line, buffer.cursorX - 1)
+        newLine = codes.dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
@@ -645,8 +457,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     elif buffer.cursorX < buffer.lines[buffer.cursorY][].stripCodes.runeLen:
       let
         line = buffer.lines[buffer.cursorY][].toRunes
-        realX = getRealX(line, buffer.cursorX)
-        newLine = dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
+        realX = codes.getRealX(line, buffer.cursorX)
+        newLine = codes.dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
@@ -655,8 +467,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       return false
     let
       line = buffer.lines[buffer.cursorY][].toRunes
-      realX = getRealX(line, buffer.cursorX)
-      prefix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
+      realX = codes.getRealX(line, buffer.cursorX)
+      prefix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
       before = line[0 ..< realX]
       after = line[realX ..< line.len]
     var newLines: RefStrings
@@ -716,11 +528,11 @@ proc onInput(code: int, buffer: tuple): bool =
     return false
   let
     line = buffer.lines[buffer.cursorY][].toRunes
-    realX = getRealX(line, buffer.cursorX)
+    realX = codes.getRealX(line, buffer.cursorX)
     prefix = buffer.makePrefix
-    suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
+    suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
     chColored = prefix & $ch & suffix
-    newLine = dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
+    newLine = codes.dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
   var newLines = buffer.lines
   newLines.set(buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
@@ -743,11 +555,11 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     line = line[0 ..< lines[i][].runeLen]
     if scrollX < line.stripCodes.runeLen:
       if scrollX > 0:
-        deleteBefore(line, scrollX)
+        codes.deleteBefore(line, scrollX)
     else:
       line = @[]
-    deleteAfter(line, buffer.width - 1)
-    writeAnsi(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
+    codes.deleteAfter(line, buffer.width - 1)
+    codes.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
     if buffer.prompt != StopPlaying:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
@@ -798,11 +610,11 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
             var line = lines[y][].toRunes
             while x > line.stripCodes.runeLen - 1:
               line.add(" ".runeAt(0))
-            let realX = getRealX(line, x)
+            let realX = codes.getRealX(line, x)
             line[realX] = buffer.selectedChar.runeAt(0)
             let prefix = buffer.makePrefix
-            let suffix = "\e[" & strutils.join(@[0] & getParamsBeforeRealX(line, realX), ";") & "m"
-            lines.set(y, dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
+            let suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
+            lines.set(y, codes.dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
             session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
@@ -872,7 +684,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
   return xx
 
 proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: iw.Key, hint: string] = (iw.Key.None, "")): int =
-  writeAnsi(tb, x, y, text)
+  codes.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -906,9 +718,9 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
     colorChars &= " "
   let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
   let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
-  writeAnsi(tb, colorX, 0, colorChars)
+  codes.write(tb, colorX, 0, colorChars)
   iw.write(tb, colorX + fgIndex * 3, 1, "↑")
-  writeAnsi(tb, colorX + bgIndex * 3 + 1, 1, "↑")
+  codes.write(tb, colorX + bgIndex * 3 + 1, 1, "↑")
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.y == 0:
@@ -951,7 +763,7 @@ proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX
     brushCharsColored &= "\e[0m "
   result = brushX + brushChars.len * 2
   let brushIndex = find(brushChars, buffer.selectedChar)
-  writeAnsi(tb, brushX, 0, brushCharsColored)
+  codes.write(tb, brushX, 0, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, 1, "↑")
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -1065,7 +877,7 @@ proc tick*(): iw.TerminalBuffer =
           "‼ Exit"
       textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      writeAnsi(tb, textX, windowHeight - 1, "\e[3m" & text & "\e[0m")
+      codes.write(tb, textX, windowHeight - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying:
       let cb =
         proc () =
