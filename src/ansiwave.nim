@@ -717,14 +717,17 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     tb[buffer.x, row] = yBlock
 
   if buffer.mode == 0:
+    var prompt = ""
     case buffer.prompt:
     of None:
       if buffer.insertMode:
-        iw.write(tb, buffer.x + 1, buffer.y, "Press Insert to turn off insert mode")
+        prompt = "Press Insert to turn off insert mode"
     of DeleteLine:
-      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
+      prompt = "Press Tab to delete the current line"
     of StopPlaying:
-      iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to stop playing")
+      prompt = "Press Tab to stop playing"
+    if prompt.len > 0:
+      codes.write(tb, buffer.x + 1, buffer.y, "\e[3m" & prompt & "\e[0m")
 
 proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: iw.Key, hint: string]): int =
   const space = 2
