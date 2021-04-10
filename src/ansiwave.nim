@@ -38,6 +38,7 @@ type
     lines: seq[ref string]
     cursorX: int
     cursorY: int
+    time: float
   Moments = ref seq[Moment]
   RefCommands = ref seq[wavescript.CommandTree]
   Link = object
@@ -388,12 +389,20 @@ let rules =
             undoIndex < history[].len and
             history[undoIndex].lines == lines[]:
           return
-        let newIndex = undoIndex + 1
+        let
+          currTime = times.epochTime()
+          newIndex =
+            # if there is a previous undo moment that occurred recently,
+            # replace that instead of making a new moment
+            if undoIndex > 0 and currTime - history[undoIndex].time <= 0.5:
+              undoIndex
+            else:
+              undoIndex + 1
         if history[].len == newIndex:
-          history[].add(Moment(lines: lines[], cursorX: x, cursorY: y))
+          history[].add(Moment(lines: lines[], cursorX: x, cursorY: y, time: currTime))
         elif history[].len > newIndex:
           history[] = history[0 .. newIndex]
-          history[newIndex] = Moment(lines: lines[], cursorX: x, cursorY: y)
+          history[newIndex] = Moment(lines: lines[], cursorX: x, cursorY: y, time: currTime)
         session.insert(id, UndoHistory, history)
         session.insert(id, UndoIndex, newIndex)
     rule undoIndexChanged(Fact):
