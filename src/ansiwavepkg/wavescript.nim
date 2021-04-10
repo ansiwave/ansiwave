@@ -31,7 +31,7 @@ type
     skip*: bool
   CommandKind = enum
     Instrument, Attribute, Length, LengthWithNumerator,
-    Concurrent, ConcurrentLines,
+    Concurrent, ConcurrentLines, Let,
   CommandMetadata = tuple[argc: int, kind: CommandKind]
   Commands = Table[string, CommandMetadata]
   Context* = object
@@ -67,6 +67,7 @@ proc initCommands(): Table[string, CommandMetadata] =
   result["/"] = (argc: 2, kind: LengthWithNumerator)
   result[","] = (argc: 2, kind: Concurrent)
   result["/,"] = (argc: 0, kind: ConcurrentLines)
+  result["/let"] = (argc: -1, kind: Let)
 
 proc toStr(form: Form): string =
   case form.kind:
@@ -86,7 +87,6 @@ const
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars* = [" ", "█", "▓", "▒", "░", "▀", "▄", "▌", "▐"].toHashSet
   operatorCommands = ["/,"].toHashSet
-  specialCommands = ["/let"].toHashSet
   commands = initCommands()
 
 proc initContext*(): Context =
@@ -112,6 +112,19 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
     var cmd: CommandMetadata
     if getCommand(cmd, head.name):
       let (argc, kind) = cmd
+      if kind == Let:
+        if not topLevel:
+          return CommandTree(kind: Error, line: command.line, message: "$1 cannot be placed within another command".format(head.name))
+        elif forms.len < 2:
+          return CommandTree(kind: Error, line: command.line, message: "$1 does not have enough input".format(head.name))
+        elif forms[0].kind != Symbol:
+          return CommandTree(kind: Error, line: command.line, message: "$1 must have a symbol as its first input".format(head.name))
+        else:
+          let name = "/" & forms[0].name
+          if name in commands or name in context.variables:
+            return CommandTree(kind: Error, line: command.line, message: "$1 already was defined".format(name))
+          context.variables[name] = forms[1 ..< forms.len]
+          result.skip = true
       var argcFound = 0
       while forms.len > 0:
         if argc >= 0 and argcFound == argc:
@@ -132,21 +145,6 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
         argcFound.inc
       if argcFound < argc:
         return CommandTree(kind: Error, line: command.line, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
-    elif head.name == "/let":
-      if not topLevel:
-        return CommandTree(kind: Error, line: command.line, message: "$1 cannot be placed within another command".format(head.name))
-      elif forms.len < 2:
-        return CommandTree(kind: Error, line: command.line, message: "$1 does not have enough input".format(head.name))
-      elif forms[0].kind != Symbol:
-        return CommandTree(kind: Error, line: command.line, message: "$1 must have a symbol as its first input".format(head.name))
-      else:
-        let name = "/" & forms[0].name
-        if name in commands or name in specialCommands or name in context.variables:
-          return CommandTree(kind: Error, line: command.line, message: "$1 already was defined".format(name))
-        context.variables[name] = forms[1 ..< forms.len]
-        let tree = CommandTree(kind: Valid, line: command.line, name: head.name, args: forms)
-        forms = @[]
-        return tree
     elif head.name in context.variables:
       forms = context.variables[head.name] & forms
       return CommandTree(kind: Discard, line: command.line)
@@ -329,8 +327,6 @@ proc toJson(form: Form): JsonNode =
   of Number:
     result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
   of Command:
-    if form.tree.name in specialCommands:
-      return %*{}
     var cmd: CommandMetadata
     if not getCommand(cmd, form.tree.name):
       raise newException(Exception, "Command not found: " & form.tree.name)
@@ -351,6 +347,10 @@ proc toJson(form: Form): JsonNode =
       if form.tree.args.len != 2:
         raise newException(Exception, "$1 is not in a valid place".format(form.tree.name))
       result = %*[{"mode": "concurrent"}, form.tree.args[0].toJson, form.tree.args[1].toJson]
+    of Let:
+      result = JsonNode(kind: JArray)
+      for arg in form.tree.args[1 ..< form.tree.args.len]:
+        result.elems.add(toJson(arg))
 
 proc toJson*(tree: CommandTree): JsonNode =
   toJson(Form(kind: Command, tree: tree))
