@@ -610,11 +610,13 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
             var line = lines[y][].toRunes
             while x > line.stripCodes.runeLen - 1:
               line.add(" ".runeAt(0))
-            let realX = codes.getRealX(line, x)
-            line[realX] = buffer.selectedChar.runeAt(0)
-            let prefix = buffer.makePrefix
-            let suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
-            lines.set(y, codes.dedupeCodes($line[0 ..< realX] & prefix & buffer.selectedChar & suffix & $line[realX + 1 ..< line.len]))
+            let
+              realX = codes.getRealX(line, x)
+              prefix = buffer.makePrefix
+              suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
+              oldChar = line[realX].toUTF8
+              newChar = if oldChar in wavescript.whitespaceChars: buffer.selectedChar else: oldChar
+            lines.set(y, codes.dedupeCodes($line[0 ..< realX] & prefix & newChar & suffix & $line[realX + 1 ..< line.len]))
             session.insert(buffer.id, Lines, lines)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
