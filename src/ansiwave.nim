@@ -551,6 +551,10 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     session.insert(buffer.id, CursorX, 0)
   of iw.Key.End:
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
+  of iw.Key.PageUp, iw.Key.CtrlU:
+    session.insert(buffer.id, CursorY, buffer.cursorY - int(buffer.height / 2))
+  of iw.Key.PageDown, iw.Key.CtrlD:
+    session.insert(buffer.id, CursorY, buffer.cursorY + int(buffer.height / 2))
   of iw.Key.Tab:
     if buffer.prompt == DeleteLine:
       var newLines = buffer.lines
