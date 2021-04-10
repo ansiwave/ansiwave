@@ -179,7 +179,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
     noErrors = true
     nodes = json.JsonNode(kind: json.JArray)
     lineTimes: seq[tuple[line: int, time: float]]
-    context = paramidi.initContext()
+    midiContext = paramidi.initContext()
     lastTime = 0.0
   for cmd in buffer.commands[]:
     if cmd.skip:
@@ -189,22 +189,22 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
         try:
           let node = wavescript.toJson(cmd)
           nodes.elems.add(node)
-          midi.compileScore(context, node, false)
+          midi.compileScore(midiContext, node, false)
         except Exception as e:
           midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
       lineTimes.add((cmd.line, lastTime))
-      lastTime = context.seconds
+      lastTime = midiContext.seconds
     of midi.Error:
       setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, cmd.line, res.message)
       noErrors = false
       break
   if noErrors:
-    context = paramidi.initContext()
+    midiContext = paramidi.initContext()
     let res =
       try:
-        midi.compileScore(context, nodes, true)
+        midi.compileScore(midiContext, nodes, true)
       except Exception as e:
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
@@ -299,9 +299,11 @@ let rules =
       cond:
         id != Errors.ord
       then:
+        var scriptContext = waveScript.initContext()
         let
           cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
-          trees = wavescript.parseOperatorCommands(sequtils.map(cmds, wavescript.parse))
+          treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
+          trees = wavescript.parseOperatorCommands(treesTemp)
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
@@ -309,18 +311,18 @@ let rules =
         new linksRef
         var
           sess = session
-          context = paramidi.initContext()
+          midiContext = paramidi.initContext()
         for tree in trees:
           case tree.kind:
           of wavescript.Valid:
             # set the play button in the gutter to play the line
             let treeLocal = tree
-            sugar.capture treeLocal, context:
+            sugar.capture treeLocal, midiContext:
               let
                 cb =
                   proc () =
                     sess.insert(id, Prompt, StopPlaying)
-                    var ctx = context
+                    var ctx = midiContext
                     ctx.time = 0
                     new ctx.events
                     let res =
@@ -340,13 +342,15 @@ let rules =
             # this is important so attributes changed by previous lines
             # affect the play button
             try:
-              discard paramidi.compile(context, wavescript.toJson(tree))
+              discard paramidi.compile(midiContext, wavescript.toJson(tree))
             except:
               discard
           of wavescript.Error:
             if id == Editor.ord:
               setErrorLink(sess, linksRef, tree.line, errsRef[].len)
               errsRef[].add(tree)
+          of wavescript.Discard:
+            discard
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)
@@ -868,7 +872,7 @@ proc init*() =
     session.add(r)
 
   const
-    editorText = "\n\e[31mHello\e[0m, world!\nI always thought that one man, the lone balladeer with the guitar, could blow a whole army off the stage if he knew what he was doing; I've seen it happen.\n\n/piano c c# d\n/banjo c\n/violin d"
+    editorText = staticRead("ansiwavepkg/assets/editor.ansiwave")
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
   insertBuffer(Editor, 0, 2, true, editorText)
