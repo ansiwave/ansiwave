@@ -901,7 +901,7 @@ proc tick*(): iw.TerminalBuffer =
         0
     var x = max(titleX, playX)
 
-    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: iw.Key.CtrlZ, hint: "Hint: undo with Ctrl Z"))
+    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: iw.Key.CtrlX, hint: "Hint: undo with Ctrl X"))
     let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: iw.Key.CtrlR, hint: "Hint: redo with Ctrl R"))
     x = max(undoX, redoX)
 
