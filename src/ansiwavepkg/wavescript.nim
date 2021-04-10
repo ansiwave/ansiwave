@@ -105,7 +105,7 @@ proc getCommand(meta: var CommandMetadata, name: string): bool =
 
 proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText): CommandTree =
   # create a hierarchical tree of commands
-  proc getNextCommand(context: var Context, head: Form, forms: var seq[Form]): CommandTree =
+  proc getNextCommand(context: var Context, head: Form, forms: var seq[Form], topLevel: bool): CommandTree =
     if head.kind == Command:
       return CommandTree(kind: Error, line: command.line, message: "$1 is not in a valid place".format(head.tree.name))
     result = CommandTree(kind: Valid, line: command.line, name: head.name)
@@ -119,7 +119,7 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
         let form = forms[0]
         forms = forms[1 ..< forms.len]
         if form.kind == Symbol and form.name[0] == '/':
-          let cmd = getNextCommand(context, form, forms)
+          let cmd = getNextCommand(context, form, forms, false)
           case cmd.kind:
           of Valid:
             result.args.add(Form(kind: Command, tree: cmd))
@@ -133,7 +133,9 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
       if argcFound < argc:
         return CommandTree(kind: Error, line: command.line, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
     elif head.name == "/let":
-      if forms.len < 2:
+      if not topLevel:
+        return CommandTree(kind: Error, line: command.line, message: "$1 cannot be placed within another command".format(head.name))
+      elif forms.len < 2:
         return CommandTree(kind: Error, line: command.line, message: "$1 does not have enough input".format(head.name))
       elif forms[0].kind != Symbol:
         return CommandTree(kind: Error, line: command.line, message: "$1 must have a symbol as its first input".format(head.name))
@@ -152,7 +154,7 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
       return CommandTree(kind: Error, line: command.line, message: "Command not found: $1".format(head.name))
   let head = forms[0]
   var rest = forms[1 ..< forms.len]
-  result = getNextCommand(context, head, rest)
+  result = getNextCommand(context, head, rest, true)
   # error if there is any extra input
   if result.kind == Valid and rest.len > 0:
     var extraInput = ""
