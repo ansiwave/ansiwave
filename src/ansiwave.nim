@@ -30,10 +30,15 @@ type
     Editable, SelectedMode,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
-    HintText, HintTime,
+    HintText, HintTime, UndoHistory, UndoIndex,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
+  Moment = object
+    lines: seq[ref string]
+    cursorX: int
+    cursorY: int
+  Moments = ref seq[Moment]
   RefCommands = ref seq[wavescript.CommandTree]
   Link = object
     icon: Rune
@@ -63,6 +68,8 @@ schema Fact(Id, Attr):
   Links: RefLinks
   HintText: string
   HintTime: float
+  UndoHistory: Moments
+  UndoIndex: int
 
 proc exitClean(message: string) =
   iw.illwillDeinit()
@@ -369,6 +376,43 @@ let rules =
         session.insert(Errors, ValidCommands, cast[RefCommands](nil))
         session.insert(Errors, InvalidCommands, cast[RefCommands](nil))
         session.insert(Errors, Links, linksRef)
+    rule updateHistory(Fact):
+      what:
+        (id, Lines, lines)
+        (id, UndoHistory, history, then = false)
+        (id, UndoIndex, undoIndex, then = false)
+        (id, CursorX, x, then = false)
+        (id, CursorY, y, then = false)
+      then:
+        if undoIndex >= 0 and
+            undoIndex < history[].len and
+            history[undoIndex].lines == lines[]:
+          return
+        let newIndex = undoIndex + 1
+        if history[].len == newIndex:
+          history[].add(Moment(lines: lines[], cursorX: x, cursorY: y))
+        elif history[].len > newIndex:
+          history[] = history[0 .. newIndex]
+          history[newIndex] = Moment(lines: lines[], cursorX: x, cursorY: y)
+        session.insert(id, UndoHistory, history)
+        session.insert(id, UndoIndex, newIndex)
+    rule undoIndexChanged(Fact):
+      what:
+        (id, Lines, lines, then = false)
+        (id, UndoIndex, undoIndex)
+        (id, UndoHistory, history)
+      cond:
+        undoIndex >= 0
+        undoIndex < history[].len
+        history[undoIndex].lines != lines[]
+      then:
+        let moment = history[undoIndex]
+        var newLines: RefStrings
+        new newLines
+        newLines[] = moment.lines
+        session.insert(id, Lines, newLines)
+        session.insert(id, CursorX, moment.cursorX)
+        session.insert(id, CursorY, moment.cursorY)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -389,6 +433,8 @@ let rules =
         (id, ValidCommands, commands)
         (id, InvalidCommands, errors)
         (id, Links, links)
+        (id, UndoHistory, undoHistory)
+        (id, UndoIndex, undoIndex)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -420,6 +466,10 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, SelectedFgColor, "")
   session.insert(id, SelectedBgColor, "")
   session.insert(id, Prompt, None)
+  var history: Moments
+  new history
+  session.insert(id, UndoHistory, history)
+  session.insert(id, UndoIndex, -1)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -788,6 +838,14 @@ proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX
     except:
       discard
 
+proc undo(buffer: tuple) =
+  if buffer.undoIndex > 0:
+    session.insert(buffer.id, UndoIndex, buffer.undoIndex - 1)
+
+proc redo(buffer: tuple) =
+  if buffer.undoIndex + 1 < buffer.undoHistory[].len:
+    session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
+
 proc init*() =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
@@ -834,8 +892,8 @@ proc tick*(): iw.TerminalBuffer =
         0
     var x = max(titleX, playX)
 
-    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = echo("undo"), (key: iw.Key.CtrlZ, hint: "Hint: undo with Ctrl Z"))
-    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = echo("redo"), (key: iw.Key.CtrlR, hint: "Hint: redo with Ctrl R"))
+    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: iw.Key.CtrlZ, hint: "Hint: undo with Ctrl Z"))
+    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: iw.Key.CtrlR, hint: "Hint: redo with Ctrl R"))
     x = max(undoX, redoX)
 
     let
