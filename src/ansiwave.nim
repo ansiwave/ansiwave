@@ -30,7 +30,7 @@ type
     Editable, SelectedMode,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
-    HintText, HintTime, UndoHistory, UndoIndex,
+    HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -71,6 +71,7 @@ schema Fact(Id, Attr):
   HintTime: float
   UndoHistory: Moments
   UndoIndex: int
+  InsertMode: bool
 
 proc exitClean(message: string) =
   iw.illwillDeinit()
@@ -446,6 +447,7 @@ let rules =
         (id, Links, links)
         (id, UndoHistory, undoHistory)
         (id, UndoIndex, undoIndex)
+        (id, InsertMode, insertMode)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -481,6 +483,7 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   new history
   session.insert(id, UndoHistory, history)
   session.insert(id, UndoIndex, -1)
+  session.insert(id, InsertMode, false)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -505,7 +508,11 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       let
         line = buffer.lines[buffer.cursorY][].toRunes
         realX = codes.getRealX(line, buffer.cursorX - 1)
-        newLine = codes.dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
+        before = line[0 ..< realX]
+      var after = line[realX + 1 ..< line.len]
+      if buffer.insertMode:
+        after = @[" ".runeAt(0)] & after
+      let newLine = codes.dedupeCodes($before & $after)
       var newLines = buffer.lines
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
@@ -567,6 +574,10 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       session.insert(buffer.id, Lines, newLines)
       if buffer.cursorY > newLines[].len - 1:
         session.insert(buffer.id, CursorY, newLines[].len - 1)
+  of iw.Key.Insert:
+    if not buffer.editable:
+      return false
+    session.insert(buffer.id, InsertMode, not buffer.insertMode)
   else:
     return false
   true
@@ -597,7 +608,11 @@ proc onInput(code: int, buffer: tuple): bool =
     prefix = buffer.makePrefix
     suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
     chColored = prefix & $ch & suffix
-    newLine = codes.dedupeCodes($line[0 ..< realX] & chColored & $line[realX ..< line.len])
+    before = line[0 ..< realX]
+  var after = line[realX ..< line.len]
+  if buffer.insertMode and after.len > 0:
+    after = after[1 ..< after.len]
+  let newLine = codes.dedupeCodes($before & chColored & $after)
   var newLines = buffer.lines
   newLines.set(buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
@@ -704,7 +719,8 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   if buffer.mode == 0:
     case buffer.prompt:
     of None:
-      discard
+      if buffer.insertMode:
+        iw.write(tb, buffer.x + 1, buffer.y, "Press Insert to turn off insert mode")
     of DeleteLine:
       iw.write(tb, buffer.x + 1, buffer.y, "Press Tab to delete the current line")
     of StopPlaying:
