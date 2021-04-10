@@ -727,7 +727,8 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     of StopPlaying:
       prompt = "Press Tab to stop playing"
     if prompt.len > 0:
-      codes.write(tb, buffer.x + 1, buffer.y, "\e[3m" & prompt & "\e[0m")
+      let x = buffer.x + 1 + buffer.width - prompt.runeLen
+      iw.write(tb, max(x, buffer.x + 1), buffer.y, prompt)
 
 proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: iw.Key, hint: string]): int =
   const space = 2
