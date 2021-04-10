@@ -560,7 +560,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       line = @[]
     codes.deleteAfter(line, buffer.width - 1)
     codes.write(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
-    if buffer.prompt != StopPlaying:
+    if buffer.prompt != StopPlaying and buffer.mode == 0:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
         let linkY = buffer.y + 1 + screenLine
