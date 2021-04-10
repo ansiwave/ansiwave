@@ -3,6 +3,7 @@ from math import `mod`
 import tables
 
 const
+  defaultLineWidth = 80
   ESCAPE = '\x1B'
   CR     = '\x0D'
   LF     = '\x0A'
@@ -201,9 +202,8 @@ proc merge(brush: var Brush, params: seq[int]) =
 type
   Pos = tuple[row: int, col: int]
   Val = tuple[utf8: string, brush: Brush]
-const lineWidth = 80
 
-proc incClamp(pos: var Pos, x: int, y: int) =
+proc incClamp(pos: var Pos, x: int, y: int, lineWidth: int) =
   let
     newRow = pos.row + y
     newCol = pos.col + x
@@ -212,7 +212,7 @@ proc incClamp(pos: var Pos, x: int, y: int) =
   if newCol >= 0 and newCol < lineWidth:
     pos.col = newCol
 
-proc ansiToUtf8*(ansi: string): OrderedTable[Pos, Val] =
+proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[Pos, Val] =
   var
     isEscape = false
     curCode = ""
@@ -237,13 +237,13 @@ proc ansiToUtf8*(ansi: string): OrderedTable[Pos, Val] =
           of 'm':
             merge(brush, params)
           of 'A': # up
-            incClamp(curPos, 0, -params[0])
+            incClamp(curPos, 0, -params[0], lineWidth)
           of 'B': # down
-            incClamp(curPos, 0, params[0])
+            incClamp(curPos, 0, params[0], lineWidth)
           of 'C': # forward
-            incClamp(curPos, params[0], 0)
+            incClamp(curPos, params[0], 0, lineWidth)
           of 'D': # back
-            incClamp(curPos, -params[0], 0)
+            incClamp(curPos, -params[0], 0, lineWidth)
           of 'H', 'f': # to x, y
             curPos.row = params[0]
             curPos.col = params[1]
@@ -293,12 +293,12 @@ proc newLine() =
   stdout.write('\n')
   clear()
 
-proc fillRestOfLine(curCol: var int) =
+proc fillRestOfLine(curCol: var int, lineWidth: int) =
   while curCol < lineWidth:
     stdout.write(' ')
     curCol = curCol + 1
 
-proc print*(grid: OrderedTable[Pos, Val]) =
+proc print*(grid: OrderedTable[Pos, Val], lineWidth: int = defaultLineWidth) =
   var
     curRow = 0
     curCol = 0
@@ -307,7 +307,7 @@ proc print*(grid: OrderedTable[Pos, Val]) =
   clear()
   for pos, item in grid.pairs:
     while curRow != pos.row:
-      fillRestOfLine(curCol)
+      fillRestOfLine(curCol, lineWidth)
       newLine()
       stdout.write(toEsc(initBrush(), Brush()))
       curRow = curRow + 1
@@ -321,5 +321,5 @@ proc print*(grid: OrderedTable[Pos, Val]) =
       stdout.write(toEsc(item.brush, curBrush))
       curBrush = item.brush
     stdout.write(item.utf8)
-  fillRestOfLine(curCol)
+  fillRestOfLine(curCol, lineWidth)
   newLine()
