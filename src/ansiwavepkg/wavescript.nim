@@ -28,7 +28,7 @@ type
     line*: int
     skip*: bool
   CommandKind = enum
-    Instrument, Attribute, Length, LengthWithNumerator,
+    Play, Instrument, PlayInstrument, Attribute, Length, LengthWithNumerator,
     Concurrent, ConcurrentLines, Let,
   CommandMetadata = tuple[argc: int, kind: CommandKind]
   Commands = Table[string, CommandMetadata]
@@ -58,7 +58,7 @@ proc attributeToJson(name: string, args: seq[Form]): JsonNode =
 
 proc initCommands(): Table[string, CommandMetadata] =
   for inst in constants.instruments:
-    result["/" & inst] = (argc: -1, kind: Instrument)
+    result["/" & inst] = (argc: -1, kind: PlayInstrument)
   result["/length"] = (argc: 1, kind: Attribute)
   result["/octave"] = (argc: 1, kind: Attribute)
   result["/tempo"] = (argc: 1, kind: Attribute)
@@ -66,6 +66,8 @@ proc initCommands(): Table[string, CommandMetadata] =
   result[","] = (argc: 2, kind: Concurrent)
   result["/,"] = (argc: 0, kind: ConcurrentLines)
   result["/let"] = (argc: -1, kind: Let)
+  result["/play"] = (argc: -1, kind: Play)
+  result["/instrument"] = (argc: 1, kind: Instrument)
 
 proc toStr(form: Form): string =
   case form.kind:
@@ -226,10 +228,10 @@ proc parse*(context: var Context, command: CommandText): CommandTree =
     newForms: seq[Form]
     i = 0
   while i < forms.len:
-    # / with whitespace on the left and symbol/number/operator on the right should form a single symbol
+    # / with whitespace or comma on the left and symbol/number/operator on the right should form a single symbol
     if forms[i].kind == Operator and
         forms[i].name == "/" and
-        (i == 0 or forms[i-1].kind == Whitespace) and
+        (i == 0 or forms[i-1].kind == Whitespace or (forms[i-1].kind == Operator and forms[i-1].name == ",")) and
         (i != forms.len - 1 and forms[i+1].kind in {Symbol, Number, Operator}):
       newForms.add(Form(kind: Symbol, name: forms[i].name & forms[i+1].name))
       i += 2
@@ -329,7 +331,15 @@ proc toJson(form: Form): JsonNode =
     if not getCommand(cmd, form.tree.name):
       raise newException(Exception, "Command not found: " & form.tree.name)
     case cmd.kind:
+    of Play:
+      result = JsonNode(kind: JArray)
+      for arg in form.tree.args:
+        result.elems.add(toJson(arg))
     of Instrument:
+      if form.tree.args[0].kind != Symbol:
+        raise newException(Exception, "Instrument names must be symbols")
+      result = JsonNode(kind: JString, str: form.tree.args[0].name)
+    of PlayInstrument:
       result = instrumentToJson(form.tree.name, form.tree.args)
     of Attribute:
       result = attributeToJson(form.tree.name, form.tree.args)
