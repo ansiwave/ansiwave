@@ -345,12 +345,10 @@ let rules =
               discard paramidi.compile(midiContext, wavescript.toJson(tree))
             except:
               discard
-          of wavescript.Error:
+          of wavescript.Error, wavescript.Discard:
             if id == Editor.ord:
               setErrorLink(sess, linksRef, tree.line, errsRef[].len)
               errsRef[].add(tree)
-          of wavescript.Discard:
-            discard
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
         session.insert(id, Links, linksRef)

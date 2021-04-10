@@ -23,10 +23,8 @@ type
     of Valid:
       name*: string
       args*: seq[Form]
-    of Error:
+    of Error, Discard:
       message*: string
-    of Discard:
-      discard
     line*: int
     skip*: bool
   CommandKind = enum
@@ -147,7 +145,7 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
         return CommandTree(kind: Error, line: command.line, message: "$1 expects $2 arguments, but only $3 given".format(head.toStr, argc, argcFound))
     elif head.name in context.variables:
       forms = context.variables[head.name] & forms
-      return CommandTree(kind: Discard, line: command.line)
+      return CommandTree(kind: Discard, line: command.line, message: "$1 must be placed within another command".format(head.name))
     else:
       return CommandTree(kind: Error, line: command.line, message: "Command not found: $1".format(head.name))
   let head = forms[0]
