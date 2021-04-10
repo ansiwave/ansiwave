@@ -616,7 +616,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       break
     var line = lines[i][].toRunes
     line = line[0 ..< lines[i][].runeLen]
-    if scrollX < line.stripCodes.runeLen:
+    if scrollX < line.stripCodes.len:
       if scrollX > 0:
         codes.deleteBefore(line, scrollX)
     else:
@@ -671,7 +671,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
             while y > lines[].len - 1:
               lines.add("")
             var line = lines[y][].toRunes
-            while x > line.stripCodes.runeLen - 1:
+            while x > line.stripCodes.len - 1:
               line.add(" ".runeAt(0))
             let
               realX = codes.getRealX(line, x)

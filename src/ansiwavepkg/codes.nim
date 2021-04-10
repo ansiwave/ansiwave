@@ -73,15 +73,15 @@ proc write*(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
   iw.setCursorXPos(tb, currX)
   iw.setCursorYPos(tb, y)
 
-proc stripCodes*(line: seq[Rune]): string =
+proc stripCodes*(line: seq[Rune]): seq[Rune] =
   var codes: seq[string]
   for ch in line:
     if parseCode(codes, ch):
       continue
-    result &= $ch
+    result.add(ch)
 
 proc stripCodes*(line: string): string =
-  stripCodes(line.toRunes)
+  $stripCodes(line.toRunes)
 
 proc stripCodesIfCommand*(line: ref string): string =
   var
