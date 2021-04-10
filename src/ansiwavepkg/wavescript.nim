@@ -82,7 +82,7 @@ const
   numberChars = {'0'..'9'}
   invalidChars = {'A'..'Z', '~', '`', '!', '@', '$', '%', '^', '&', '*', '(', ')', '{', '}',
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
-  whitespaceChars = {' '}
+  whitespaceChars* = [" ", "█", "▓", "▒", "░", "▀", "▄", "▌", "▐"].toHashSet
   operatorCommands = ["/,"].toHashSet
   commands = initCommands()
 

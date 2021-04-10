@@ -1,5 +1,5 @@
 from illwill as iw import `[]`, `[]=`
-import tables
+import tables, sets
 import pararules
 import unicode
 from os import nil
@@ -703,9 +703,9 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
-    colorFgShortcuts = ['x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w']
+    colorFgShortcuts    = ['x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w']
     colorFgShortcutsSet = {'x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w'}
-    colorBgShortcuts = ['X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W']
+    colorBgShortcuts    = ['X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W']
     colorBgShortcutsSet = {'X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W'}
     colorNames = ["default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
   result = colorX + colorFgCodes.len * 3 + 1
@@ -753,9 +753,11 @@ proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX:
 
 proc renderBrushes(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
   const
-    brushChars = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
-    brushShortcuts = ['1', '2', '3', '4', '5', '6', '7', '8']
+    brushChars        = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
+    brushShortcuts    = ['1', '2', '3', '4', '5', '6', '7', '8']
     brushShortcutsSet = {'1', '2', '3', '4', '5', '6', '7', '8'}
+  # make sure that all brush chars are treated as whitespace by wavescript
+  static: assert brushChars.toHashSet < wavescript.whitespaceChars
   var brushCharsColored = ""
   for ch in brushChars:
     brushCharsColored &= buffer.selectedFgColor & buffer.selectedBgColor
