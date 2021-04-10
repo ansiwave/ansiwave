@@ -870,7 +870,7 @@ proc init*() =
     session.add(r)
 
   const
-    editorText = staticRead("ansiwavepkg/assets/editor.ansiwave")
+    editorText = readFile("tests/variables.ansiwave")
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
   insertBuffer(Editor, 0, 2, true, editorText)

@@ -1,5 +1,0 @@
-/let attrs /tempo 74 /octave 3
-/let chord1 d-,a-,e,f#
-/let chord2 f#,d+
-
-/organ /attrs /8 /chord1 a /2 /chord2
