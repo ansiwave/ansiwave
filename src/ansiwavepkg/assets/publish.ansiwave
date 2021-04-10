@@ -10,4 +10,4 @@ To save your music as a wav file:
 ansiwave hello.ansiwave hello.wav
 
 To convert an ans file (old-school ANSI art) into an ansiwave:
-ansiwave old.ans new.ansiwave
+ansiwave old.ans new.ansiwave --width 80
