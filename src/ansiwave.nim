@@ -520,8 +520,12 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
   of iw.Key.Delete:
     if not buffer.editable:
       return false
-    if buffer.cursorX == buffer.lines[buffer.cursorY][].stripCodes.runeLen:
-      session.insert(buffer.id, Prompt, DeleteLine)
+    if buffer.cursorX == buffer.lines[buffer.cursorY][].stripCodes.runeLen and
+        buffer.cursorY < buffer.lines[].len - 1:
+      var newLines = buffer.lines
+      newLines.set(buffer.cursorY, newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][])
+      newLines[].delete(buffer.cursorY + 1)
+      session.insert(buffer.id, Lines, newLines)
     elif buffer.cursorX < buffer.lines[buffer.cursorY][].stripCodes.runeLen:
       let
         line = buffer.lines[buffer.cursorY][].toRunes
@@ -565,7 +569,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
   of iw.Key.PageDown, iw.Key.CtrlD:
     session.insert(buffer.id, CursorY, buffer.cursorY + int(buffer.height / 2))
   of iw.Key.Tab:
-    if buffer.prompt == DeleteLine:
+    case buffer.prompt:
+    of DeleteLine:
       var newLines = buffer.lines
       if newLines[].len == 1:
         newLines.set(0, "")
@@ -574,6 +579,8 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       session.insert(buffer.id, Lines, newLines)
       if buffer.cursorY > newLines[].len - 1:
         session.insert(buffer.id, CursorY, newLines[].len - 1)
+    else:
+      discard
   of iw.Key.Insert:
     if not buffer.editable:
       return false
