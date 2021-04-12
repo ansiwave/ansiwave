@@ -19,6 +19,8 @@ from parseopt import nil
 const
   sleepMsecs = 10
   hintSecs = 5
+  undoDelay = 0.5
+  saveDelay = 0.5
 
 type
   Id* = enum
@@ -33,6 +35,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
+    LastEditTime, LastSaveTime,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -78,6 +81,8 @@ schema Fact(Id, Attr):
   UndoHistory: Moments
   UndoIndex: int
   InsertMode: bool
+  LastEditTime: float
+  LastSaveTime: float
 
 proc exitClean(message: string) =
   iw.illwillDeinit()
@@ -403,7 +408,7 @@ let rules =
           newIndex =
             # if there is a previous undo moment that occurred recently,
             # replace that instead of making a new moment
-            if undoIndex > 0 and currTime - history[undoIndex].time <= 0.5:
+            if undoIndex > 0 and currTime - history[undoIndex].time <= undoDelay:
               undoIndex
             else:
               undoIndex + 1
@@ -431,6 +436,11 @@ let rules =
         session.insert(id, Lines, newLines)
         session.insert(id, CursorX, moment.cursorX)
         session.insert(id, CursorY, moment.cursorY)
+    rule updateLastEditTime(Fact):
+      what:
+        (id, Lines, lines)
+      then:
+        session.insert(id, LastEditTime, times.epochTime())
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -454,6 +464,8 @@ let rules =
         (id, UndoHistory, undoHistory)
         (id, UndoIndex, undoIndex)
         (id, InsertMode, insertMode)
+        (id, LastEditTime, lastEditTime)
+        (id, LastSaveTime, lastSaveTime)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -490,6 +502,8 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, UndoHistory, history)
   session.insert(id, UndoIndex, -1)
   session.insert(id, InsertMode, false)
+  session.insert(id, LastEditTime, 0.0)
+  session.insert(id, LastSaveTime, 0.0)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -894,7 +908,7 @@ proc redo(buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(opts: Options) =
+proc init*(opts: Options, editorText: string) =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
@@ -902,15 +916,10 @@ proc init*(opts: Options) =
   for r in rules.fields:
     session.add(r)
 
-  try:
-    let editorText = readFile(opts.input)
-    insertBuffer(Editor, 0, 2, true, editorText)
-  except Exception as ex:
-    exitClean(ex.msg)
-
   const
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
+  insertBuffer(Editor, 0, 2, true, editorText)
   insertBuffer(Errors, 0, 1, false, "")
   insertBuffer(Tutorial, 0, 1, false, tutorialText)
   insertBuffer(Publish, 0, 1, false, publishText)
@@ -1043,12 +1052,34 @@ proc convert(opts: Options) =
   else:
     raise newException(Exception, "Don't know how to convert $1 to $2".format(inputExt, outputExt))
 
+proc saveEditor(opts: Options) =
+  let buffer = session.query(rules.getBuffer, id = Editor)
+  if buffer.lastEditTime > buffer.lastSaveTime and times.epochTime() - buffer.lastEditTime > saveDelay:
+    try:
+      var f: File
+      if open(f, opts.input, fmWrite):
+        let lineCount = buffer.lines[].len
+        var i = 0
+        for line in buffer.lines[]:
+          write(f, line[])
+          if i != lineCount - 1:
+            write(f, "\n")
+          i.inc
+        close(f)
+      else:
+        raise newException(Exception, "Cannot open: " & opts.input)
+      session.insert(Editor, LastSaveTime, times.epochTime())
+    except Exception as ex:
+      exitClean(ex.msg)
+
 proc main*() =
   let opts = parseOptions()
-  if opts.output != "":
+  if opts.input == "":
+    raise newException(Exception, "Input file required")
+  elif opts.output != "":
     convert(opts)
     quit(0)
-  init(opts)
+  init(opts, readFile(opts.input))
   var tickCount = 0
   while true:
     var tb = tick()
@@ -1057,6 +1088,7 @@ proc main*() =
     if tickCount mod 5 == 0:
       iw.display(tb)
     session.fireRules
+    saveEditor(opts)
     os.sleep(sleepMsecs)
     tickCount.inc
 
