@@ -4,7 +4,7 @@ import strutils, sequtils
 
 import ansiwavepkg/ansi
 const content = staticRead("luke_and_yoda.ans")
-print(ansiToUtf8(content))
+stdout.write(ansiToUtf8(content))
 
 test "Dedupe codes":
   const text = "\e[31m\e[32m\e[41;42;43mHello, world!\e[31m"

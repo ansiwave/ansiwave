@@ -285,41 +285,41 @@ proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[
 
   result.sort(cmpPos)
 
-proc clear() =
-  stdout.write("\x1B[0m")
+proc clear(file: File) =
+  file.write("\x1B[0m")
 
-proc newLine() =
-  clear()
-  stdout.write('\n')
-  clear()
+proc newLine(file: File) =
+  file.clear
+  file.write('\n')
+  file.clear
 
-proc fillRestOfLine(curCol: var int, lineWidth: int) =
+proc fillRestOfLine(file: File, curCol: var int, lineWidth: int) =
   while curCol < lineWidth:
-    stdout.write(' ')
+    file.write(' ')
     curCol = curCol + 1
 
-proc print*(grid: OrderedTable[Pos, Val], lineWidth: int = defaultLineWidth) =
+proc write*(file: File, grid: OrderedTable[Pos, Val], lineWidth: int = defaultLineWidth) =
   var
     curRow = 0
     curCol = 0
     curBrush = Brush()
 
-  clear()
+  file.clear
   for pos, item in grid.pairs:
     while curRow != pos.row:
-      fillRestOfLine(curCol, lineWidth)
-      newLine()
-      stdout.write(toEsc(initBrush(), Brush()))
+      file.fillRestOfLine(curCol, lineWidth)
+      file.newLine
+      file.write(toEsc(initBrush(), Brush()))
       curRow = curRow + 1
       curCol = 0
     while curCol != pos.col:
-      stdout.write(' ')
+      file.write(' ')
       curCol = curCol + 1
     curRow = pos.row
     curCol = pos.col + 1
     if curBrush != item.brush:
-      stdout.write(toEsc(item.brush, curBrush))
+      file.write(toEsc(item.brush, curBrush))
       curBrush = item.brush
-    stdout.write(item.utf8)
-  fillRestOfLine(curCol, lineWidth)
-  newLine()
+    file.write(item.utf8)
+  file.fillRestOfLine(curCol, lineWidth)
+  file.newLine
