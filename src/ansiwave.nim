@@ -950,6 +950,8 @@ proc tick*(): iw.TerminalBuffer =
 
     if selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
+  elif globals.selectedBuffer == Publish.ord:
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: iw.Key.CtrlL, hint: "Hint: copy link with Ctrl L"))
 
   renderBuffer(tb, selectedBuffer, key)
 
