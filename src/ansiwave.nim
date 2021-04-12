@@ -520,13 +520,13 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
   of iw.Key.Delete:
     if not buffer.editable:
       return false
-    if buffer.cursorX == buffer.lines[buffer.cursorY][].stripCodes.runeLen and
-        buffer.cursorY < buffer.lines[].len - 1:
+    let charCount = buffer.lines[buffer.cursorY][].stripCodes.runeLen
+    if buffer.cursorX == charCount and buffer.cursorY < buffer.lines[].len - 1:
       var newLines = buffer.lines
       newLines.set(buffer.cursorY, newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][])
       newLines[].delete(buffer.cursorY + 1)
       session.insert(buffer.id, Lines, newLines)
-    elif buffer.cursorX < buffer.lines[buffer.cursorY][].stripCodes.runeLen:
+    elif buffer.cursorX < charCount:
       let
         line = buffer.lines[buffer.cursorY][].toRunes
         realX = codes.getRealX(line, buffer.cursorX)
