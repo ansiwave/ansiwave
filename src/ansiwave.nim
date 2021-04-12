@@ -1115,7 +1115,11 @@ proc saveEditor(opts: Options) =
         let lineCount = buffer.lines[].len
         var i = 0
         for line in buffer.lines[]:
-          write(f, line[])
+          let s = line[]
+          # write line unless it is just a clear
+          if s != "\e[0m":
+            write(f, s)
+          # write newline char after every line except the last line
           if i != lineCount - 1:
             write(f, "\n")
           i.inc
