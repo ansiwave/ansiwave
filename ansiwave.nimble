@@ -11,7 +11,7 @@ bin           = @["ansiwave"]
 task dev, "Run dev version":
   # this sets release mode because playing music
   # is unstable in debug builds for some reason
-  exec "nimble -d:release run ansiwave"
+  exec "nimble -d:release run ansiwave tests/variables.ansiwave"
 
 # Dependencies
 

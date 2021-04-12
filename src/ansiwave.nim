@@ -3,16 +3,18 @@ import tables, sets
 import pararules
 import unicode
 from os import nil
-from strutils import nil
+from strutils import format
 from sequtils import nil
 from sugar import nil
 from times import nil
+from ansiwavepkg/ansi import nil
 from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
 from paramidi import Context
 from json import nil
+from parseopt import nil
 
 const
   sleepMsecs = 10
@@ -46,6 +48,10 @@ type
     callback: proc ()
     error: bool
   RefLinks = ref Table[int, Link]
+  Options* = object
+    input*: string
+    output*: string
+    args*: Table[string, string]
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -888,7 +894,7 @@ proc redo(buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*() =
+proc init*(opts: Options) =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
@@ -896,11 +902,15 @@ proc init*() =
   for r in rules.fields:
     session.add(r)
 
+  try:
+    let editorText = readFile(opts.input)
+    insertBuffer(Editor, 0, 2, true, editorText)
+  except Exception as ex:
+    exitClean(ex.msg)
+
   const
-    editorText = readFile("tests/variables.ansiwave")
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Editor, 0, 2, true, editorText)
   insertBuffer(Errors, 0, 1, false, "")
   insertBuffer(Tutorial, 0, 1, false, tutorialText)
   insertBuffer(Publish, 0, 1, false, publishText)
@@ -993,11 +1003,56 @@ proc tick*(): iw.TerminalBuffer =
 
   return tb
 
+proc parseOptions(): Options =
+  var p = parseopt.initOptParser()
+  while true:
+    parseopt.next(p)
+    case p.kind:
+    of parseopt.cmdEnd:
+      break
+    of parseopt.cmdShortOption, parseopt.cmdLongOption:
+      result.args[p.key] = p.val
+    of parseopt.cmdArgument:
+      if result.args.len > 0:
+        raise newException(Exception, p.key & " is not in a valid place.\nIf you're trying to pass an option, you need an equals sign like --width=80")
+      elif result.input == "":
+        result.input = p.key
+      elif result.output == "":
+        result.output = p.key
+      else:
+        raise newException(Exception, "Extra argument: " & p.key)
+
+proc convert(opts: Options) =
+  let
+    inputExt = os.splitFile(opts.input).ext
+    outputExt = os.splitFile(opts.output).ext
+  if inputExt == ".ans":
+    if "width" notin opts.args:
+      raise newException(Exception, "--width is required for .ans files")
+    let width = strutils.parseInt(opts.args["width"])
+    var f: File
+    if open(f, opts.output, fmWrite):
+      ansi.write(f, ansi.ansiToUtf8(readFile(opts.input), width), width)
+      close(f)
+    else:
+      raise newException(Exception, "Cannot open: " & opts.output)
+  elif outputExt == ".url":
+    echo "Convert to url..."
+  elif outputExt == ".wav":
+    echo "Convert to wav..."
+  else:
+    raise newException(Exception, "Don't know how to convert $1 to $2".format(inputExt, outputExt))
+
 proc main*() =
-  init()
+  let opts = parseOptions()
+  if opts.output != "":
+    convert(opts)
+    quit(0)
+  init(opts)
   var tickCount = 0
   while true:
     var tb = tick()
+    # save if necessary
     # don't render every tick because it's wasteful
     if tickCount mod 5 == 0:
       iw.display(tb)
