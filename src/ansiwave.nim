@@ -759,7 +759,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       let x = buffer.x + 1 + buffer.width - prompt.runeLen
       iw.write(tb, max(x, buffer.x + 1), buffer.y, prompt)
 
-proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: iw.Key, hint: string]): int =
+proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: set[iw.Key], hint: string]): int =
   const space = 2
   var
     xx = x
@@ -783,7 +783,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
           session.insert(Global, HintText, shortcut.hint)
           session.insert(Global, HintTime, times.epochTime() + hintSecs)
           choice.callback()
-    elif choice.id == selected and shortcut.key != iw.Key.None and shortcut.key == key:
+    elif choice.id == selected and key in shortcut.key:
       let nextChoice =
         if i+1 == choices.len:
           choices[0]
@@ -799,7 +799,7 @@ proc renderRadioButtons(tb: var iw.TerminalBuffer, x: int, y: int, choices: open
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: iw.Key, hint: string] = (iw.Key.None, "")): int =
+proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
   codes.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
@@ -812,7 +812,7 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
           session.insert(Global, HintText, shortcut.hint)
           session.insert(Global, HintTime, times.epochTime() + hintSecs)
         cb()
-  elif shortcut.key != iw.Key.None and shortcut.key == key:
+  elif key in shortcut.key:
     cb()
 
 proc renderColors(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
@@ -950,13 +950,13 @@ proc tick*(): iw.TerminalBuffer =
   if globals.selectedBuffer == Editor.ord:
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: iw.Key.CtrlP, hint: "Hint: play all lines with Ctrl P"))
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
       else:
         0
     var x = max(titleX, playX)
 
-    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: iw.Key.CtrlX, hint: "Hint: undo with Ctrl X"))
-    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: iw.Key.CtrlR, hint: "Hint: redo with Ctrl R"))
+    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
+    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: {iw.Key.CtrlR}, hint: "Hint: redo with Ctrl R"))
     x = max(undoX, redoX)
 
     let
@@ -964,7 +964,7 @@ proc tick*(): iw.TerminalBuffer =
         (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
         (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
       ]
-      shortcut = (key: iw.Key.CtrlE, hint: "Hint: switch modes with Ctrl E")
+      shortcut = (key: {iw.Key.CtrlE}, hint: "Hint: switch modes with Ctrl E")
     x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
 
     x = renderColors(tb, selectedBuffer, key, x + 1)
@@ -972,7 +972,7 @@ proc tick*(): iw.TerminalBuffer =
     if selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
   elif globals.selectedBuffer == Publish.ord:
-    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: iw.Key.CtrlL, hint: "Hint: copy link with Ctrl L"))
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlL}, hint: "Hint: copy link with Ctrl L"))
 
   renderBuffer(tb, selectedBuffer, key)
 
@@ -987,7 +987,7 @@ proc tick*(): iw.TerminalBuffer =
         (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
       ]
-      shortcut = (key: iw.Key.CtrlN, hint: "Hint: switch tabs with Ctrl N")
+      shortcut = (key: {iw.Key.CtrlN}, hint: "Hint: switch tabs with Ctrl N")
     x = renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
 
   # render hints
