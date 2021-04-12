@@ -1,4 +1,5 @@
 import unittest
+from ansiwave import nil
 from ansiwavepkg/codes import nil
 import strutils, sequtils
 
@@ -13,46 +14,38 @@ test "Dedupe codes":
 
 from ansiwavepkg/wavescript import nil
 
+proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
+  var scriptContext = waveScript.initContext()
+  let
+    cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
+    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
+  wavescript.parseOperatorCommands(treesTemp)
+
 const hello = staticRead("hello.ansiwave")
 
 test "Parse commands":
-  const text = strutils.splitLines(hello)
-  var scriptContext = waveScript.initContext()
-  let
-    cmds = wavescript.parse(text)
-    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-    trees = wavescript.parseOperatorCommands(treesTemp)
+  let lines = ansiwave.splitLines(hello)
+  let trees = parseAnsiwave(lines)
   check trees.len == 2
 
 test "Parse operators":
-  const text = @["/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+"]
-  var scriptContext = waveScript.initContext()
-  let
-    cmds = wavescript.parse(text)
-    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-    trees = wavescript.parseOperatorCommands(treesTemp)
+  let lines = ansiwave.splitLines("/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+")
+  let trees = parseAnsiwave(lines)
   check trees.len == 1
 
 test "/,":
-  const text = @[
-    "/banjo /octave 3 /16 b c+ /8 d+ b c+ a b g a",
-    "/,",
-    "/guitar /octave 3 /16 r r /8 g r d r g g d",
-  ]
-  var scriptContext = waveScript.initContext()
-  let
-    cmds = wavescript.parse(text)
-    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-    trees = wavescript.parseOperatorCommands(treesTemp)
+  let text = ansiwave.splitLines("""
+/banjo /octave 3 /16 b c+ /8 d+ b c+ a b g a
+/,
+/guitar /octave 3 /16 r r /8 g r d r g g d
+""")
+  let trees = parseAnsiwave(text)
   check trees.len == 3
 
 test "variables":
-  const text = strutils.splitLines(staticRead("variables.ansiwave"))
-  var scriptContext = waveScript.initContext()
-  let
-    cmds = wavescript.parse(text)
-    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-    trees = wavescript.parseOperatorCommands(treesTemp)
+  const text = staticRead("variables.ansiwave")
+  let lines = ansiwave.splitLines(text)
+  let trees = parseAnsiwave(lines)
   check trees.len == 4
 
 #[

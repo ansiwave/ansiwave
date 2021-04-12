@@ -90,7 +90,7 @@ proc exitClean(message: string) =
 proc exitClean() {.noconv.} =
   exitClean("")
 
-proc splitLines(text: string): RefStrings =
+proc splitLines*(text: string): RefStrings =
   new result
   for line in strutils.splitLines(text):
     var s: ref string
