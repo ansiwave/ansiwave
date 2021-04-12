@@ -529,7 +529,7 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     let charCount = buffer.lines[buffer.cursorY][].stripCodes.runeLen
     if buffer.cursorX == charCount and buffer.cursorY < buffer.lines[].len - 1:
       var newLines = buffer.lines
-      newLines.set(buffer.cursorY, newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][])
+      newLines.set(buffer.cursorY, codes.dedupeCodes(newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][]))
       newLines[].delete(buffer.cursorY + 1)
       session.insert(buffer.id, Lines, newLines)
     elif buffer.cursorX < charCount:
@@ -552,9 +552,9 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines.add($before)
-    newLines.add(prefix & $after)
-    newLines[].add(buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len])
+    newLines.add(codes.dedupeCodes($before))
+    newLines.add(codes.dedupeCodes(prefix & $after))
+    newLines[] &= buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len]
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, CursorX, 0)
     session.insert(buffer.id, CursorY, buffer.cursorY + 1)
