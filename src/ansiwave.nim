@@ -1130,6 +1130,8 @@ proc main*() =
   let opts = parseOptions()
   if opts.input == "":
     raise newException(Exception, "Input file required")
+  elif opts.input == opts.output:
+    raise newException(Exception, "Input and output cannot be the same")
   elif opts.output != "":
     convert(opts)
     quit(0)
