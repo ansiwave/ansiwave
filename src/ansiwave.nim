@@ -1031,6 +1031,58 @@ proc parseOptions(): Options =
       else:
         raise newException(Exception, "Extra argument: " & p.key)
 
+proc convertToWav(opts: Options) =
+  # parse code
+  let lines = splitLines(readFile(opts.input))
+  var scriptContext = waveScript.initContext()
+  let
+    cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
+    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
+    trees = wavescript.parseOperatorCommands(treesTemp)
+  # compile code into JSON representation
+  var
+    noErrors = true
+    nodes = json.JsonNode(kind: json.JArray)
+    midiContext = paramidi.initContext()
+  for cmd in trees:
+    case cmd.kind:
+    of wavescript.Valid:
+      if cmd.skip:
+        continue
+      let
+        res =
+          try:
+            let node = wavescript.toJson(cmd)
+            nodes.elems.add(node)
+            midi.compileScore(midiContext, node, false)
+          except Exception as e:
+            midi.CompileResult(kind: midi.Error, message: e.msg)
+      case res.kind:
+      of midi.Valid:
+        discard
+      of midi.Error:
+        echo "Error on line " & $cmd.line & ": " & res.message
+        noErrors = false
+    of wavescript.Error, wavescript.Discard:
+      echo "Error on line " & $cmd.line & ": " & cmd.message
+      noErrors = false
+  # compile JSON into MIDI events and write to disk
+  if nodes.elems.len == 0:
+    echo "No music found"
+  elif noErrors:
+    midiContext = paramidi.initContext()
+    let res =
+      try:
+        midi.compileScore(midiContext, nodes, true)
+      except Exception as e:
+        echo "Error: " & e.msg
+        midi.CompileResult(kind: midi.Error, message: e.msg)
+    case res.kind:
+    of midi.Valid:
+      discard midi.play(res.events, opts.output)
+    of midi.Error:
+      discard
+
 proc convert(opts: Options) =
   let
     inputExt = os.splitFile(opts.input).ext
@@ -1048,7 +1100,7 @@ proc convert(opts: Options) =
   elif outputExt == ".url":
     echo "Convert to url..."
   elif outputExt == ".wav":
-    echo "Convert to wav..."
+    convertToWav(opts)
   else:
     raise newException(Exception, "Don't know how to convert $1 to $2".format(inputExt, outputExt))
 

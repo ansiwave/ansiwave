@@ -28,7 +28,7 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
       return CompileResult(kind: Error, message: e.msg)
   CompileResult(kind: Valid, events: compiledScore)
 
-proc play*(events: seq[Event]): tuple[secs: float, playResult: sound.PlayResult] =
+proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, playResult: sound.PlayResult] =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
@@ -42,8 +42,12 @@ proc play*(events: seq[Event]): tuple[secs: float, playResult: sound.PlayResult]
   tsf_set_output(sf, TSF_MONO, sampleRate, 0)
   var res = render[cshort](events, sf, sampleRate)
   # create the wav file and play it
-  let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
-  (secs: res.seconds, playResult: sound.play(wav))
+  if outputFile != "":
+    sound.writeFile(outputFile, res.data, res.data.len.uint32, sampleRate)
+    (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Error, message: "Only writing to disk"))
+  else:
+    let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
+    (secs: res.seconds, playResult: sound.play(wav))
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
