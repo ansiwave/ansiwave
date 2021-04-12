@@ -632,9 +632,11 @@ proc onInput(code: int, buffer: tuple): bool =
   let
     line = buffer.lines[buffer.cursorY][].toRunes
     realX = codes.getRealX(line, buffer.cursorX)
+    paramsBefore = codes.getParamsBeforeRealX(line, realX)
     prefix = buffer.makePrefix
-    suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
-    chColored = prefix & $ch & suffix
+    suffix = "\e[" & strutils.join(@[0] & paramsBefore, ";") & "m"
+    # if the only param before is a clear, and the current param is a clear, no need for prefix/suffix at all
+    chColored = if paramsBefore == @[0] and prefix == "\e[0m": $ch else: prefix & $ch & suffix
     before = line[0 ..< realX]
   var after = line[realX ..< line.len]
   if buffer.insertMode and after.len > 0:
