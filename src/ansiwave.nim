@@ -1063,10 +1063,10 @@ proc convertToWav(opts: Options) =
       of midi.Valid:
         discard
       of midi.Error:
-        echo "Error on line " & $cmd.line & ": " & res.message
+        echo "Error on line " & $(cmd.line+1) & ": " & res.message
         noErrors = false
     of wavescript.Error, wavescript.Discard:
-      echo "Error on line " & $cmd.line & ": " & cmd.message
+      echo "Error on line " & $(cmd.line+1) & ": " & cmd.message
       noErrors = false
   # compile JSON into MIDI events and write to disk
   if nodes.elems.len == 0:
