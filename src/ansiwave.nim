@@ -1116,8 +1116,11 @@ proc saveEditor(opts: Options) =
         var i = 0
         for line in buffer.lines[]:
           let s = line[]
-          # write line unless it is just a clear
-          if s != "\e[0m":
+          # write the line
+          # if the only codes on the line are clears, remove them
+          if codes.onlyHasClearParams(s):
+            write(f, s.stripCodes)
+          else:
             write(f, s)
           # write newline char after every line except the last line
           if i != lineCount - 1:

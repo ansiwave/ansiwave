@@ -3,6 +3,7 @@ from ansi import nil
 from strutils import nil
 from sequtils import nil
 import unicode
+import sets
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -136,15 +137,22 @@ proc getRealX*(line: seq[Rune], x: int): int =
     result.inc
     fakeX.inc
 
-proc getParamsBeforeRealX*(line: seq[Rune], realX: int): seq[int] =
+proc getAllParams(line: seq[Rune]): seq[int] =
   var codes: seq[string]
-  for ch in line[0 ..< realX]:
+  for ch in line:
     if parseCode(codes, ch):
       continue
   for code in codes:
     if code[1] == '[' and code[code.len - 1] == 'm':
       let trimmed = code[1 ..< code.len - 1]
       result &= ansi.parseParams(trimmed)
+
+proc onlyHasClearParams*(line: string): bool =
+  const clearSet = [0].toHashSet
+  line.toRunes.getAllParams.toHashSet == clearSet
+
+proc getParamsBeforeRealX*(line: seq[Rune], realX: int): seq[int] =
+  result = getAllParams(line[0 ..< realX])
   dedupeParams(result)
 
 proc getParamsBeforeRealX*(line: string, realX: int): seq[int] =
