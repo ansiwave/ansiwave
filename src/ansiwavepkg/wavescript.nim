@@ -117,7 +117,7 @@ proc toCommandTree(context: var Context, forms: seq[Form], command: CommandText)
           return CommandTree(kind: Error, line: command.line, message: "$1 cannot be placed within another command".format(head.name))
         elif forms.len < 2:
           return CommandTree(kind: Error, line: command.line, message: "$1 does not have enough input".format(head.name))
-        elif forms[0].kind != Symbol:
+        elif forms[0].kind != Symbol or forms[0].name[0] == '/':
           return CommandTree(kind: Error, line: command.line, message: "$1 must have a symbol as its first input".format(head.name))
         else:
           let name = "/" & forms[0].name
