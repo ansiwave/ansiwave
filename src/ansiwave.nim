@@ -728,6 +728,14 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
               newChar = if oldChar in wavescript.whitespaceChars: buffer.selectedChar else: oldChar
             lines.set(y, codes.dedupeCodes($line[0 ..< realX] & prefix & newChar & suffix & $line[realX + 1 ..< line.len]))
             session.insert(buffer.id, Lines, lines)
+    elif info.scroll:
+      case info.scrollDir:
+      of iw.ScrollDirection.sdNone:
+        discard
+      of iw.ScrollDirection.sdUp:
+        discard onInput(iw.Key.PageUp, buffer)
+      of iw.ScrollDirection.sdDown:
+        discard onInput(iw.Key.PageDown, buffer)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
