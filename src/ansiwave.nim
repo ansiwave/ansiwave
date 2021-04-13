@@ -346,7 +346,8 @@ let rules =
                     of midi.Valid:
                       play(res.events, id, width, @[])
                     of midi.Error:
-                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
+                      if id == Editor.ord:
+                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
                     sess.insert(id, Prompt, None)
               linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
             cmdsRef[].add(tree)
