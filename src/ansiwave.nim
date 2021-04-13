@@ -39,12 +39,12 @@ type
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
-  Moment = object
+  Snapshot = object
     lines: seq[ref string]
     cursorX: int
     cursorY: int
     time: float
-  Moments = ref seq[Moment]
+  Snapshots = ref seq[Snapshot]
   RefCommands = ref seq[wavescript.CommandTree]
   Link = object
     icon: Rune
@@ -78,7 +78,7 @@ schema Fact(Id, Attr):
   Links: RefLinks
   HintText: string
   HintTime: float
-  UndoHistory: Moments
+  UndoHistory: Snapshots
   UndoIndex: int
   InsertMode: bool
   LastEditTime: float
@@ -413,10 +413,10 @@ let rules =
             else:
               undoIndex + 1
         if history[].len == newIndex:
-          history[].add(Moment(lines: lines[], cursorX: x, cursorY: y, time: currTime))
+          history[].add(Snapshot(lines: lines[], cursorX: x, cursorY: y, time: currTime))
         elif history[].len > newIndex:
           history[] = history[0 .. newIndex]
-          history[newIndex] = Moment(lines: lines[], cursorX: x, cursorY: y, time: currTime)
+          history[newIndex] = Snapshot(lines: lines[], cursorX: x, cursorY: y, time: currTime)
         session.insert(id, UndoHistory, history)
         session.insert(id, UndoIndex, newIndex)
     rule undoIndexChanged(Fact):
@@ -497,7 +497,7 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, SelectedFgColor, "")
   session.insert(id, SelectedBgColor, "")
   session.insert(id, Prompt, None)
-  var history: Moments
+  var history: Snapshots
   new history
   session.insert(id, UndoHistory, history)
   session.insert(id, UndoIndex, -1)
