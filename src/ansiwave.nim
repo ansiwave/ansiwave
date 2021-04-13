@@ -100,7 +100,7 @@ proc splitLines*(text: string): RefStrings =
   for line in strutils.splitLines(text):
     var s: ref string
     new s
-    s[] = codes.dedupeCodes(line)
+    s[] = line
     result[].add(s)
 
 proc add(lines: var RefStrings, line: string) =
