@@ -25,7 +25,7 @@ const
 type
   Id* = enum
     Global, TerminalWindow,
-    Editor, Errors, Tutorial, Publish,
+    Home, Editor, Errors, Tutorial, Publish,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
@@ -910,7 +910,11 @@ proc redo(buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(opts: Options, editorText: string) =
+proc init*(opts: Options) =
+  var editorText = ""
+  if opts.input != "":
+    editorText = readFile(opts.input)
+
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
@@ -919,13 +923,15 @@ proc init*(opts: Options, editorText: string) =
     session.add(r)
 
   const
+    homeText = staticRead("ansiwavepkg/assets/home.ansiwave")
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
+  insertBuffer(Home, 0, 1, false, homeText)
   insertBuffer(Editor, 0, 2, true, editorText)
   insertBuffer(Errors, 0, 1, false, "")
   insertBuffer(Tutorial, 0, 1, false, tutorialText)
   insertBuffer(Publish, 0, 1, false, publishText)
-  session.insert(Global, SelectedBuffer, Editor)
+  session.insert(Global, SelectedBuffer, if opts.input == "": Home else: Editor)
   session.insert(Global, HintText, "")
   session.insert(Global, HintTime, 0.0)
   session.fireRules
@@ -978,7 +984,7 @@ proc tick*(): iw.TerminalBuffer =
 
   # render bottom bar
   var x = 0
-  if selectedBuffer.prompt != StopPlaying:
+  if selectedBuffer.prompt != StopPlaying and selectedBuffer.id != Home.ord:
     let
       errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
       choices = [
@@ -1107,6 +1113,9 @@ proc convert(opts: Options) =
     raise newException(Exception, "Don't know how to convert $1 to $2".format(inputExt, outputExt))
 
 proc saveEditor(opts: Options) =
+  let globals = session.query(rules.getGlobals)
+  if globals.selectedBuffer == Home.ord:
+    return
   let buffer = session.query(rules.getBuffer, id = Editor)
   if buffer.lastEditTime > buffer.lastSaveTime and times.epochTime() - buffer.lastEditTime > saveDelay:
     try:
@@ -1135,14 +1144,12 @@ proc saveEditor(opts: Options) =
 
 proc main*() =
   let opts = parseOptions()
-  if opts.input == "":
-    raise newException(Exception, "Input file required")
-  elif opts.input == opts.output:
+  if opts.input != "" and opts.input == opts.output:
     raise newException(Exception, "Input and output cannot be the same")
   elif opts.output != "":
     convert(opts)
     quit(0)
-  init(opts, readFile(opts.input))
+  init(opts)
   var tickCount = 0
   while true:
     var tb = tick()
