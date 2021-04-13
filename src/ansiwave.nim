@@ -733,9 +733,9 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       of iw.ScrollDirection.sdNone:
         discard
       of iw.ScrollDirection.sdUp:
-        discard onInput(iw.Key.PageUp, buffer)
+        session.insert(buffer.id, CursorY, buffer.cursorY - 5)
       of iw.ScrollDirection.sdDown:
-        discard onInput(iw.Key.PageDown, buffer)
+        session.insert(buffer.id, CursorY, buffer.cursorY + 5)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
