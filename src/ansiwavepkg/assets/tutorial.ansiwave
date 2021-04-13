@@ -1,3 +1,288 @@
-≈ANSIWAVE≈ tutorial
+You step through another narrow door, the third so far in a meandering maze of
+passageways, and gasp as your ears fill with a sound you haven't heard in the
+seventeen years since music was outlawed. Scattered around the room are giddy
+faces holding homemade music makers with odd knicknacks and barnacles attached.
+These freaks and weirdos might not have showered since the Great Silence began.
 
-/piano c
+You sit down at the only thing you recognize, and with purpose you touch it.
+
+/piano c      // put the cursor on this line and hit Tab, or click the ♫ icon
+
+Oh what a sound! You could drown in it, that single note vibrating down your
+spinal chord, and die with satisfaction. You finger a few more.
+
+/piano c c# d c# c
+
+You hand moves rightward.
+
+/piano /octave 5 c c# d c# c
+
+Your weary index finger rests on a key for a bit longer.
+
+/piano /length 1/2 g
+
+The talking, the laughing, the vibrations of strings and barehanded taps on
+drums -- everything melts into the background as your hands sway back and forth.
+
+/piano c c# /octave 5 c   c#   /octave 4 c c# /length 1/2 c
+/piano c c#           c+1 c#+1           c c# 1/2         c // written tersely
+/piano c c#           c+  c#+            c c# /2          c // even more terse
+
+The notes begin to play themselves while you whisper along.
+
+/piano /8 c  d  e  f  g  a  b  1 c+
+          do re mi fa so la ti   do
+
+You stare at the keys until your wandering mind settles on a chord.
+
+/piano /2 a,c#,e
+
+The trickle of old memories turns into a river.
+
+/piano c /2 f,f- /8 a f /2 a,f- /4 g /2 f,a- /4 d /2 c,f-
+
+You continue, so lost in the moment you forget where you are.
+
+/piano c /2 f,f- /8 a f /2 a,f- /8 g a /2 c-,c+
+
+A stranger with a bubby smile abruptly joins you.
+
+/piano     a /2 f-,c+ /8 a f /2 a,f- /4 g /2 f,a- /4 d /2 c,f-
+/,         // play this line to hear both at once
+/harmonica a /2 c+    /8 a f /2 a    /4 g /2 f    /4 d /2 c
+
+The room erupts on cue.
+
+/let was-blind c /2 f,f- /8 a f /2 a,c- /4 g 1 f,f-   // define a variable
+
+/piano /was-blind
+/,
+/harmonica /was-blind
+/,
+/violin /was-blind
+/,      // play this line to hear all at once
+/baritone-sax /octave 3 /was-blind
+
+The energy ricochets as the final synchronized note is played. The melodic
+speakeasy full of misfits and their out-of-tune contraptions now follows their
+forbidden music with a raucous cheer.
+
+You worm across the room trading handshakes and names. A pot-bellied man gives
+you a firm nod and proudly shows off the wooden flute he built, seemingly more
+wooden than flute.
+
+/flute /8 d,a-,d- e /4 f# a /8 f# /4 e /2 d,a-,d-
+
+You walk past a funny looking duo chirping about their exploits hopping trains
+and smuggling their sweet-stringed music makers beyond the watchful eye of the
+authorities. One wears braided hair and the other taps a pair of chewed up
+cowboy boots to the beat of an old ditty you faintly remember.
+
+// setting attributes like this affects everything after
+/instrument banjo
+/octave 3
+/tempo 120
+
+// `play` will use whatever was last set by /instrument
+/play /16 b c+ /8 d+ b c+ a b g a
+/,
+/play /16 r r  /8 g  r d  r g g d   // r means rest
+
+The chatting, strumming, tapping, and howling slowly softens as a haunting voice
+from the back corner pierces the crowd. She stands defiantly and projects.
+
+/octave 4
+/voice-oohs c /3 f,f-2 /8 e /4 f a /3 g,c- /8 f /4 g /8 a g /3 f,f-2 /8 f /4 a /4 c+ /3 d+,a-2
+
+The family of strangers sets down their rickety toys and dusty hats to play
+with only their vocal chords.
+
+/choir-aahs d+ /3 c+,f-2 /8 a /4 a f /3 g,c- /8 f /4 g /8 a g /3 f,a-2 /8 d /4 d c 1 f,f-2
+
+A solemn clap emerges from the spontaneous choir, among them not a dry eye in
+sight. They remain there, staring at each other in silence, a sound they've all
+grown to hate so much they put their lives in mortal danger to be free of.
+
+The front door clicks open.
+
+A shadow enters, followed by another. A dozen exagerrated silhouettes march
+efficiently into the docile crowd, barking and jawing. Heads hit the floor, arms
+snap, and batons fly indiscriminately. The pot-bellied man wheezes and the train
+hoppers buckle into fetal positions, all cradling their precious doohickeys.
+
+An officer approaches as you pull the wire from under your shirt. It's been
+itching you for the past hour. After a brief exchange he gives you a bag of
+zip cuffs. Your eyes connect with a girl, her hair unfurled and her voice no
+longer angelic. You tighten the nylon around her wrists and move on.
+
+The eclectic pile of contraband is visible only under the moonlight. Your
+colleague douses it in lighter fluid while another hands you the matches. Your
+eyes scan left to right, then down. Your wrist flicks and a flame fans outward.
+The wooden flute succumbs, and then the sweet-stringed pluckers and harmonica.
+In the center lies the piano, playing a silent tune on the way out.
+
+
+
+╦┌┐┌┌─┐┌┬┐┬─┐┬ ┬┌┬┐┌─┐┌┐┌┌┬┐  ╔═╗┬  ┌─┐┌─┐┌─┐┌─┐┬─┐┬ ┬
+║│││└─┐ │ ├┬┘│ ││││├┤ │││ │   ║ ╦│  │ │└─┐└─┐├─┤├┬┘└┬┘
+╩┘└┘└─┘ ┴ ┴└─└─┘┴ ┴└─┘┘└┘ ┴   ╚═╝┴─┘└─┘└─┘└─┘┴ ┴┴└─ ┴ 
+
+# Piano
+/piano /was-blind
+/bright-acoustic-piano /was-blind
+/electric-grand-piano /was-blind
+/honky-tonk-piano /was-blind
+/electric-piano-1 /was-blind
+/electric-piano-2 /was-blind
+/harpsichord /was-blind
+/clavinet /was-blind
+
+# Chromatic Percussion
+/celesta /was-blind
+/glockenspiel /was-blind
+/music-box /was-blind
+/vibraphone /was-blind
+/marimba /was-blind
+/xylophone /was-blind
+/tubular-bells /was-blind
+/dulcimer /was-blind
+
+# Organ
+/drawbar-organ /was-blind
+/percussive-organ /was-blind
+/rock-organ /was-blind
+/organ /was-blind
+/reed-organ /was-blind
+/accordion /was-blind
+/harmonica /was-blind
+/tango-accordion /was-blind
+
+# Guitar
+/guitar /was-blind
+/acoustic-guitar-steel /was-blind
+/electric-guitar-jazz /was-blind
+/electric-guitar-clean /was-blind
+/electric-guitar-palm-muted /was-blind
+/electric-guitar-overdrive /was-blind
+/electric-guitar-distorted /was-blind
+/electric-guitar-harmonics /was-blind
+
+# Bass
+/acoustic-bass /was-blind
+/electric-bass /was-blind
+/electric-bass-pick /was-blind
+/fretless-bass /was-blind
+/bass-slap /was-blind
+/bass-pop /was-blind
+/synth-bass-1 /was-blind
+/synth-bass-2 /was-blind
+
+# Strings
+/violin /was-blind
+/viola /was-blind
+/cello /was-blind
+/contrabass /was-blind
+/tremolo-strings /was-blind
+/pizzicato-strings /was-blind
+/harp /was-blind
+/timpani /was-blind
+
+# Ensemble
+/string-ensemble-1 /was-blind
+/string-ensemble-2 /was-blind
+/synth-strings-1 /was-blind
+/synth-strings-2 /was-blind
+/choir-aahs /was-blind
+/voice-oohs /was-blind
+/synth-voice /was-blind
+/orchestra-hit /was-blind
+
+# Brass
+/trumpet /was-blind
+/trombone /was-blind
+/tuba /was-blind
+/muted-trumpet /was-blind
+/french-horn /was-blind
+/brass-section /was-blind
+/synth-brass-1 /was-blind
+/synth-brass-2 /was-blind
+
+# Reed
+/soprano-sax /was-blind
+/alto-sax /was-blind
+/tenor-sax /was-blind
+/baritone-sax /was-blind
+/oboe /was-blind
+/english-horn /was-blind
+/bassoon /was-blind
+/clarinet /was-blind
+
+# Pipe
+/piccolo /was-blind
+/flute /was-blind
+/recorder /was-blind
+/pan-flute /was-blind
+/bottle /was-blind
+/shakuhachi /was-blind
+/whistle /was-blind
+/ocarina /was-blind
+
+# Synth Lead
+/square-lead /was-blind
+/saw-wave /was-blind
+/calliope-lead /was-blind
+/chiffer-lead /was-blind
+/charang /was-blind
+/solo-vox /was-blind
+/fifths /was-blind
+/bass-and-lead /was-blind
+
+# Synth Pad
+/synth-pad-new-age /was-blind
+/synth-pad-warm /was-blind
+/synth-pad-polysynth /was-blind
+/synth-pad-choir /was-blind
+/synth-pad-bowed /was-blind
+/synth-pad-metallic /was-blind
+/synth-pad-halo /was-blind
+/synth-pad-sweep /was-blind
+
+# Synth Effects
+/fx-rain /was-blind
+/fx-soundtrack /was-blind
+/fx-crystal /was-blind
+/fx-atmosphere /was-blind
+/fx-brightness /was-blind
+/fx-goblins /was-blind
+/fx-echoes /was-blind
+/fx-sci-fi /was-blind
+
+# Ethnic
+/sitar /was-blind
+/banjo /was-blind
+/shamisen /was-blind
+/koto /was-blind
+/kalimba /was-blind
+/bagpipes /was-blind
+/fiddle /was-blind
+/shehnai /was-blind
+
+# Percussive
+/tinkle-bell /was-blind
+/agogo /was-blind
+/steel-drums /was-blind
+/woodblock /was-blind
+/taiko-drum /was-blind
+/melodic-tom /was-blind
+/synth-drum /was-blind
+/reverse-cymbal /was-blind
+
+# Sound Effects
+/guitar-fret-noise /was-blind
+/breath-noise /was-blind
+/seashore /was-blind
+/bird-tweet /was-blind
+/telephone-ring /was-blind
+/helicopter /was-blind
+/applause /was-blind
+/gun-shot /was-blind
