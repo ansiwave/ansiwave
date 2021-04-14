@@ -399,14 +399,19 @@ let rules =
     rule updateHistory(Fact):
       what:
         (id, Lines, lines)
+        (id, CursorX, x)
+        (id, CursorY, y)
         (id, UndoHistory, history, then = false)
         (id, UndoIndex, undoIndex, then = false)
-        (id, CursorX, x, then = false)
-        (id, CursorY, y, then = false)
       then:
         if undoIndex >= 0 and
             undoIndex < history[].len and
             history[undoIndex].lines == lines[]:
+          # if only the cursor changed, update it in the undo history
+          if history[undoIndex].cursorX != x or history[undoIndex].cursorY != y:
+            history[undoIndex].cursorX = x
+            history[undoIndex].cursorY = y
+            session.insert(id, UndoHistory, history)
           return
         let
           currTime = times.epochTime()
