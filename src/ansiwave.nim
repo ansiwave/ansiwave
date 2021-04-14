@@ -21,10 +21,6 @@ const
   hintSecs = 5
   undoDelay = 0.5
   saveDelay = 0.5
-  enableSystemClipboard* = not defined(linux) # libclipboard has problems on linux
-
-when enableSystemClipboard:
-  from ansiwavepkg/libclipboard import nil
 
 type
   Id* = enum
@@ -521,28 +517,13 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
 
-when not enableSystemClipboard:
-  var clipboard = ""
+var clipboard = ""
 
 proc toClipboard*(s: string) =
-  when enableSystemClipboard:
-    var opts = libclipboard.clipboard_init_options()
-    var cb = libclipboard.clipboard_new(opts)
-    discard libclipboard.clipboard_set_text(cb, s)
-    libclipboard.clipboard_free(cb)
-    libclipboard.free(opts)
-  else:
-    clipboard = s
+  clipboard = s
 
 proc fromClipboard*(): string =
-  when enableSystemClipboard:
-    var opts = libclipboard.clipboard_init_options()
-    var cb = libclipboard.clipboard_new(opts)
-    result = $libclipboard.clipboard_text(cb)
-    libclipboard.clipboard_free(cb)
-    libclipboard.free(opts)
-  else:
-    clipboard
+  clipboard
 
 proc copyLine(buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
@@ -557,23 +538,20 @@ proc pasteLine(buffer: tuple) =
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
 proc copyLink(buffer: tuple) =
-  when enableSystemClipboard:
-    echo "copy"
-  else:
-    # echo the link to the terminal so the user can copy it
-    iw.illwillDeinit()
-    iw.showCursor()
-    for i in 0 ..< 20:
-      echo ""
-    echo "Copy the link above, and then press Enter to return to ANSIWAVE."
-    var s: TaintedString
-    discard readLine(stdin, s)
-    iw.illwillInit(fullscreen=true, mouse=true)
-    iw.hideCursor()
-    iw.setDoubleBuffering(false)
-    var tb = tick()
-    iw.display(tb)
-    iw.setDoubleBuffering(true)
+  # echo the link to the terminal so the user can copy it
+  iw.illwillDeinit()
+  iw.showCursor()
+  for i in 0 ..< 20:
+    echo ""
+  echo "Copy the link above, and then press Enter to return to ANSIWAVE."
+  var s: TaintedString
+  discard readLine(stdin, s)
+  iw.illwillInit(fullscreen=true, mouse=true)
+  iw.hideCursor()
+  iw.setDoubleBuffering(false)
+  var tb = tick()
+  iw.display(tb)
+  iw.setDoubleBuffering(true)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -1064,8 +1042,6 @@ proc tick*(): iw.TerminalBuffer =
       discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
     elif selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
-  of Errors:
-    discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Tutorial:
     discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
