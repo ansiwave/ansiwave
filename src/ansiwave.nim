@@ -21,9 +21,9 @@ const
   hintSecs = 5
   undoDelay = 0.5
   saveDelay = 0.5
-  enableCopyPaste* = not defined(linux) # libclipboard has problems on linux
+  enableSystemClipboard* = not defined(linux) # libclipboard has problems on linux
 
-when enableCopyPaste:
+when enableSystemClipboard:
   from ansiwavepkg/libclipboard import nil
 
 type
@@ -510,32 +510,59 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
 
-when enableCopyPaste:
-  proc toClipboard*(s: string) =
+when not enableSystemClipboard:
+  var clipboard = ""
+
+proc toClipboard*(s: string) =
+  when enableSystemClipboard:
     var opts = libclipboard.clipboard_init_options()
     var cb = libclipboard.clipboard_new(opts)
     discard libclipboard.clipboard_set_text(cb, s)
     libclipboard.clipboard_free(cb)
     libclipboard.free(opts)
+  else:
+    clipboard = s
 
-  proc fromClipboard*(): string =
+proc fromClipboard*(): string =
+  when enableSystemClipboard:
     var opts = libclipboard.clipboard_init_options()
     var cb = libclipboard.clipboard_new(opts)
     result = $libclipboard.clipboard_text(cb)
     libclipboard.clipboard_free(cb)
     libclipboard.free(opts)
+  else:
+    clipboard
 
 proc copyLine(buffer: tuple) =
-  when enableCopyPaste:
-    if buffer.cursorY < buffer.lines[].len:
-      buffer.lines[buffer.cursorY][].stripCodes.toClipboard
+  if buffer.cursorY < buffer.lines[].len:
+    buffer.lines[buffer.cursorY][].stripCodes.toClipboard
 
 proc pasteLine(buffer: tuple) =
-  when enableCopyPaste:
-    if buffer.cursorY < buffer.lines[].len:
-      var lines = buffer.lines
-      lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
-      session.insert(buffer.id, Lines, lines)
+  if buffer.cursorY < buffer.lines[].len:
+    var lines = buffer.lines
+    lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
+    session.insert(buffer.id, Lines, lines)
+    # force cursor to refresh in case it is out of bounds
+    session.insert(buffer.id, CursorX, buffer.cursorX)
+
+proc copyLink(buffer: tuple) =
+  when enableSystemClipboard:
+    echo "copy"
+  else:
+    # echo the link to the terminal so the user can copy it
+    iw.illwillDeinit()
+    iw.showCursor()
+    for i in 0 ..< 20:
+      echo ""
+    echo "Copy the link above, and then press Enter to return to ANSIWAVE."
+    var s: TaintedString
+    discard readLine(stdin, s)
+    iw.illwillInit(fullscreen=true, mouse=true)
+    iw.hideCursor()
+    iw.setDoubleBuffering(false)
+    var tb = tick()
+    iw.display(tb)
+    iw.setDoubleBuffering(true)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -1022,20 +1049,16 @@ proc tick*(): iw.TerminalBuffer =
     x = renderColors(tb, selectedBuffer, key, x + 1)
 
     if selectedBuffer.mode == 0:
-      when enableCopyPaste:
-        discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-        discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
+      discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+      discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
     elif selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
   of Errors:
-    when enableCopyPaste:
-      discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+    discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Tutorial:
-    when enableCopyPaste:
-      discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+    discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
-    when enableCopyPaste:
-      discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(selectedBuffer), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
   else:
     discard
 
