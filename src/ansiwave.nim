@@ -12,7 +12,6 @@ from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
-from ansiwavepkg/libclipboard import nil
 from paramidi import Context
 from json import nil
 from parseopt import nil
@@ -22,7 +21,10 @@ const
   hintSecs = 5
   undoDelay = 0.5
   saveDelay = 0.5
-  enableCopyPaste = not defined(linux) # libclipboard has problems on linux
+  enableCopyPaste* = not defined(linux) # libclipboard has problems on linux
+
+when enableCopyPaste:
+  from ansiwavepkg/libclipboard import nil
 
 type
   Id* = enum
@@ -508,27 +510,30 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
 
-proc toClipboard*(s: string) =
-  var opts = libclipboard.clipboard_init_options()
-  var cb = libclipboard.clipboard_new(opts)
-  discard libclipboard.clipboard_set_text(cb, s)
-  libclipboard.clipboard_free(cb)
-  libclipboard.free(opts)
+when enableCopyPaste:
+  proc toClipboard*(s: string) =
+    var opts = libclipboard.clipboard_init_options()
+    var cb = libclipboard.clipboard_new(opts)
+    discard libclipboard.clipboard_set_text(cb, s)
+    libclipboard.clipboard_free(cb)
+    libclipboard.free(opts)
 
-proc fromClipboard*(): string =
-  var opts = libclipboard.clipboard_init_options()
-  var cb = libclipboard.clipboard_new(opts)
-  result = $libclipboard.clipboard_text(cb)
-  libclipboard.clipboard_free(cb)
-  libclipboard.free(opts)
+  proc fromClipboard*(): string =
+    var opts = libclipboard.clipboard_init_options()
+    var cb = libclipboard.clipboard_new(opts)
+    result = $libclipboard.clipboard_text(cb)
+    libclipboard.clipboard_free(cb)
+    libclipboard.free(opts)
 
 proc copyLine(buffer: tuple) =
-  buffer.lines[buffer.cursorY][].stripCodes.toClipboard
+  when enableCopyPaste:
+    buffer.lines[buffer.cursorY][].stripCodes.toClipboard
 
 proc pasteLine(buffer: tuple) =
-  var lines = buffer.lines
-  lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
-  session.insert(buffer.id, Lines, lines)
+  when enableCopyPaste:
+    var lines = buffer.lines
+    lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
+    session.insert(buffer.id, Lines, lines)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:

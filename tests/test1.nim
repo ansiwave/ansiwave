@@ -56,8 +56,9 @@ test "zlib compression":
   let b64 = base64.encode(output, safe = true)
   check hello == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
-test "libclipboard":
-  let s = "HELLO, WORLD!"
-  ansiwave.toClipboard(s)
-  check s == ansiwave.fromClipboard()
+when ansiwave.enableCopyPaste:
+  test "libclipboard":
+    let s = "HELLO, WORLD!"
+    ansiwave.toClipboard(s)
+    check s == ansiwave.fromClipboard()
 
