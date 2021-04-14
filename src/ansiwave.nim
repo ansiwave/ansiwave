@@ -521,6 +521,14 @@ proc fromClipboard*(): string =
   libclipboard.clipboard_free(cb)
   libclipboard.free(opts)
 
+proc copyLine(buffer: tuple) =
+  buffer.lines[buffer.cursorY][].stripCodes.toClipboard
+
+proc pasteLine(buffer: tuple) =
+  var lines = buffer.lines
+  lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
+  session.insert(buffer.id, Lines, lines)
+
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
     return
@@ -621,6 +629,11 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     if not buffer.editable:
       return false
     session.insert(buffer.id, InsertMode, not buffer.insertMode)
+  of iw.Key.CtrlK:
+    copyLine(buffer)
+  of iw.Key.CtrlL:
+    if buffer.editable:
+      pasteLine(buffer)
   else:
     return false
   true
@@ -999,10 +1012,17 @@ proc tick*(): iw.TerminalBuffer =
 
     x = renderColors(tb, selectedBuffer, key, x + 1)
 
-    if selectedBuffer.mode == 1:
+    if selectedBuffer.mode == 0:
+      discard renderButton(tb, "↑ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+      discard renderButton(tb, "↓ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
+    elif selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
+  elif globals.selectedBuffer == Errors.ord:
+    discard renderButton(tb, "↑ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+  elif globals.selectedBuffer == Tutorial.ord:
+    discard renderButton(tb, "↑ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   elif globals.selectedBuffer == Publish.ord:
-    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlL}, hint: "Hint: copy link with Ctrl L"))
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
 
   renderBuffer(tb, selectedBuffer, key)
 
