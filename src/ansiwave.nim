@@ -129,6 +129,8 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
   var
     tb = tick()
     lineTimesIdx = -1
+  # audio errors printed to std out cover up the UI if double buffering is enabled
+  iw.setDoubleBuffering(false)
   iw.display(tb)
   let
     (secs, playResult) = midi.play(events)
@@ -154,6 +156,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     if key == iw.Key.Tab:
       break
     os.sleep(sleepMsecs)
+  iw.setDoubleBuffering(true)
   midi.stop(playResult.addrs)
 
 proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int) =
