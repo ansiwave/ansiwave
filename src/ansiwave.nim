@@ -21,11 +21,13 @@ const
   hintSecs = 5
   undoDelay = 0.5
   saveDelay = 0.5
+  linesPerScroll = 4
+  editorWidth = 80
 
 type
   Id* = enum
     Global, TerminalWindow,
-    Home, Editor, Errors, Tutorial, Publish,
+    Editor, Errors, Tutorial, Publish,
   Attr* = enum
     CursorX, CursorY,
     ScrollX, ScrollY,
@@ -249,7 +251,7 @@ let rules =
         (TerminalWindow, Height, height)
         (id, Y, bufferY, then = false)
       then:
-        session.insert(id, Width, min(width - 2, 80))
+        session.insert(id, Width, min(width - 2, editorWidth))
         session.insert(id, Height, height - 3 - bufferY)
     rule updateTerminalScrollX(Fact):
       what:
@@ -785,9 +787,9 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       of iw.ScrollDirection.sdNone:
         discard
       of iw.ScrollDirection.sdUp:
-        session.insert(buffer.id, CursorY, buffer.cursorY - 5)
+        session.insert(buffer.id, CursorY, buffer.cursorY - linesPerScroll)
       of iw.ScrollDirection.sdDown:
-        session.insert(buffer.id, CursorY, buffer.cursorY + 5)
+        session.insert(buffer.id, CursorY, buffer.cursorY + linesPerScroll)
   elif focused and buffer.mode == 0:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
@@ -972,27 +974,23 @@ proc redo(buffer: tuple) =
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
 proc init*(opts: Options) =
-  var editorText = ""
-  if opts.input != "":
+  var editorText: TaintedString
+  try:
     editorText = readFile(opts.input)
-
-  iw.illwillInit(fullscreen=true, mouse=true)
-  setControlCHook(exitClean)
-  iw.hideCursor()
+  except Exception as ex:
+    exitClean(ex.msg)
 
   for r in rules.fields:
     session.add(r)
 
   const
-    homeText = staticRead("ansiwavepkg/assets/home.ansiwave")
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Home, 0, 1, false, homeText)
   insertBuffer(Editor, 0, 2, true, editorText)
   insertBuffer(Errors, 0, 1, false, "")
   insertBuffer(Tutorial, 0, 1, false, tutorialText)
   insertBuffer(Publish, 0, 1, false, publishText)
-  session.insert(Global, SelectedBuffer, if opts.input == "": Home else: Editor)
+  session.insert(Global, SelectedBuffer, Editor)
   session.insert(Global, HintText, "")
   session.insert(Global, HintTime, 0.0)
   session.fireRules
@@ -1053,7 +1051,7 @@ proc tick*(): iw.TerminalBuffer =
 
   # render bottom bar
   var x = 0
-  if selectedBuffer.prompt != StopPlaying and selectedBuffer.id != Home.ord:
+  if selectedBuffer.prompt != StopPlaying:
     let
       errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
       choices = [
@@ -1183,8 +1181,6 @@ proc convert(opts: Options) =
 
 proc saveEditor(opts: Options) =
   let globals = session.query(rules.getGlobals)
-  if globals.selectedBuffer == Home.ord:
-    return
   let buffer = session.query(rules.getBuffer, id = Editor)
   if buffer.lastEditTime > buffer.lastSaveTime and times.epochTime() - buffer.lastEditTime > saveDelay:
     try:
@@ -1211,13 +1207,38 @@ proc saveEditor(opts: Options) =
     except Exception as ex:
       exitClean(ex.msg)
 
+proc renderHome(opts: var Options) =
+  const homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
+  let
+    width = iw.terminalWidth()
+    height = iw.terminalHeight()
+    x = max(0, int(width/2 - editorWidth/2))
+  var
+    tb = iw.newTerminalBuffer(width, height)
+    y = 5
+  for line in homeText:
+    iw.write(tb, x, y, line)
+    y.inc
+  while true:
+    iw.display(tb)
+    os.sleep(sleepMsecs)
+
 proc main*() =
-  let opts = parseOptions()
+  # parse options
+  var opts = parseOptions()
   if opts.input != "" and opts.input == opts.output:
     raise newException(Exception, "Input and output cannot be the same")
   elif opts.output != "":
     convert(opts)
     quit(0)
+  # initialize illwill
+  iw.illwillInit(fullscreen=true, mouse=true)
+  setControlCHook(exitClean)
+  iw.hideCursor()
+  # render home if no args are passed
+  if opts.input == "":
+    renderHome(opts)
+  # enter the main render loop
   init(opts)
   var tickCount = 0
   while true:
