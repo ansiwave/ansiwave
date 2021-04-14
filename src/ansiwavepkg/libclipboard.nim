@@ -10,6 +10,7 @@ elif defined(windows):
 elif defined(linux):
   {.compile: "libclipboard/clipboard_x11.c".}
   {.passC: "-DLIBCLIPBOARD_BUILD_X11".}
+  {.passL: "-lxcb".}
 
 type
   clipboard_c* {.bycopy.} = object
