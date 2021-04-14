@@ -22,6 +22,7 @@ const
   hintSecs = 5
   undoDelay = 0.5
   saveDelay = 0.5
+  enableCopyPaste = not defined(linux) # libclipboard has problems on linux
 
 type
   Id* = enum
@@ -1014,16 +1015,20 @@ proc tick*(): iw.TerminalBuffer =
     x = renderColors(tb, selectedBuffer, key, x + 1)
 
     if selectedBuffer.mode == 0:
-      discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-      discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
+      when enableCopyPaste:
+        discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+        discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
     elif selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
   of Errors:
-    discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+    when enableCopyPaste:
+      discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Tutorial:
-    discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+    when enableCopyPaste:
+      discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
-    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+    when enableCopyPaste:
+      discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
   else:
     discard
 
