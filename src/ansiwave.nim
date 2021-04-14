@@ -990,7 +990,8 @@ proc tick*(): iw.TerminalBuffer =
 
   # render top bar
   let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
-  if globals.selectedBuffer == Editor.ord:
+  case Id(globals.selectedBuffer):
+  of Editor:
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
         renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
@@ -1017,12 +1018,14 @@ proc tick*(): iw.TerminalBuffer =
       discard renderButton(tb, "↓ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
     elif selectedBuffer.mode == 1:
       x = renderBrushes(tb, selectedBuffer, key, x + 2)
-  elif globals.selectedBuffer == Errors.ord:
+  of Errors:
     discard renderButton(tb, "↑ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-  elif globals.selectedBuffer == Tutorial.ord:
+  of Tutorial:
     discard renderButton(tb, "↑ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-  elif globals.selectedBuffer == Publish.ord:
+  of Publish:
     discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = echo("copy"), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+  else:
+    discard
 
   renderBuffer(tb, selectedBuffer, key)
 
