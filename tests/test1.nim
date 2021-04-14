@@ -56,16 +56,8 @@ test "zlib compression":
   let b64 = base64.encode(output, safe = true)
   check hello == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
-from ansiwavepkg/libclipboard import nil
-
 test "libclipboard":
-  var opts = libclipboard.clipboard_init_options()
-  var cb = libclipboard.clipboard_new(opts)
   let s = "HELLO, WORLD!"
-  discard libclipboard.clipboard_set_text(cb, s)
-  let s2 = libclipboard.clipboard_text(cb)
-  libclipboard.clipboard_clear(cb, libclipboard.LCB_CLIPBOARD)
-  libclipboard.clipboard_free(cb)
-  libclipboard.free(opts)
-  check s == s2
+  ansiwave.toClipboard(s)
+  check s == ansiwave.fromClipboard()
 

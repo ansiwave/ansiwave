@@ -12,6 +12,7 @@ from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
+from ansiwavepkg/libclipboard import nil
 from paramidi import Context
 from json import nil
 from parseopt import nil
@@ -505,6 +506,20 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, InsertMode, false)
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
+
+proc toClipboard*(s: string) =
+  var opts = libclipboard.clipboard_init_options()
+  var cb = libclipboard.clipboard_new(opts)
+  discard libclipboard.clipboard_set_text(cb, s)
+  libclipboard.clipboard_free(cb)
+  libclipboard.free(opts)
+
+proc fromClipboard*(): string =
+  var opts = libclipboard.clipboard_init_options()
+  var cb = libclipboard.clipboard_new(opts)
+  result = $libclipboard.clipboard_text(cb)
+  libclipboard.clipboard_free(cb)
+  libclipboard.free(opts)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
