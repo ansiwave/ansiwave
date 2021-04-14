@@ -527,13 +527,15 @@ when enableCopyPaste:
 
 proc copyLine(buffer: tuple) =
   when enableCopyPaste:
-    buffer.lines[buffer.cursorY][].stripCodes.toClipboard
+    if buffer.cursorY < buffer.lines[].len:
+      buffer.lines[buffer.cursorY][].stripCodes.toClipboard
 
 proc pasteLine(buffer: tuple) =
   when enableCopyPaste:
-    var lines = buffer.lines
-    lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
-    session.insert(buffer.id, Lines, lines)
+    if buffer.cursorY < buffer.lines[].len:
+      var lines = buffer.lines
+      lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
+      session.insert(buffer.id, Lines, lines)
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
