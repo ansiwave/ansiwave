@@ -1226,8 +1226,8 @@ proc renderHome(opts: var Options) =
   const homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
   var fname = ""
   let
-    firstText = "Write the filename to create or open"
-    linkText = "...or press Esc to paste an ansiwave.net link to open"
+    firstText = "Type a filename"
+    linkText = "...or press Esc to paste an ansiwave.net link"
     ext = ".ansiwave"
   while true:
     let
