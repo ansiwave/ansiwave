@@ -976,7 +976,7 @@ proc redo(buffer: tuple) =
 proc init*(opts: Options) =
   var editorText: TaintedString
   try:
-    editorText = readFile(opts.input)
+    editorText = if os.fileExists(opts.input): readFile(opts.input) else: ""
   except Exception as ex:
     exitClean(ex.msg)
 
@@ -1219,7 +1219,55 @@ proc renderHome(opts: var Options) =
   for line in homeText:
     iw.write(tb, x, y, line)
     y.inc
+  var fname = ""
+  let
+    firstText = "Write the filename to create or open"
+    ext = ".ansiwave"
   while true:
+    codes.write(tb, max(0, int(width/2 - firstText.runeLen/2)), y-2, "\e[3m" & firstText & "\e[0m")
+    # process input
+    let key = iw.getKey()
+    if key != iw.Key.None:
+      if key == iw.Key.Backspace:
+        if fname != "":
+          let fnameRunes = fname.toRunes
+          fname = $fnameRunes[0 ..< fnameRunes.len - 1]
+      elif key == iw.Key.Enter:
+        if fname != "":
+          opts.input = fname & ext
+          break
+      else:
+        let code = key.ord
+        if code < 32:
+          continue
+        let ch =
+          try:
+            char(code)
+          except:
+            continue
+        fname &= $ch
+    # write file name and cursor
+    let cursorX = max(0, int(width/2))
+    iw.fill(tb, 0, y, width, y, " ") # clear the line
+    if fname != "":
+      let
+        fnameRunes = fname.toRunes
+        fnameX = int(width/2) - fnameRunes.len
+        fnameTruncated = if fnameX < 0: $fnameRunes[abs(fnameX) ..< fnameRunes.len] else : fname
+      iw.write(tb, max(0, fnameX), y, fnameTruncated)
+      iw.write(tb, cursorX, y, ext)
+    setCursor(tb, cursorX, y)
+    # write text indicating if file exists
+    let existsText =
+      if fname == "":
+        ""
+      elif os.fileExists(fname & ext):
+        "File exists. Press Enter to open it."
+      else:
+        "File doesn't exist. Press Enter to create it."
+    iw.fill(tb, 0, y+2, width, y+2, " ") # clear the line
+    codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
+    # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
 
