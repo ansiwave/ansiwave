@@ -1307,7 +1307,7 @@ proc main*() =
     renderHome(opts)
   # enter the main render loop
   if opts.input == "":
-    raise newException(Exception, "No file or link to open")
+    exitClean("No file or link to open")
   init(opts)
   var tickCount = 0
   while true:
