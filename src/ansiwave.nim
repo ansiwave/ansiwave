@@ -1227,7 +1227,7 @@ proc renderHome(opts: var Options) =
   var fname = ""
   let
     firstText = "Write the filename to create or open"
-    linkText = "...or press Tab to paste an ansiwave.net link to open"
+    linkText = "...or press Esc to paste an ansiwave.net link to open"
     ext = ".ansiwave"
   while true:
     let
@@ -1252,7 +1252,7 @@ proc renderHome(opts: var Options) =
         if fname != "":
           opts.input = fname & ext
           break
-      elif key == iw.Key.Tab:
+      elif key == iw.Key.Escape:
         opts.input = pasteLink()
         break
       else:
