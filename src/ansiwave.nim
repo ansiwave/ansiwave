@@ -1224,22 +1224,22 @@ proc saveEditor(opts: Options) =
 
 proc renderHome(opts: var Options) =
   const homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
-  let
-    width = iw.terminalWidth()
-    height = iw.terminalHeight()
-    x = max(0, int(width/2 - editorWidth/2))
-  var
-    tb = iw.newTerminalBuffer(width, height)
-    y = 5
-  for line in homeText:
-    iw.write(tb, x, y, line)
-    y.inc
   var fname = ""
   let
     firstText = "Write the filename to create or open"
     linkText = "...or press Tab to paste an ansiwave.net link to open"
     ext = ".ansiwave"
   while true:
+    let
+      width = iw.terminalWidth()
+      height = iw.terminalHeight()
+      x = max(0, int(width/2 - editorWidth/2))
+    var
+      tb = iw.newTerminalBuffer(width, height)
+      y = 0
+    for line in homeText:
+      iw.write(tb, x, y, line)
+      y.inc
     codes.write(tb, max(0, int(width/2 - firstText.runeLen/2)), y-2, "\e[3m" & firstText & "\e[0m")
     # process input
     let key = iw.getKey()
@@ -1267,7 +1267,6 @@ proc renderHome(opts: var Options) =
         fname &= $ch
     # write file name and cursor
     let cursorX = max(0, int(width/2))
-    iw.fill(tb, 0, y, width, y, " ") # clear the line
     if fname != "":
       let
         fnameRunes = fname.toRunes
@@ -1284,10 +1283,9 @@ proc renderHome(opts: var Options) =
         "File exists. Press Enter to open it."
       else:
         "File doesn't exist. Press Enter to create it."
-    iw.fill(tb, 0, y+2, width, y+2, " ") # clear the line
     codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
     # write link text
-    codes.write(tb, max(0, int(width/2 - linkText.runeLen/2)), y+4, "\e[3m" & linkText & "\e[0m")
+    codes.write(tb, max(0, int(width/2 - linkText.runeLen/2)), y+6, "\e[3m" & linkText & "\e[0m")
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
