@@ -555,6 +555,21 @@ proc copyLink(buffer: tuple) =
   iw.display(tb)
   iw.setDoubleBuffering(true)
 
+proc pasteLink(): string =
+  # let the user paste the link in the temrinal
+  iw.illwillDeinit()
+  iw.showCursor()
+  for i in 0 ..< 5:
+    echo ""
+  echo "Paste the link, and then press Enter to return to ANSIWAVE."
+  for i in 0 ..< 5:
+    echo ""
+  var s: TaintedString
+  discard readLine(stdin, s)
+  iw.illwillInit(fullscreen=true, mouse=true)
+  iw.hideCursor()
+  return s
+
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
     return
@@ -1222,6 +1237,7 @@ proc renderHome(opts: var Options) =
   var fname = ""
   let
     firstText = "Write the filename to create or open"
+    linkText = "...or press Tab to paste an ansiwave.net link to open"
     ext = ".ansiwave"
   while true:
     codes.write(tb, max(0, int(width/2 - firstText.runeLen/2)), y-2, "\e[3m" & firstText & "\e[0m")
@@ -1236,6 +1252,9 @@ proc renderHome(opts: var Options) =
         if fname != "":
           opts.input = fname & ext
           break
+      elif key == iw.Key.Tab:
+        opts.input = pasteLink()
+        break
       else:
         let code = key.ord
         if code < 32:
@@ -1267,6 +1286,8 @@ proc renderHome(opts: var Options) =
         "File doesn't exist. Press Enter to create it."
     iw.fill(tb, 0, y+2, width, y+2, " ") # clear the line
     codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
+    # write link text
+    codes.write(tb, max(0, int(width/2 - linkText.runeLen/2)), y+4, "\e[3m" & linkText & "\e[0m")
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
@@ -1287,6 +1308,8 @@ proc main*() =
   if opts.input == "":
     renderHome(opts)
   # enter the main render loop
+  if opts.input == "":
+    raise newException(Exception, "No file or link to open")
   init(opts)
   var tickCount = 0
   while true:
