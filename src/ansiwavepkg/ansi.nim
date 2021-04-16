@@ -75,7 +75,6 @@ proc parseParams*(code: string): seq[int] =
   let parts = strutils.split(code[1 ..< code.len], ";")
   for part in parts:
     let num = strutils.parseInt(part)
-    assert num >= 0 and num <= 255
     result.add(num)
 
 proc highColor(arCodes: seq[int]): (string, int) =
