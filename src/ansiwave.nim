@@ -163,16 +163,19 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
     os.sleep(sleepMsecs)
   midi.stop(playResult.addrs)
 
-proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int) =
+proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
-  let cb =
-    proc () =
-      sess.insert(Global, SelectedBuffer, Errors)
-      sess.insert(Errors, CursorX, 0)
-      sess.insert(Errors, CursorY, errLine)
-  linksRef[cmdLine] = Link(icon: "!".runeAt(0), callback: cb, error: true)
+  let
+    cb =
+      proc () =
+        sess.insert(Global, SelectedBuffer, Errors)
+        sess.insert(Errors, CursorX, 0)
+        sess.insert(Errors, CursorY, errLine)
+    link = Link(icon: "!".runeAt(0), callback: cb, error: true)
+  linksRef[cmdLine] = link
+  link
 
-proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string) =
+proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string, goToError: bool = false) =
   var cmdIndex = -1
   for i in 0 ..< cmdsRef[].len:
     if cmdsRef[0].line == line:
@@ -188,8 +191,10 @@ proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefComman
       break
   if errIndex >= 0:
     errsRef[].delete(errIndex)
-  setErrorLink(session, linksRef, line, errsRef[].len)
+  let link = setErrorLink(session, linksRef, line, errsRef[].len)
   errsRef[].add(wavescript.CommandTree(kind: wavescript.Error, line: line, message: message))
+  if goToError:
+    link.callback()
   session.insert(bufferId, InvalidCommands, errsRef)
   session.insert(bufferId, Links, linksRef)
   if getCurrentLine(bufferId) != line:
@@ -220,7 +225,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
       lineTimes.add((cmd.line, lastTime))
       lastTime = midiContext.seconds
     of midi.Error:
-      setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, cmd.line, res.message)
+      setRuntimeError(session, buffer.commands, buffer.errors, buffer.links, buffer.id, cmd.line, res.message, true)
       noErrors = false
       break
   if noErrors:
@@ -371,7 +376,7 @@ let rules =
               discard
           of wavescript.Error, wavescript.Discard:
             if id == Editor.ord:
-              setErrorLink(sess, linksRef, tree.line, errsRef[].len)
+              discard setErrorLink(sess, linksRef, tree.line, errsRef[].len)
               errsRef[].add(tree)
         session.insert(id, ValidCommands, cmdsRef)
         session.insert(id, InvalidCommands, errsRef)
