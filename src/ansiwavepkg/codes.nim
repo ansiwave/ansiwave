@@ -98,6 +98,7 @@ proc stripCodesIfCommand*(line: ref string): string =
       result &= $ch
 
 proc dedupeCodes*(line: seq[Rune]): string =
+  const ignoredParams = [5, 6].toHashSet
   var
     codes: seq[string]
     paramsAdded: seq[int]
@@ -105,8 +106,12 @@ proc dedupeCodes*(line: seq[Rune]): string =
     var params: seq[int]
     for code in codes:
       if code[1] == '[' and code[code.len - 1] == 'm':
-        let trimmed = code[1 ..< code.len - 1]
-        params &= ansi.parseParams(trimmed)
+        let
+          trimmed = code[1 ..< code.len - 1]
+          newParams = ansi.parseParams(trimmed)
+          # get rid of blinks
+          filteredParams = sequtils.filter(newParams, proc (x: int): bool = x notin ignoredParams)
+        params &= filteredParams
       # this is some other kind of code that we should just preserve
       else:
         res &= code
