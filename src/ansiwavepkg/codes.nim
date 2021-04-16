@@ -5,8 +5,6 @@ from sequtils import nil
 import unicode
 import sets
 
-const clearSet = [0].toHashSet
-
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
     if s.len > 0:
@@ -102,7 +100,7 @@ proc stripCodesIfCommand*(line: ref string): string =
 proc dedupeCodes*(line: seq[Rune]): string =
   var
     codes: seq[string]
-    paramsAdded: HashSet[int]
+    paramsAdded: seq[int]
   proc addCodes(res: var string) =
     var params: seq[int]
     for code in codes:
@@ -114,9 +112,10 @@ proc dedupeCodes*(line: seq[Rune]): string =
         res &= code
     dedupeParams(params)
     if params.len > 0:
-      if not (params == @[0] and paramsAdded == clearSet): # don't add clear if not needed
+      if not (params == @[0] and paramsAdded == @[0]): # don't add clear if not needed
         res &= "\e[" & strutils.join(params, ";") & "m"
-        paramsAdded.incl(params.toHashSet)
+        paramsAdded &= params
+        dedupeParams(paramsAdded)
     codes = @[]
   for ch in line:
     if parseCode(codes, ch):
@@ -154,6 +153,7 @@ proc getAllParams(line: seq[Rune]): seq[int] =
       result &= ansi.parseParams(trimmed)
 
 proc onlyHasClearParams*(line: string): bool =
+  const clearSet = [0].toHashSet
   line.toRunes.getAllParams.toHashSet == clearSet
 
 proc getParamsBeforeRealX*(line: seq[Rune], realX: int): seq[int] =

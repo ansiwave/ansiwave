@@ -59,8 +59,8 @@ test "zlib compression":
 from ansiwavepkg/codes import nil
 import unicode
 
-test "remote pointless clears":
+test "remove pointless clears":
   const
-    before = "\e[0mH\e[0me\e[0ml\e[0ml\e[0mo!\e[30mWassup\e[0m"
-    after = "\e[0mHello!\e[30mWassup\e[0m"
+    before = "\e[0mH\e[0me\e[0ml\e[0ml\e[0mo!\e[30mWassup\e[0mG\e[0mr\e[0me\e[0metings"
+    after = "\e[0mHello!\e[30mWassup\e[0mGreetings"
   check codes.dedupeCodes(before).escape == after.escape
