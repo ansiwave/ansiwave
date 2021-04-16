@@ -36,7 +36,7 @@ proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, play
     # if there is a soundfont in the root of this repo, use it.
     # otherwise, use a soundfont from paramidi_soundfonts
     const soundfont =
-      when os.existsFile("soundfont.sf2"):
+      when os.fileExists("soundfont.sf2"):
         staticRead("../../soundfont.sf2")
       else:
         staticRead("paramidi_soundfonts/generaluser.sf2")
