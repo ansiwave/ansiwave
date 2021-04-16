@@ -15,6 +15,9 @@ from ansiwavepkg/codes import stripCodes
 from paramidi import Context
 from json import nil
 from parseopt import nil
+from zippy import nil
+from base64 import nil
+import streams
 
 const
   sleepMsecs = 10
@@ -519,6 +522,22 @@ proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
 
+proc saveBuffer(f: File | StringStream, lines: RefStrings) =
+  let lineCount = lines[].len
+  var i = 0
+  for line in lines[]:
+    let s = line[]
+    # write the line
+    # if the only codes on the line are clears, remove them
+    if codes.onlyHasClearParams(s):
+      write(f, s.stripCodes)
+    else:
+      write(f, s)
+    # write newline char after every line except the last line
+    if i != lineCount - 1:
+      write(f, "\n")
+    i.inc
+
 var clipboard = ""
 
 proc toClipboard*(s: string) =
@@ -539,12 +558,23 @@ proc pasteLine(buffer: tuple) =
     # force cursor to refresh in case it is out of bounds
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
+proc initLink(buffer: tuple): string =
+  var ss = newStringStream("")
+  saveBuffer(ss, buffer.lines)
+  ss.setPosition(0)
+  let s = ss.readAll
+  ss.close
+  let output = zippy.compress(s, dataFormat = zippy.dfZlib)
+  base64.encode(output, safe = true)
+
 proc copyLink(buffer: tuple) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
   iw.showCursor()
   for i in 0 ..< 20:
     echo ""
+  echo initLink(buffer)
+  echo ""
   echo "Copy the link above, and then press Enter to return to ANSIWAVE."
   var s: TaintedString
   discard readLine(stdin, s)
@@ -1058,7 +1088,7 @@ proc tick*(): iw.TerminalBuffer =
   of Tutorial:
     discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
-    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(selectedBuffer), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(session.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
   else:
     discard
 
@@ -1201,20 +1231,7 @@ proc saveEditor(opts: Options) =
     try:
       var f: File
       if open(f, opts.input, fmWrite):
-        let lineCount = buffer.lines[].len
-        var i = 0
-        for line in buffer.lines[]:
-          let s = line[]
-          # write the line
-          # if the only codes on the line are clears, remove them
-          if codes.onlyHasClearParams(s):
-            write(f, s.stripCodes)
-          else:
-            write(f, s)
-          # write newline char after every line except the last line
-          if i != lineCount - 1:
-            write(f, "\n")
-          i.inc
+        saveBuffer(f, buffer.lines)
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.input)
