@@ -56,3 +56,11 @@ test "zlib compression":
   let b64 = base64.encode(output, safe = true)
   check hello == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
+from ansiwavepkg/codes import nil
+import unicode
+
+test "remote pointless clears":
+  const
+    before = "\e[0mH\e[0me\e[0ml\e[0ml\e[0mo!\e[30mWassup\e[0m"
+    after = "\e[0mHello!\e[30mWassup\e[0m"
+  check codes.dedupeCodes(before).escape == after.escape
