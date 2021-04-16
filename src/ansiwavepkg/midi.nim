@@ -3,6 +3,7 @@ import paramidi
 import paramidi/tsf
 import paramidi_soundfonts
 import json
+from os import nil
 
 type
   ResultKind* = enum
@@ -32,7 +33,13 @@ proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, play
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(release):
-    const soundfont = staticRead("paramidi_soundfonts/generaluser.sf2")
+    # if there is a soundfont in the root of this repo, use it.
+    # otherwise, use a soundfont from paramidi_soundfonts
+    const soundfont =
+      when os.existsFile("soundfont.sf2"):
+        staticRead("../../soundfont.sf2")
+      else:
+        staticRead("paramidi_soundfonts/generaluser.sf2")
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   # during dev, read it from the disk
   else:
