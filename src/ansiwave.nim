@@ -1222,7 +1222,7 @@ proc convert(opts: Options) =
   elif outputExt == ".wav":
     convertToWav(opts)
   else:
-    raise newException(Exception, "Don't know how to convert $1 to $2".format(inputExt, outputExt))
+    raise newException(Exception, "Don't know how to convert $1 to $2".format(opts.input, opts.output))
 
 proc saveEditor(opts: Options) =
   let globals = session.query(rules.getGlobals)
