@@ -696,7 +696,7 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
         session.insert(buffer.id, CursorY, newLines[].len - 1)
     else:
       discard
-  of iw.Key.Insert:
+  of iw.Key.Insert, iw.Key.CtrlT:
     if not buffer.editable:
       return false
     session.insert(buffer.id, InsertMode, not buffer.insertMode)
@@ -858,7 +858,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     case buffer.prompt:
     of None:
       if buffer.insertMode:
-        prompt = "Press Insert to turn off insert mode"
+        prompt = "Press Insert or Ctrl T to turn off insert mode"
     of DeleteLine:
       prompt = "Press Tab to delete the current line"
     of StopPlaying:
