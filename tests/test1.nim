@@ -4,7 +4,7 @@ from ansiwavepkg/codes import nil
 import strutils, sequtils
 
 import ansiwavepkg/ansi
-const content = staticRead("luke_and_yoda.ans")
+const content = staticRead("luke-and-yoda.ans")
 stdout.write(ansiToUtf8(content))
 
 test "Dedupe codes":
@@ -51,7 +51,7 @@ from zippy import nil
 from base64 import nil
 
 test "zlib compression":
-  const text = staticRead("luke_and_yoda.ansiwave")
+  const text = staticRead("luke-and-yoda.ansiwave")
   const output = zippy.compress(text, dataFormat = zippy.dfZlib)
   let b64 = base64.encode(output, safe = true)
   check text == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
