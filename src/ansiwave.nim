@@ -1310,9 +1310,9 @@ proc renderHome(opts: var Options) =
 proc main*() =
   # parse options
   var opts = parseOptions()
-  if opts.input != "" and opts.input == opts.output:
-    raise newException(Exception, "Input and output cannot be the same")
-  elif opts.output != "":
+  if opts.output != "":
+    if opts.input == opts.output:
+      raise newException(Exception, "Input and output cannot be the same")
     convert(opts)
     quit(0)
   # initialize illwill
