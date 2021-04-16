@@ -732,16 +732,22 @@ proc onInput(code: int, buffer: tuple): bool =
   let
     line = buffer.lines[buffer.cursorY][].toRunes
     realX = codes.getRealX(line, buffer.cursorX)
+    before = line[0 ..< realX]
+    after = line[realX ..< line.len]
     paramsBefore = codes.getParamsBeforeRealX(line, realX)
     prefix = buffer.makePrefix
     suffix = "\e[" & strutils.join(@[0] & paramsBefore, ";") & "m"
-    # if the only param before is a clear, and the current param is a clear, no need for prefix/suffix at all
-    chColored = if paramsBefore == @[0] and prefix == "\e[0m": $ch else: prefix & $ch & suffix
-    before = line[0 ..< realX]
-  var after = line[realX ..< line.len]
-  if buffer.insertMode and after.len > 0:
-    after = after[1 ..< after.len]
-  let newLine = codes.dedupeCodes($before & chColored & $after)
+    chColored =
+      # if the only param before is a clear, and the current param is a clear, no need for prefix/suffix at all
+      if paramsBefore == @[0] and prefix == "\e[0m":
+        $ch
+      else:
+        prefix & $ch & suffix
+    newLine =
+      if buffer.insertMode and after.len > 0: # replace the existing text rather than push it to the right
+        codes.dedupeCodes($before & chColored & $after[1 ..< after.len])
+      else:
+        codes.dedupeCodes($before & chColored & $after)
   var newLines = buffer.lines
   newLines.set(buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
