@@ -21,9 +21,8 @@ proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 
-const hello = staticRead("hello.ansiwave")
-
 test "Parse commands":
+  const hello = staticRead("hello.ansiwave")
   let lines = ansiwave.splitLines(hello)
   let trees = parseAnsiwave(lines)
   check trees.len == 2
@@ -52,9 +51,10 @@ from zippy import nil
 from base64 import nil
 
 test "zlib compression":
-  const output = zippy.compress(hello, dataFormat = zippy.dfZlib)
+  const text = staticRead("luke_and_yoda.ansiwave")
+  const output = zippy.compress(text, dataFormat = zippy.dfZlib)
   let b64 = base64.encode(output, safe = true)
-  check hello == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
+  check text == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
 from ansiwavepkg/codes import nil
 import unicode
