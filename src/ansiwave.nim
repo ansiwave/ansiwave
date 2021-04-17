@@ -588,7 +588,7 @@ proc initLink(buffer: tuple): string =
   for pair in pairs:
     if pair[1].len > 0:
       fragments.add(pair[0] & ":" & pair[1])
-  "https://ansiwave.net/view#" & strutils.join(fragments, ",")
+  "https://ansiwave.net/view/#" & strutils.join(fragments, ",")
 
 proc parseLink(link: string): Table[string, string] =
   let hashIndex = link.find('#')
