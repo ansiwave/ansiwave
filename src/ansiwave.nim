@@ -1062,7 +1062,7 @@ proc init*(opts: Options) =
         if "name" in link:
           os.splitFile(uri.decodeUrl(link["name"])).name
         else:
-          "hello"
+          ""
     elif os.fileExists(opts.input):
       editorText = readFile(opts.input)
       editorName = os.splitFile(opts.input).name
@@ -1071,6 +1071,9 @@ proc init*(opts: Options) =
       editorName = os.splitFile(opts.input).name
   except Exception as ex:
     exitClean(ex)
+
+  if editorName == "":
+    editorName = "hello"
 
   for r in rules.fields:
     session.add(r)
