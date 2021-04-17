@@ -636,9 +636,10 @@ proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   iw.setCursorPos(tb, col, row)
 
 proc onInput(key: iw.Key, buffer: tuple): bool =
+  let editable = buffer.editable and buffer.mode == 0
   case key:
   of iw.Key.Backspace:
-    if not buffer.editable:
+    if not editable:
       return false
     if buffer.cursorX == 0:
       session.insert(buffer.id, Prompt, DeleteLine)
@@ -656,7 +657,7 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       session.insert(buffer.id, Lines, newLines)
       session.insert(buffer.id, CursorX, buffer.cursorX - 1)
   of iw.Key.Delete:
-    if not buffer.editable:
+    if not editable:
       return false
     let charCount = buffer.lines[buffer.cursorY][].stripCodes.runeLen
     if buffer.cursorX == charCount and buffer.cursorY < buffer.lines[].len - 1:
@@ -673,7 +674,7 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
       newLines.set(buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
   of iw.Key.Enter:
-    if not buffer.editable:
+    if not editable:
       return false
     let
       line = buffer.lines[buffer.cursorY][].toRunes
@@ -720,13 +721,13 @@ proc onInput(key: iw.Key, buffer: tuple): bool =
     else:
       discard
   of iw.Key.Insert, iw.Key.CtrlT:
-    if not buffer.editable:
+    if not editable:
       return false
     session.insert(buffer.id, InsertMode, not buffer.insertMode)
   of iw.Key.CtrlK:
     copyLine(buffer)
   of iw.Key.CtrlL:
-    if buffer.editable:
+    if editable:
       pasteLine(buffer)
   else:
     return false
@@ -743,7 +744,7 @@ proc makePrefix(buffer: tuple): string =
     result = buffer.selectedFgColor & buffer.selectedBgColor
 
 proc onInput(code: int, buffer: tuple): bool =
-  if code < 32:
+  if buffer.mode != 0 or code < 32:
     return false
   let ch =
     try:
@@ -864,7 +865,7 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
         session.insert(buffer.id, CursorY, buffer.cursorY - linesPerScroll)
       of iw.ScrollDirection.sdDown:
         session.insert(buffer.id, CursorY, buffer.cursorY + linesPerScroll)
-  elif focused and buffer.mode == 0:
+  elif focused:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
       discard onInput(key, buffer) or onInput(key.ord, buffer)
