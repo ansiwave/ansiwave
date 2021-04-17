@@ -748,7 +748,7 @@ proc onInput(code: int, buffer: tuple): bool =
     return false
   let ch =
     try:
-      char(code)
+      char(code) # TODO: only ASCII input! we should support all unicode input
     except:
       return false
   if not buffer.editable:
