@@ -91,6 +91,11 @@ schema Fact(Id, Attr):
   LastSaveTime: float
   Name: string
 
+proc exitClean(ex: ref Exception) =
+  iw.illwillDeinit()
+  iw.showCursor()
+  raise ex
+
 proc exitClean(message: string) =
   iw.illwillDeinit()
   iw.showCursor()
@@ -573,8 +578,32 @@ proc initLink(buffer: tuple): string =
   ss.setPosition(0)
   let s = ss.readAll
   ss.close
-  let output = zippy.compress(s, dataFormat = zippy.dfZlib)
-  "https://ansiwave.net/view#" & uri.encodeQuery({"name": buffer.name, "data": base64.encode(output, safe = true)})
+  let
+    output = zippy.compress(s, dataFormat = zippy.dfZlib)
+    pairs = {
+      "name": uri.encodeUrl(buffer.name),
+      "data": base64.encode(output, safe = true)
+    }
+  var fragments: seq[string]
+  for pair in pairs:
+    if pair[1].len > 0:
+      fragments.add(pair[0] & ":" & pair[1])
+  "https://ansiwave.net/view#" & strutils.join(fragments, ",")
+
+proc parseLink(link: string): Table[string, string] =
+  let hashIndex = link.find('#')
+  if hashIndex >= 0:
+    let
+      fragment = link[hashIndex+1 ..< link.len-1]
+      pairs = strutils.split(fragment, ",")
+    for pair in pairs:
+      let keyVal = strutils.split(pair, ":")
+      if keyVal.len == 2:
+        result[keyVal[0]] =
+          if keyVal[0] == "data":
+            zippy.uncompress(base64.decode(keyVal[1]), dataFormat = zippy.dfZlib)
+          else:
+            keyVal[1]
 
 proc copyLink(buffer: tuple) =
   # echo the link to the terminal so the user can copy it
@@ -593,21 +622,6 @@ proc copyLink(buffer: tuple) =
   var tb = tick()
   iw.display(tb)
   iw.setDoubleBuffering(true)
-
-proc pasteLink(): string =
-  # let the user paste the link in the temrinal
-  iw.illwillDeinit()
-  iw.showCursor()
-  for i in 0 ..< 5:
-    echo ""
-  echo "Paste the link, and then press Enter to return to ANSIWAVE."
-  for i in 0 ..< 5:
-    echo ""
-  var s: TaintedString
-  discard readLine(stdin, s)
-  iw.illwillInit(fullscreen=true, mouse=true)
-  iw.hideCursor()
-  return s
 
 proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
@@ -1034,11 +1048,29 @@ proc redo(buffer: tuple) =
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
 proc init*(opts: Options) =
-  var editorText: TaintedString
+  let isUri = uri.isAbsolute(uri.parseUri(opts.input))
+
+  var
+    editorText: string
+    editorName: string
+
   try:
-    editorText = if os.fileExists(opts.input): readFile(opts.input) else: ""
+    if isUri:
+      let link = parseLink(opts.input)
+      editorText = link["data"]
+      editorName =
+        if "name" in link:
+          uri.decodeUrl(link["name"])
+        else:
+          ""
+    elif os.fileExists(opts.input):
+      editorText = readFile(opts.input)
+      editorName = os.splitPath(opts.input).tail
+    else:
+      editorText = ""
+      editorName = os.splitPath(opts.input).tail
   except Exception as ex:
-    exitClean(ex.msg)
+    exitClean(ex)
 
   for r in rules.fields:
     session.add(r)
@@ -1046,7 +1078,7 @@ proc init*(opts: Options) =
   const
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Editor, os.splitPath(opts.input).tail, 0, 2, true, editorText)
+  insertBuffer(Editor, editorName, 0, 2, not isUri, editorText)
   insertBuffer(Errors, "Errors", 0, 1, false, "")
   insertBuffer(Tutorial, "Tutorial", 0, 1, false, tutorialText)
   insertBuffer(Publish, "Publish", 0, 1, false, publishText)
@@ -1079,27 +1111,29 @@ proc tick*(): iw.TerminalBuffer =
         renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
       else:
         0
-    var x = max(titleX, playX)
 
-    let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
-    let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: {iw.Key.CtrlR}, hint: "Hint: redo with Ctrl R"))
-    x = max(undoX, redoX)
+    if selectedBuffer.editable:
+      var x = max(titleX, playX)
 
-    let
-      choices = [
-        (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
-        (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
-      ]
-      shortcut = (key: {iw.Key.CtrlE}, hint: "Hint: switch modes with Ctrl E")
-    x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
+      let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
+      let redoX = renderButton(tb, "► Redo", x, 1, key, proc () = redo(selectedBuffer), (key: {iw.Key.CtrlR}, hint: "Hint: redo with Ctrl R"))
+      x = max(undoX, redoX)
 
-    x = renderColors(tb, selectedBuffer, key, x + 1)
+      let
+        choices = [
+          (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
+          (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
+        ]
+        shortcut = (key: {iw.Key.CtrlE}, hint: "Hint: switch modes with Ctrl E")
+      x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
 
-    if selectedBuffer.mode == 0:
-      discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-      discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
-    elif selectedBuffer.mode == 1:
-      x = renderBrushes(tb, selectedBuffer, key, x + 2)
+      x = renderColors(tb, selectedBuffer, key, x + 1)
+
+      if selectedBuffer.mode == 0:
+        discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+        discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
+      elif selectedBuffer.mode == 1:
+        x = renderBrushes(tb, selectedBuffer, key, x + 2)
   of Tutorial:
     discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
@@ -1116,7 +1150,7 @@ proc tick*(): iw.TerminalBuffer =
       editor = session.query(rules.getBuffer, id = Editor)
       errorCount = editor.errors[].len
       choices = [
-        (id: Editor.ord, label: strutils.format("Edit $1", editor.name), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
+        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "Edit" else: "View"), editor.name), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
         (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
         (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
@@ -1243,7 +1277,9 @@ proc convert(opts: Options) =
 proc saveEditor(opts: Options) =
   let globals = session.query(rules.getGlobals)
   let buffer = session.query(rules.getBuffer, id = Editor)
-  if buffer.lastEditTime > buffer.lastSaveTime and times.epochTime() - buffer.lastEditTime > saveDelay:
+  if buffer.editable and
+      buffer.lastEditTime > buffer.lastSaveTime and
+      times.epochTime() - buffer.lastEditTime > saveDelay:
     try:
       var f: File
       if open(f, opts.input, fmWrite):
@@ -1253,14 +1289,13 @@ proc saveEditor(opts: Options) =
         raise newException(Exception, "Cannot open: " & opts.input)
       session.insert(Editor, LastSaveTime, times.epochTime())
     except Exception as ex:
-      exitClean(ex.msg)
+      exitClean(ex)
 
 proc renderHome(opts: var Options) =
   const homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
   var fname = ""
   let
     firstText = "Type a filename"
-    linkText = "...or press Esc to paste an ansiwave.net link"
     ext = ".ansiwave"
   while true:
     let
@@ -1285,9 +1320,6 @@ proc renderHome(opts: var Options) =
         if fname != "":
           opts.input = fname & ext
           break
-      elif key == iw.Key.Escape:
-        opts.input = pasteLink()
-        break
       else:
         let code = key.ord
         if code < 32:
@@ -1317,8 +1349,6 @@ proc renderHome(opts: var Options) =
       else:
         "File doesn't exist. Press Enter to create it."
     codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
-    # write link text
-    codes.write(tb, max(0, int(width/2 - linkText.runeLen/2)), y+6, "\e[3m" & linkText & "\e[0m")
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
@@ -1338,9 +1368,9 @@ proc main*() =
   # render home if no args are passed
   if opts.input == "":
     renderHome(opts)
-  # enter the main render loop
   if opts.input == "":
     exitClean("No file or link to open")
+  # enter the main render loop
   init(opts)
   var tickCount = 0
   while true:
