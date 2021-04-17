@@ -21,6 +21,7 @@ import streams
 from uri import nil
 
 const
+  version = "0.1.0"
   sleepMsecs = 10
   hintSecs = 5
   undoDelay = 0.5
@@ -1381,6 +1382,7 @@ proc renderHome(opts: var Options) =
       else:
         "File doesn't exist. Press Enter to create it."
     codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
+    iw.write(tb, 0, height-1, "Version " & version)
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
