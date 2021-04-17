@@ -594,7 +594,7 @@ proc parseLink(link: string): Table[string, string] =
   let hashIndex = link.find('#')
   if hashIndex >= 0:
     let
-      fragment = link[hashIndex+1 ..< link.len-1]
+      fragment = link[hashIndex+1 ..< link.len]
       pairs = strutils.split(fragment, ",")
     for pair in pairs:
       let keyVal = strutils.split(pair, ":")
