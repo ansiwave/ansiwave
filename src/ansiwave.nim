@@ -869,18 +869,18 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
       session.insert(buffer.id, Prompt, None)
       discard onInput(key, buffer) or onInput(key.ord, buffer)
 
+  let
+    col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
+    row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
   if buffer.mode == 0 or buffer.prompt == StopPlaying:
-    let
-      col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
-      row = buffer.y + 1 + buffer.cursorY - buffer.scrollY
     setCursor(tb, col, row)
-    var
-      xBlock = tb[col, buffer.y]
-      yBlock = tb[buffer.x, row]
-    xBlock.fg = iw.fgYellow
-    yBlock.fg = iw.fgYellow
-    tb[col, buffer.y] = xBlock
-    tb[buffer.x, row] = yBlock
+  var
+    xBlock = tb[col, buffer.y]
+    yBlock = tb[buffer.x, row]
+  xBlock.fg = iw.fgYellow
+  yBlock.fg = iw.fgYellow
+  tb[col, buffer.y] = xBlock
+  tb[buffer.x, row] = yBlock
 
   var prompt = ""
   case buffer.prompt:
