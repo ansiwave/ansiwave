@@ -18,6 +18,7 @@ from parseopt import nil
 from zippy import nil
 from base64 import nil
 import streams
+from uri import nil
 
 const
   sleepMsecs = 10
@@ -573,7 +574,7 @@ proc initLink(buffer: tuple): string =
   let s = ss.readAll
   ss.close
   let output = zippy.compress(s, dataFormat = zippy.dfZlib)
-  base64.encode(output, safe = true)
+  "https://ansiwave.net/view#" & uri.encodeQuery({"name": buffer.name, "data": base64.encode(output, safe = true)})
 
 proc copyLink(buffer: tuple) =
   # echo the link to the terminal so the user can copy it
