@@ -1060,15 +1060,15 @@ proc init*(opts: Options) =
       editorText = link["data"]
       editorName =
         if "name" in link:
-          uri.decodeUrl(link["name"])
+          os.splitFile(uri.decodeUrl(link["name"])).name
         else:
-          ""
+          "hello"
     elif os.fileExists(opts.input):
       editorText = readFile(opts.input)
-      editorName = os.splitPath(opts.input).tail
+      editorName = os.splitFile(opts.input).name
     else:
       editorText = ""
-      editorName = os.splitPath(opts.input).tail
+      editorName = os.splitFile(opts.input).name
   except Exception as ex:
     exitClean(ex)
 
@@ -1103,7 +1103,6 @@ proc tick*(): iw.TerminalBuffer =
     onWindowResize(width, height)
 
   # render top bar
-  let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
   case Id(globals.selectedBuffer):
   of Editor:
     let playX =
@@ -1113,6 +1112,7 @@ proc tick*(): iw.TerminalBuffer =
         0
 
     if selectedBuffer.editable:
+      let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
       var x = max(titleX, playX)
 
       let undoX = renderButton(tb, "◄ Undo", x, 0, key, proc () = undo(selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
@@ -1134,9 +1134,19 @@ proc tick*(): iw.TerminalBuffer =
         discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(tb, selectedBuffer, key, x + 2)
+    else:
+      let
+        topText = "Read-only mode! To edit this, convert it into an ansiwave:"
+        bottomText = "ansiwave https://ansiwave.net/... $1.ansiwave".format(selectedBuffer.name)
+      iw.write(tb, max(0, int(editorWidth/2 - topText.runeLen/2)), 0, topText)
+      iw.write(tb, max(0, int(editorWidth/2 - bottomText.runeLen/2)), 1, bottomText)
+  of Errors:
+    discard renderButton(tb, "\e[3m≈ANSIWAVE≈ Errors\e[0m", 1, 0, key, proc () = discard)
   of Tutorial:
+    let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈ Tutorial\e[0m", 1, 0, key, proc () = discard)
     discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
+    let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈ Publish\e[0m", 1, 0, key, proc () = discard)
     discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(session.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
   else:
     discard
@@ -1254,25 +1264,43 @@ proc convertToWav(opts: Options) =
       discard
 
 proc convert(opts: Options) =
-  let
-    inputExt = os.splitFile(opts.input).ext
-    outputExt = os.splitFile(opts.output).ext
-  if inputExt == ".ans":
-    if "width" notin opts.args:
-      raise newException(Exception, "--width is required for .ans files")
-    let width = strutils.parseInt(opts.args["width"])
+  if uri.isAbsolute(uri.parseUri(opts.input)): # a url
+    let link = parseLink(opts.input)
     var f: File
     if open(f, opts.output, fmWrite):
-      ansi.write(f, ansi.ansiToUtf8(readFile(opts.input), width), width)
+      saveBuffer(f, splitLines(link["data"]))
       close(f)
     else:
       raise newException(Exception, "Cannot open: " & opts.output)
-  elif outputExt == ".url":
-    echo "Convert to url..."
-  elif outputExt == ".wav":
-    convertToWav(opts)
   else:
-    raise newException(Exception, "Don't know how to convert $1 to $2".format(opts.input, opts.output))
+    let
+      inputExt = os.splitFile(opts.input).ext
+      outputExt = os.splitFile(opts.output).ext
+    if inputExt == ".ans":
+      if "width" notin opts.args:
+        raise newException(Exception, "--width is required for .ans files")
+      let width = strutils.parseInt(opts.args["width"])
+      var f: File
+      if open(f, opts.output, fmWrite):
+        ansi.write(f, ansi.ansiToUtf8(readFile(opts.input), width), width)
+        close(f)
+      else:
+        raise newException(Exception, "Cannot open: " & opts.output)
+    elif outputExt == ".url":
+      let
+        lines = readFile(opts.input).splitLines
+        link = initLink((lines: lines, name: os.splitFile(opts.input).name))
+      var f: File
+      if open(f, opts.output, fmWrite):
+        write(f, "[InternetShortcut]\n")
+        write(f, "URL=" & link)
+        close(f)
+      else:
+        raise newException(Exception, "Cannot open: " & opts.output)
+    elif outputExt == ".wav":
+      convertToWav(opts)
+    else:
+      raise newException(Exception, "Don't know how to convert $1 to $2".format(opts.input, opts.output))
 
 proc saveEditor(opts: Options) =
   let globals = session.query(rules.getGlobals)
@@ -1292,10 +1320,10 @@ proc saveEditor(opts: Options) =
       exitClean(ex)
 
 proc renderHome(opts: var Options) =
-  const homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
   var fname = ""
-  let
-    firstText = "Type a filename"
+  const
+    homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
+    firstText = "Greetings, user. Give me a file name:"
     ext = ".ansiwave"
   while true:
     let
