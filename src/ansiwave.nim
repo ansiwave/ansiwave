@@ -40,7 +40,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime,
+    LastEditTime, LastSaveTime, Name,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -88,6 +88,7 @@ schema Fact(Id, Attr):
   InsertMode: bool
   LastEditTime: float
   LastSaveTime: float
+  Name: string
 
 proc exitClean(message: string) =
   iw.illwillDeinit()
@@ -488,6 +489,7 @@ let rules =
         (id, InsertMode, insertMode)
         (id, LastEditTime, lastEditTime)
         (id, LastSaveTime, lastSaveTime)
+        (id, Name, name)
 
 var session* = initSession(Fact, autoFire = false)
 
@@ -503,7 +505,8 @@ proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
 
-proc insertBuffer(id: Id, x: int, y: int, editable: bool, text: string) =
+proc insertBuffer(id: Id, name: string, x: int, y: int, editable: bool, text: string) =
+  session.insert(id, Name, name)
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
@@ -1042,10 +1045,10 @@ proc init*(opts: Options) =
   const
     tutorialText = staticRead("ansiwavepkg/assets/tutorial.ansiwave")
     publishText = staticRead("ansiwavepkg/assets/publish.ansiwave")
-  insertBuffer(Editor, 0, 2, true, editorText)
-  insertBuffer(Errors, 0, 1, false, "")
-  insertBuffer(Tutorial, 0, 1, false, tutorialText)
-  insertBuffer(Publish, 0, 1, false, publishText)
+  insertBuffer(Editor, os.splitPath(opts.input).tail, 0, 2, true, editorText)
+  insertBuffer(Errors, "Errors", 0, 1, false, "")
+  insertBuffer(Tutorial, "Tutorial", 0, 1, false, tutorialText)
+  insertBuffer(Publish, "Publish", 0, 1, false, publishText)
   session.insert(Global, SelectedBuffer, Editor)
   session.insert(Global, HintText, "")
   session.insert(Global, HintTime, 0.0)
@@ -1109,9 +1112,10 @@ proc tick*(): iw.TerminalBuffer =
   var x = 0
   if selectedBuffer.prompt != StopPlaying:
     let
-      errorCount = session.query(rules.getBuffer, id = Editor).errors[].len
+      editor = session.query(rules.getBuffer, id = Editor)
+      errorCount = editor.errors[].len
       choices = [
-        (id: Editor.ord, label: "Editor", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
+        (id: Editor.ord, label: strutils.format("Edit $1", editor.name), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
         (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
         (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
