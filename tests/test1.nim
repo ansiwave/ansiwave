@@ -32,6 +32,11 @@ test "Parse operators":
   let trees = parseAnsiwave(lines)
   check trees.len == 1
 
+test "Parse broken symbol":
+  let lines = ansiwave.splitLines("/instrument -hello-world")
+  let trees = parseAnsiwave(lines)
+  check trees.len == 1
+
 test "/,":
   let text = ansiwave.splitLines("""
 /banjo /octave 3 /16 b c+ /8 d+ b c+ a b g a
