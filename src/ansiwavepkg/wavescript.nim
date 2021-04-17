@@ -252,7 +252,7 @@ proc parse*(context: var Context, command: CommandText): CommandTree =
     # + and - with a symbol on the left should form a single symbol (including symbol/number on the right if it exists)
     elif forms[i].kind == Operator and
         (forms[i].name == "+" or forms[i].name == "-") and
-        (i > 0 and forms[i-1].kind == Symbol):
+        (i > 0 and newForms.len > 0 and newForms[newForms.len-1].kind == Symbol):
       let lastItem = newForms.pop()
       if i != forms.len - 1 and forms[i+1].kind in {Symbol, Number}:
         newForms.add(Form(kind: Symbol, name: lastItem.name & forms[i].name & forms[i+1].name))
