@@ -23,7 +23,7 @@ That means you can't search/browse other people's ansiwaves...so share them on [
 
 ## How to fire this puppy up and get 'er done
 
-There are [prebuilt binaries](https://github.com/oakes/ansiwave/releases) you can just run anywhere. If you want to build from source, [install Nim](https://nim-lang.org/install.html) and in this repo do `nimble install` (make sure `~/.nimble/bin` is on your PATH).
+There are [prebuilt binaries](https://ansiwave.net/) you can just run anywhere. If you want to build from source, [install Nim](https://nim-lang.org/install.html) and in this repo do `nimble install` (make sure `~/.nimble/bin` is on your PATH).
 
 To open a new/existing ansiwave:
 
