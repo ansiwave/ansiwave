@@ -1270,18 +1270,22 @@ proc convertToWav(opts: Options) =
 
 proc convert(opts: Options) =
   if uri.isAbsolute(uri.parseUri(opts.input)): # a url
-    let link = parseLink(opts.input)
-    var f: File
-    if open(f, opts.output, fmWrite):
-      saveBuffer(f, splitLines(link["data"]))
-      close(f)
+    let outputExt = os.splitFile(opts.output).ext
+    if outputExt == ".ansiwave":
+      let link = parseLink(opts.input)
+      var f: File
+      if open(f, opts.output, fmWrite):
+        saveBuffer(f, splitLines(link["data"]))
+        close(f)
+      else:
+        raise newException(Exception, "Cannot open: " & opts.output)
     else:
-      raise newException(Exception, "Cannot open: " & opts.output)
+      raise newException(Exception, "Don't know how to convert link to $1 (the .ansiwave extension is required)".format(opts.output))
   else:
     let
       inputExt = os.splitFile(opts.input).ext
       outputExt = os.splitFile(opts.output).ext
-    if inputExt == ".ans":
+    if inputExt == ".ans" and outputExt == ".ansiwave":
       if "width" notin opts.args:
         raise newException(Exception, "--width is required for .ans files")
       let width = strutils.parseInt(opts.args["width"])
@@ -1291,7 +1295,7 @@ proc convert(opts: Options) =
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
-    elif outputExt == ".url":
+    elif inputExt == ".ansiwave" and outputExt == ".url":
       let
         lines = readFile(opts.input).splitLines
         link = initLink((lines: lines, name: os.splitFile(opts.input).name))
@@ -1302,10 +1306,10 @@ proc convert(opts: Options) =
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
-    elif outputExt == ".wav":
+    elif inputExt == ".ansiwave" and outputExt == ".wav":
       convertToWav(opts)
     else:
-      raise newException(Exception, "Don't know how to convert $1 to $2".format(opts.input, opts.output))
+      raise newException(Exception, "Don't know how to convert $1 to $2 (try changing the file extensions)".format(opts.input, opts.output))
 
 proc saveEditor(opts: Options) =
   let globals = session.query(rules.getGlobals)
