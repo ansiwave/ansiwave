@@ -14,6 +14,7 @@ type
       discard
     of Symbol, Operator, Number:
       name: string
+      signed: bool # only used for numbers
     of Command:
       tree: CommandTree
   CommandTreeKind* = enum
@@ -43,7 +44,7 @@ proc parse*(lines: seq[string]): seq[CommandText] =
       if line[0] == '/' and line[1] != '/': # don't add if it is a comment
         result.add(CommandText(text: line, line: i))
 
-proc toJson(form: Form): JsonNode
+proc toJson(form: Form, preserveNumberSigns: bool = false): JsonNode
 
 proc instrumentToJson(name: string, args: seq[Form]): JsonNode =
   result = JsonNode(kind: JArray)
@@ -54,7 +55,7 @@ proc instrumentToJson(name: string, args: seq[Form]): JsonNode =
 proc attributeToJson(name: string, args: seq[Form]): JsonNode =
   result = JsonNode(kind: JObject)
   assert args.len == 1
-  result.fields[name[1 ..< name.len]] = toJson(args[0])
+  result.fields[name[1 ..< name.len]] = toJson(args[0], true)
 
 proc initCommands(): Table[string, CommandMetadata] =
   for inst in constants.instruments:
@@ -240,7 +241,7 @@ proc parse*(context: var Context, command: CommandText): CommandTree =
         (forms[i].name == "+" or forms[i].name == "-") and
         (i == 0 or forms[i-1].kind == Whitespace) and
         (i != forms.len - 1 and forms[i+1].kind == Number):
-      newForms.add(Form(kind: Number, name: forms[i].name & forms[i+1].name))
+      newForms.add(Form(kind: Number, name: forms[i].name & forms[i+1].name, signed: true))
       i += 2
     # + and - with whitespace on the left and symbol on the right should form a command
     elif forms[i].kind == Operator and
@@ -318,14 +319,20 @@ proc parseOperatorCommands*(trees: seq[CommandTree]): seq[CommandTree] =
       result.add(tree)
       i.inc
 
-proc toJson(form: Form): JsonNode =
+proc toJson(form: Form, preserveNumberSigns: bool = false): JsonNode =
   case form.kind:
   of Whitespace, Operator:
     raise newException(Exception, $form.kind & " cannot be converted to JSON")
   of Symbol:
     result = JsonNode(kind: JString, str: form.name)
   of Number:
-    result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
+    # if the number is explicitly signed and we want to preserve that sign,
+    # pass it to json as a string.
+    # currently only necessary for relative octaves like /octave +1
+    if form.signed and preserveNumberSigns:
+      result = JsonNode(kind: JString, str: form.name)
+    else:
+      result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
   of Command:
     var cmd: CommandMetadata
     if not getCommand(cmd, form.tree.name):
