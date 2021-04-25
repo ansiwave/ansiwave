@@ -1138,7 +1138,7 @@ proc tick*(): iw.TerminalBuffer =
         discard renderButton(tb, "↨ Copy Line", x, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
         discard renderButton(tb, "↨ Paste Line", x, 1, key, proc () = pasteLine(selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
       elif selectedBuffer.mode == 1:
-        x = renderBrushes(tb, selectedBuffer, key, x + 2)
+        x = renderBrushes(tb, selectedBuffer, key, x + 1)
     else:
       let
         topText = "Read-only mode! To edit this, convert it into an ansiwave:"
