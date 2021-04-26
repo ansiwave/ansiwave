@@ -1283,7 +1283,7 @@ proc convert(opts: Options) =
       raise newException(Exception, "Don't know how to convert link to $1 (the .ansiwave extension is required)".format(opts.output))
   else:
     let
-      inputExt = os.splitFile(opts.input).ext
+      inputExt = strutils.toLowerAscii(os.splitFile(opts.input).ext)
       outputExt = os.splitFile(opts.output).ext
     if inputExt == ".ans" and outputExt == ".ansiwave":
       if "width" notin opts.args:
