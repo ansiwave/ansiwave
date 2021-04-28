@@ -111,7 +111,7 @@ proc dedupeCodes*(line: seq[Rune]): string =
   const ignoredParams = [5, 6].toHashSet
   var
     codes: seq[string]
-    paramsAdded: seq[int]
+    lastParams: seq[int]
   proc addCodes(res: var string) =
     var params: seq[int]
     for code in codes:
@@ -126,11 +126,9 @@ proc dedupeCodes*(line: seq[Rune]): string =
       else:
         res &= code
     dedupeParams(params)
-    if params.len > 0:
-      if not (params == @[0] and paramsAdded == @[0]): # don't add clear if not needed
-        res &= "\e[" & strutils.join(params, ";") & "m"
-        paramsAdded &= params
-        dedupeParams(paramsAdded)
+    if params.len > 0 and params != lastParams: # don't add params if they haven't changed
+      res &= "\e[" & strutils.join(params, ";") & "m"
+      lastParams = params
     codes = @[]
   for ch in line:
     if parseCode(codes, ch):
