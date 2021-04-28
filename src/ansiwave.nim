@@ -1144,7 +1144,7 @@ proc tick*(): iw.TerminalBuffer =
         topText = "Read-only mode! To edit this, convert it into an ansiwave:"
         bottomText = "ansiwave https://ansiwave.net/... $1.ansiwave".format(selectedBuffer.name)
       iw.write(tb, max(0, int(editorWidth/2 - topText.runeLen/2)), 0, topText)
-      iw.write(tb, max(0, int(editorWidth/2 - bottomText.runeLen/2)), 1, bottomText)
+      iw.write(tb, max(playX, int(editorWidth/2 - bottomText.runeLen/2)), 1, bottomText)
   of Errors:
     discard renderButton(tb, "\e[3m≈ANSIWAVE≈ Errors\e[0m", 1, 0, key, proc () = discard)
   of Tutorial:
