@@ -22,22 +22,32 @@ proc parseCode(codes: var seq[string], ch: Rune): bool =
   return false
 
 proc dedupeParams(params: var seq[int]) =
-  var i = params.len - 1
+  var
+    i = params.len - 1
+    existingParams: HashSet[int]
   while i > 0:
     let param = params[i]
+    # if it's a clear, ignore all prior params
     if param == 0:
       params = params[i ..< params.len]
       break
-    elif param >= 30 and param <= 39:
-      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
-      params = prevParams & params[i ..< params.len]
-      i = prevParams.len - 1
-    elif param >= 40 and param <= 49:
-      let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
-      params = prevParams & params[i ..< params.len]
-      i = prevParams.len - 1
-    else:
+    if param in existingParams:
+      # if the param already exists, no need to include it again
+      params.delete(i)
       i.dec
+    else:
+      existingParams.incl(param)
+      # if the param is a color, remove all prior colors of the same kind because it's redundant
+      if param >= 30 and param <= 39:
+        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
+        params = prevParams & params[i ..< params.len]
+        i = prevParams.len - 1
+      elif param >= 40 and param <= 49:
+        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
+        params = prevParams & params[i ..< params.len]
+        i = prevParams.len - 1
+      else:
+        i.dec
 
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]

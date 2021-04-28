@@ -12,6 +12,10 @@ test "Dedupe codes":
   let newText = codes.dedupeCodes(text)
   check newText.escape == "\e[32;43mHello, world!\e[31m".escape
 
+  const text2 = "\e[0;1;22;36;1;22;1;22;1;22;1;46m"
+  let newText2 = codes.dedupeCodes(text2)
+  check newText2.escape == "\e[0;36;22;1;46m".escape
+
 from ansiwavepkg/wavescript import nil
 
 proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
