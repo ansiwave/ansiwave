@@ -1,2 +1,7 @@
 when defined(linux):
-  switch("passL", "-ldl -lm -lpthread")
+  when defined(musl):
+    switch("passL", "-static")
+    switch("gcc.exe", "musl-gcc")
+    switch("gcc.linkerexe", "musl-gcc")
+  else:
+    switch("passL", "-ldl -lm -lpthread")
