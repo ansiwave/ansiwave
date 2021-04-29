@@ -110,11 +110,17 @@ proc exitClean() {.noconv.} =
 
 proc splitLines*(text: string): RefStrings =
   new result
+  var row = 0
   for line in strutils.splitLines(text):
     var s: ref string
     new s
     s[] = codes.dedupeCodes(line)
     result[].add(s)
+    # make sure the line is UTF-8
+    let col = unicode.validateUtf8(line)
+    if col != -1:
+      exitClean("Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
+    row.inc
 
 proc add(lines: var RefStrings, line: string) =
   var s: ref string
