@@ -24,9 +24,9 @@ Your weary index finger rests on a key for a bit longer.
 The talking, the laughing, the vibrations of strings and barehanded taps on
 drums -- everything melts into the background as your hands sway back and forth.
 
-/piano c c# /octave 5 c   c#   /octave 4 c c# /length 1/2 c
-/piano c c#           c+1 c#+1           c c# 1/2         c // written tersely
-/piano c c#           c+  c#+            c c# /2          c // even more terse
+/piano c c# /octave +1 c   c#   /octave -1 c c# /length 1/2 c
+/piano c c#            c+1 c#+1            c c# 1/2         c // written tersely
+/piano c c#            c+  c#+             c c# /2          c // even more terse
 
 The notes begin to play themselves while you whisper along.
 
