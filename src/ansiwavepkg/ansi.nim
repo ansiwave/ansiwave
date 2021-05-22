@@ -7,7 +7,7 @@ const
   ESCAPE = '\x1B'
   CR     = '\x0D'
   LF     = '\x0A'
-  codeTerminators* = {'c', 'f', 'h', 'l', 'm', 's', 'u',
+  codeTerminators* = {'c', 'f', 'h', 'l', 'm', 's', 't', 'u',
                       'A', 'B', 'C', 'D', 'E', 'F', 'G',
                       'H', 'J', 'K', 'N', 'O', 'P', 'S',
                       'T', 'X', '\\', ']', '^', '_'}
