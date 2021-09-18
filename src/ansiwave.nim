@@ -12,6 +12,7 @@ from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
+from ansiwavepkg/chafa import nil
 from paramidi import Context
 from json import nil
 from parseopt import nil
