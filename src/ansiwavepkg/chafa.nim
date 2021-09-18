@@ -1,3 +1,6 @@
+{.passC: "-I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/ -Isrc/ansiwavepkg/chafa -Isrc/ansiwavepkg/chafa/internal".}
+{.passC: "-mavx2".}
+{.passL: "-lglib-2.0"}
 {.compile: "chafa/chafa-canvas-config.c".}
 {.compile: "chafa/chafa-canvas.c".}
 {.compile: "chafa/chafa-features.c".}
