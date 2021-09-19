@@ -1,4 +1,4 @@
-when defined(windows):
+when defined(windows) or not defined(amd64):
   proc imageToAnsi*(image: string, outWidth: cint): string =
     ""
 else:
