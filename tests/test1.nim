@@ -73,3 +73,9 @@ test "remove pointless clears":
     before = "\e[0mH\e[0me\e[0ml\e[0ml\e[0mo!\e[30mWassup\e[0mG\e[0mr\e[0me\e[0metings"
     after = "\e[0mHello!\e[30mWassup\e[0mGreetings"
   check codes.dedupeCodes(before).escape == after.escape
+
+from ansiwavepkg/chafa import nil
+
+test "convert image to ansi art":
+  const img = staticRead("aintgottaexplainshit.jpg")
+  echo chafa.imageToAnsi(img, 80)
