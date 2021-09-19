@@ -36,6 +36,7 @@ when defined(windows):
   {.passC: "-Isrc/ansiwavepkg/chafa/glib-windows".}
 elif defined(macosx):
   {.passC: "-Isrc/ansiwavepkg/chafa/glib-macos".}
+  {.passL: "-liconv -lintl -framework CoreFoundation -framework AppKit"}
 elif defined(linux):
   {.passC: "-Isrc/ansiwavepkg/chafa/glib-linux".}
 
@@ -143,6 +144,8 @@ else:
 when defined(windows):
   {.compile: "src/ansiwavepkg/chafa/glib/gwin32-private.c".}
   {.compile: "src/ansiwavepkg/chafa/glib/gwin32.c".}
+when defined(macosx):
+  {.compile: "src/ansiwavepkg/chafa/glib/gosxutils.m".}
 
 {.compile: "src/ansiwavepkg/chafa/glib/libcharset/localcharset.c".}
 
