@@ -34,6 +34,7 @@
 {.passC: "-Isrc/ansiwavepkg/chafa/glib -Isrc/ansiwavepkg/chafa/glib/gnulib".}
 when defined(windows):
   {.passC: "-Isrc/ansiwavepkg/chafa/glib-windows".}
+  {.passL: "-luuid -lintl -lws2_32 -lole32"}
 elif defined(macosx):
   {.passC: "-Isrc/ansiwavepkg/chafa/glib-macos".}
   {.passL: "-liconv -lintl -framework CoreFoundation -framework AppKit"}
@@ -123,7 +124,7 @@ else:
 #{.compile: "src/ansiwavepkg/chafa/glib/gtimezone.c".}
 #{.compile: "src/ansiwavepkg/chafa/glib/gtrace.c".}
 {.compile: "src/ansiwavepkg/chafa/glib/gtranslit.c".}
-#{.compile: "src/ansiwavepkg/chafa/glib/gtrashstack.c".}
+{.compile: "src/ansiwavepkg/chafa/glib/gtrashstack.c".}
 #{.compile: "src/ansiwavepkg/chafa/glib/gtree.c".}
 #{.compile: "src/ansiwavepkg/chafa/glib/gunibreak.c".}
 #{.compile: "src/ansiwavepkg/chafa/glib/gunicollate.c".}
@@ -142,7 +143,7 @@ else:
 #{.compile: "src/ansiwavepkg/chafa/glib/gversion.c".}
 {.compile: "src/ansiwavepkg/chafa/glib/gwakeup.c".}
 when defined(windows):
-  {.compile: "src/ansiwavepkg/chafa/glib/gwin32-private.c".}
+  #{.compile: "src/ansiwavepkg/chafa/glib/gwin32-private.c".}
   {.compile: "src/ansiwavepkg/chafa/glib/gwin32.c".}
 when defined(macosx):
   {.compile: "src/ansiwavepkg/chafa/glib/gosxutils.m".}
