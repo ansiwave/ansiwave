@@ -16,7 +16,7 @@
  * system printf functions.  This is useful to know, for example,
  * when using glibc's register_printf_function().
  */
-#define GLIB_USING_SYSTEM_PRINTF
+#undef GLIB_USING_SYSTEM_PRINTF
 
 /* #undef GLIB_STATIC_COMPILATION */
 /* #undef GOBJECT_STATIC_COMPILATION */
