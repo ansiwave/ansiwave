@@ -16,6 +16,15 @@ test "Dedupe codes":
   let newText2 = codes.dedupeCodes(text2)
   check newText2.escape == "\e[0;36;22;1;46m".escape
 
+test "Don't dedupe RGB codes":
+  const text = "\e[38;2;255;255;255m"
+  let newText = codes.dedupeCodes(text)
+  check newText.escape == text.escape
+
+  const text2 = "\e[48;5;255;255;255m"
+  let newText2 = codes.dedupeCodes(text2)
+  check newText2.escape == text2.escape
+
 from ansiwavepkg/wavescript import nil
 
 proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =

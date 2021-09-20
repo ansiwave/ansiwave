@@ -25,6 +25,10 @@ proc dedupeParams(params: var seq[int]) =
   var
     i = params.len - 1
     existingParams: HashSet[int]
+    uniqueParams = params.toHashSet
+  # don't dedupe if we are setting RGB colors
+  if intersection(uniqueParams, [38, 48].toHashSet).len > 0:
+    return
   while i > 0:
     let param = params[i]
     # if it's a clear, ignore all prior params
@@ -38,12 +42,12 @@ proc dedupeParams(params: var seq[int]) =
     else:
       existingParams.incl(param)
       # if the param is a color, remove all prior colors of the same kind because it's redundant
-      if param >= 30 and param <= 39:
-        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 39))
+      if param >= 30 and param <= 37:
+        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 37))
         params = prevParams & params[i ..< params.len]
         i = prevParams.len - 1
-      elif param >= 40 and param <= 49:
-        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 49))
+      elif param >= 40 and param <= 47:
+        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 47))
         params = prevParams & params[i ..< params.len]
         i = prevParams.len - 1
       else:
@@ -108,7 +112,6 @@ proc stripCodesIfCommand*(line: ref string): string =
       result &= $ch
 
 proc dedupeCodes*(line: seq[Rune]): string =
-  const ignoredParams = [5, 6].toHashSet
   var
     codes: seq[string]
     lastParams: seq[int]
@@ -119,9 +122,7 @@ proc dedupeCodes*(line: seq[Rune]): string =
         let
           trimmed = code[1 ..< code.len - 1]
           newParams = ansi.parseParams(trimmed)
-          # get rid of blinks
-          filteredParams = sequtils.filter(newParams, proc (x: int): bool = x notin ignoredParams)
-        params &= filteredParams
+        params &= newParams
       # this is some other kind of code that we should just preserve
       else:
         res &= code
