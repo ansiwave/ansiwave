@@ -13,7 +13,7 @@ type
     of Whitespace:
       discard
     of Symbol, Operator, Number:
-      name: string
+      name*: string
       signed: bool # only used for numbers
     of Command:
       tree: CommandTree
@@ -88,6 +88,7 @@ const
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars* = [" ", "█", "▓", "▒", "░", "▀", "▄", "▌", "▐"].toHashSet
   operatorCommands = ["/,"].toHashSet
+  stringCommands = ["/image"].toHashSet # commands that receive their args as a single string
   commands = initCommands()
 
 proc initContext*(): Context =
@@ -165,13 +166,19 @@ proc parse*(context: var Context, command: CommandText): CommandTree =
   var
     forms: seq[Form]
     form = Form(kind: Whitespace)
+    unparsedText = ""
   proc flush() =
     forms.add(form)
     form = Form(kind: Whitespace)
+  proc isStringCommand(): bool =
+    forms.len >= 2 and forms[0].kind == Operator and forms[1].kind == Symbol and (forms[0].name & forms[1].name) in stringCommands
   for ch in runes(command.text):
-    let
-      s = ch.toUTF8
-      c = s[0]
+    let s = ch.toUTF8
+    # if this is a string command, don't parse the args
+    if isStringCommand():
+      unparsedText &= s
+      continue
+    let c = s[0]
     case form.kind:
     of Whitespace:
       if c in operatorChars:
@@ -214,6 +221,8 @@ proc parse*(context: var Context, command: CommandText): CommandTree =
     of Command:
       discard
   flush()
+  if isStringCommand():
+    return CommandTree(kind: Valid, name: forms[0].name & forms[1].name, args: @[Form(kind: Symbol, name: unparsedText)], line: command.line, skip: true)
   # do some error checking
   for form in forms:
     if form.kind in {Symbol, Number}:
@@ -335,7 +344,9 @@ proc toJson(form: Form, preserveNumberSigns: bool = false): JsonNode =
       result = JsonNode(kind: JInt, num: strutils.parseBiggestInt(form.name))
   of Command:
     var cmd: CommandMetadata
-    if not getCommand(cmd, form.tree.name):
+    if form.tree.name in stringCommands: # string commands cannot contain music
+      return JsonNode(kind: JArray)
+    elif not getCommand(cmd, form.tree.name):
       raise newException(Exception, "Command not found: " & form.tree.name)
     case cmd.kind:
     of Play:
