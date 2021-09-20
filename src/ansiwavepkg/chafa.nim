@@ -186,7 +186,11 @@ else:
 
   proc imageToAnsi*(image: string, outWidth: cint): string =
     var width, height, channels: int
-    var data = stbi.loadFromMemory(cast[seq[uint8]](image), width, height, channels, stbi.RGBA)
+    var data =
+      try:
+        stbi.loadFromMemory(cast[seq[uint8]](image), width, height, channels, stbi.RGBA)
+      except:
+        return ""
     var gs = image_to_ansi(data[0].addr, width.cint, height.cint, outWidth)
     result = $ gs.str
     chafa.g_string_free(gs, 1)

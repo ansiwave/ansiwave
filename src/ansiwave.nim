@@ -12,6 +12,7 @@ from ansiwavepkg/wavescript import CommandTree
 from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
+from ansiwavepkg/chafa import nil
 from paramidi import Context
 from json import nil
 from parseopt import nil
@@ -256,6 +257,8 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
       discard
   session.insert(buffer.id, Prompt, None)
 
+proc insertAnsi(session: var auto, ansi: string)
+
 let rules =
   ruleset:
     rule getGlobals(Fact):
@@ -359,38 +362,39 @@ let rules =
           of wavescript.Valid:
             if tree.skip:
               if tree.name == "/image":
-                # set the play button in the gutter to play the line
                 let treeLocal = tree
                 sugar.capture treeLocal, midiContext:
-                  let
-                    cb =
-                      proc () =
-                        echo "Load image: ", treeLocal.args[0].name
+                  let cb =
+                    proc () =
+                      let path = treeLocal.args[0].name
+                      if os.fileExists(path):
+                        let ansi = chafa.imageToAnsi(readFile(path), 80)
+                        if ansi != "":
+                          insertAnsi(sess, ansi)
                   linksRef[treeLocal.line] = Link(icon: "☼".runeAt(0), callback: cb)
                 cmdsRef[].add(tree)
             else:
               # set the play button in the gutter to play the line
               let treeLocal = tree
               sugar.capture treeLocal, midiContext:
-                let
-                  cb =
-                    proc () =
-                      sess.insert(id, Prompt, StopPlaying)
-                      var ctx = midiContext
-                      ctx.time = 0
-                      new ctx.events
-                      let res =
-                        try:
-                          midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
-                        except Exception as e:
-                          midi.CompileResult(kind: midi.Error, message: e.msg)
-                      case res.kind:
-                      of midi.Valid:
-                        play(res.events, id, width, @[])
-                      of midi.Error:
-                        if id == Editor.ord:
-                          setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
-                      sess.insert(id, Prompt, None)
+                let cb =
+                  proc () =
+                    sess.insert(id, Prompt, StopPlaying)
+                    var ctx = midiContext
+                    ctx.time = 0
+                    new ctx.events
+                    let res =
+                      try:
+                        midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
+                      except Exception as e:
+                        midi.CompileResult(kind: midi.Error, message: e.msg)
+                    case res.kind:
+                    of midi.Valid:
+                      play(res.events, id, width, @[])
+                    of midi.Error:
+                      if id == Editor.ord:
+                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
+                    sess.insert(id, Prompt, None)
                 linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
               cmdsRef[].add(tree)
               # compile the line so the context object updates
@@ -653,6 +657,24 @@ proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
     ch.fg = iw.fgYellow
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
+
+proc insertAnsi(session: var auto, ansi: string) =
+  let
+    buffer = session.query(rules.getBuffer, id = Editor)
+    editable = buffer.editable and buffer.mode == 0
+  if not editable:
+    return
+  let
+    ansiLines = splitLines(ansi)
+    startLine = buffer.cursorY
+  var newLines: RefStrings
+  new newLines
+  newLines[] = buffer.lines[][0 ..< startLine]
+  newLines[] &= ansiLines[]
+  newLines[] &= buffer.lines[][startLine + 1 ..< buffer.lines[].len]
+  session.insert(buffer.id, Lines, newLines)
+  session.insert(buffer.id, CursorX, 0)
+  session.insert(buffer.id, CursorY, startLine)
 
 proc onInput(key: iw.Key, buffer: tuple): bool =
   let editable = buffer.editable and buffer.mode == 0

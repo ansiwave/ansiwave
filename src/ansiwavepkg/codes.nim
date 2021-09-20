@@ -61,9 +61,9 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
       var style = iw.getStyle(tb)
       style.incl(iw.Style(param))
       iw.setStyle(tb, style)
-    elif param >= 30 and param <= 39:
+    elif param >= 30 and param <= 37:
       iw.setForegroundColor(tb, iw.ForegroundColor(param))
-    elif param >= 40 and param <= 49:
+    elif param >= 40 and param <= 47:
       iw.setBackgroundColor(tb, iw.BackgroundColor(param))
 
 proc write*(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
