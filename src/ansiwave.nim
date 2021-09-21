@@ -1331,11 +1331,21 @@ proc convert(opts: Options) =
       outputExt = os.splitFile(opts.output).ext
     if inputExt == ".ans" and outputExt == ".ansiwave":
       if "width" notin opts.args:
-        raise newException(Exception, "--width is required for .ans files")
+        raise newException(Exception, "--width is required")
       let width = strutils.parseInt(opts.args["width"])
       var f: File
       if open(f, opts.output, fmWrite):
         ansi.write(f, ansi.ansiToUtf8(readFile(opts.input), width), width)
+        close(f)
+      else:
+        raise newException(Exception, "Cannot open: " & opts.output)
+    elif inputExt in [".jpg", ".jpeg", ".png", ".gif"].toHashSet and outputExt == ".ansiwave":
+      if "width" notin opts.args:
+        raise newException(Exception, "--width is required")
+      let width = strutils.parseInt(opts.args["width"])
+      var f: File
+      if open(f, opts.output, fmWrite):
+        write(f, chafa.imageToAnsi(readFile(opts.input), width.cint))
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
