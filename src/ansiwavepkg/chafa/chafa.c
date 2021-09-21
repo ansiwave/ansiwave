@@ -22,6 +22,7 @@ GString* image_to_ansi(guint8 *pixels, gint width, gint height, gint out_width)
     float ratio = fheight / fwidth;
     chafa_canvas_config_set_geometry (config, out_width, ratio * (out_width/2));
     chafa_canvas_config_set_symbol_map (config, symbol_map);
+    chafa_canvas_config_set_canvas_mode (config, CHAFA_CANVAS_MODE_INDEXED_240);
 
     /* Create canvas */
     canvas = chafa_canvas_new (config);
