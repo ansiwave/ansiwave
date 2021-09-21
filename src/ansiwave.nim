@@ -1339,7 +1339,7 @@ proc convert(opts: Options) =
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
-    elif inputExt in [".jpg", ".jpeg", ".png", ".gif"].toHashSet and outputExt == ".ansiwave":
+    elif inputExt in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".psd"].toHashSet and outputExt == ".ansiwave":
       if "width" notin opts.args:
         raise newException(Exception, "--width is required")
       let width = strutils.parseInt(opts.args["width"])
