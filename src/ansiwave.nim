@@ -368,11 +368,11 @@ let rules =
                     proc () =
                       let path = treeLocal.args[0].name
                       if os.fileExists(path):
-                        let ansi = chafa.imageToAnsi(readFile(path), 80)
-                        if ansi != "":
+                        try:
+                          let ansi = chafa.imageToAnsi(readFile(path), 80)
                           insertAnsi(sess, ansi)
-                        else:
-                          setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "Not a valid image: " & path)
+                        except Exception as e:
+                          setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "Can't import image: " & e.msg)
                       else:
                         setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "File doesn't exist: " & path)
                   linksRef[treeLocal.line] = Link(icon: "☼".runeAt(0), callback: cb)
