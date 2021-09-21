@@ -371,6 +371,10 @@ let rules =
                         let ansi = chafa.imageToAnsi(readFile(path), 80)
                         if ansi != "":
                           insertAnsi(sess, ansi)
+                        else:
+                          setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "Not a valid image: " & path)
+                      else:
+                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "File doesn't exist: " & path)
                   linksRef[treeLocal.line] = Link(icon: "☼".runeAt(0), callback: cb)
                 cmdsRef[].add(tree)
             else:
