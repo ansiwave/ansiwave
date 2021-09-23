@@ -89,9 +89,9 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
           if i + 2 < params.len:
             # TODO: correctly convert the 256 color value to one of the 8 terminal colors
             if param == 38:
-              iw.setForegroundColor(tb, iw.fgBlack)
+              iw.setForegroundColor(tb, iw.fgNone)
             else:
-              iw.setBackgroundColor(tb, iw.bgWhite)
+              iw.setBackgroundColor(tb, iw.bgNone)
             i += 3
             continue
         # convert truecolor to standard 8 terminal colors
