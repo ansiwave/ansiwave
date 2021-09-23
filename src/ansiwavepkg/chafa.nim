@@ -1,7 +1,4 @@
-when defined(windows) or not defined(amd64):
-  proc imageToAnsi*(image: string, outWidth: cint): string =
-    raise newException(Exception, "Image import not supported on this platform")
-else:
+when defined(amd64) and (defined(macosx) or defined(linux)):
   {.passC: "-Isrc/ansiwavepkg/chafa -Isrc/ansiwavepkg/chafa/internal".}
   {.passC: "-mavx2".}
   {.compile: "chafa/chafa.c".}
@@ -190,3 +187,6 @@ else:
     var gs = image_to_ansi(data[0].addr, width.cint, height.cint, outWidth)
     result = $ gs.str
     chafa.g_string_free(gs, 1)
+else:
+  proc imageToAnsi*(image: string, outWidth: cint): string =
+    raise newException(Exception, "Image import not supported on this platform")
