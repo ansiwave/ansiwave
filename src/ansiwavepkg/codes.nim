@@ -56,17 +56,20 @@ proc dedupeParams(params: var seq[int]) =
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let trimmed = code[1 ..< code.len - 1]
   let params = ansi.parseParams(trimmed)
+  var bright = false
   for param in params:
     if param == 0:
       iw.setBackgroundColor(tb, iw.bgNone)
       iw.setForegroundColor(tb, iw.fgNone)
       iw.setStyle(tb, {})
     elif param >= 1 and param <= 9:
+      if param == 1:
+        bright = true
       var style = iw.getStyle(tb)
       style.incl(iw.Style(param))
       iw.setStyle(tb, style)
     elif param >= 30 and param <= 37:
-      iw.setForegroundColor(tb, iw.ForegroundColor(param))
+      iw.setForegroundColor(tb, iw.ForegroundColor(param), bright)
     elif param >= 40 and param <= 47:
       iw.setBackgroundColor(tb, iw.BackgroundColor(param))
 
