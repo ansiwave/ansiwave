@@ -4,6 +4,7 @@ from strutils import nil
 from sequtils import nil
 import unicode
 import sets
+from kdtree import nil
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =
@@ -58,10 +59,14 @@ proc dedupeParams(params: var seq[int]) =
         i.dec
 
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
-  let trimmed = code[1 ..< code.len - 1]
-  let params = ansi.parseParams(trimmed)
-  var bright = false
-  for param in params:
+  let
+    trimmed = code[1 ..< code.len - 1]
+    params = ansi.parseParams(trimmed)
+  var
+    i = 0
+    bright = false
+  while i < params.len:
+    let param = params[i]
     if param == 0:
       iw.setBackgroundColor(tb, iw.bgNone)
       iw.setForegroundColor(tb, iw.fgNone)
@@ -76,6 +81,43 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
       iw.setForegroundColor(tb, iw.ForegroundColor(param), bright)
     elif param >= 40 and param <= 47:
       iw.setBackgroundColor(tb, iw.BackgroundColor(param))
+    elif param == 38 or param == 48:
+      if i + 1 < params.len:
+        let mode = params[i + 1]
+        # convert 256 colors to standard 8 terminal colors
+        if mode == 5:
+          if i + 2 < params.len:
+            # TODO: correctly convert the 256 color value to one of the 8 terminal colors
+            if param == 38:
+              iw.setForegroundColor(tb, iw.fgBlack)
+            else:
+              iw.setBackgroundColor(tb, iw.bgWhite)
+            i += 3
+            continue
+        # convert truecolor to standard 8 terminal colors
+        elif mode == 2:
+          if i + 4 < params.len:
+            const colors = [
+              ([0.0, 0.0, 0.0], (iw.fgBlack, iw.bgBlack)),
+              ([255.0, 0.0, 0.0], (iw.fgRed, iw.bgRed)),
+              ([0.0, 128.0, 0.0], (iw.fgGreen, iw.bgGreen)),
+              ([255.0, 255.0, 0.0], (iw.fgYellow, iw.bgYellow)),
+              ([0.0, 0.0, 255.0], (iw.fgBlue, iw.bgBlue)),
+              ([255.0, 0.0, 255.0], (iw.fgMagenta, iw.bgMagenta)),
+              ([0.0, 255.0, 255.0], (iw.fgCyan, iw.bgCyan)),
+              ([255.0, 255.0, 255.0], (iw.fgWhite, iw.bgWhite)),
+            ]
+            var tree = kdtree.newKdTree[(iw.ForegroundColor, iw.BackgroundColor)](colors)
+            let (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(params[i + 2]), float(params[i + 3]), float(params[i + 4])])
+            if param == 38:
+              iw.setForegroundColor(tb, value[0])
+            else:
+              iw.setBackgroundColor(tb, value[1])
+            i += 5
+            continue
+        # the values appear to be invalid so just stop trying to make sense of them
+        break
+    i += 1
 
 proc write*(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
   var currX = x
