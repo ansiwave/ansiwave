@@ -29,13 +29,17 @@ proc dedupeParams(params: var seq[int]) =
   # don't dedupe if we are setting RGB colors
   if intersection(uniqueParams, [38, 48].toHashSet).len > 0:
     return
-  while i > 0:
+  while i >= 0:
     let param = params[i]
     # if it's a clear, ignore all prior params
     if param == 0:
       params = params[i ..< params.len]
       break
-    if param in existingParams:
+    elif param == 5:
+      # remove blinking because it's annoying
+      params.delete(i)
+      i.dec
+    elif param in existingParams:
       # if the param already exists, no need to include it again
       params.delete(i)
       i.dec
