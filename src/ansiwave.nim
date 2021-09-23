@@ -360,23 +360,22 @@ let rules =
         for tree in trees:
           case tree.kind:
           of wavescript.Valid:
-            if tree.skip:
-              if tree.name == "/image":
-                let treeLocal = tree
-                sugar.capture treeLocal, midiContext:
-                  let cb =
-                    proc () =
-                      let path = treeLocal.args[0].name
-                      if os.fileExists(path):
-                        try:
-                          let ansi = chafa.imageToAnsi(readFile(path), 80)
-                          insertAnsi(sess, ansi)
-                        except Exception as e:
-                          setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "Can't import image: " & e.msg)
-                      else:
-                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "File doesn't exist: " & path)
-                  linksRef[treeLocal.line] = Link(icon: "☼".runeAt(0), callback: cb)
-                cmdsRef[].add(tree)
+            if tree.name == "/image":
+              let treeLocal = tree
+              sugar.capture treeLocal, midiContext:
+                let cb =
+                  proc () =
+                    let path = treeLocal.args[0].name
+                    if os.fileExists(path):
+                      try:
+                        let ansi = chafa.imageToAnsi(readFile(path), 80)
+                        insertAnsi(sess, ansi)
+                      except Exception as e:
+                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "Can't import image: " & e.msg)
+                    else:
+                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, "File doesn't exist: " & path)
+                linksRef[treeLocal.line] = Link(icon: "☼".runeAt(0), callback: cb)
+              cmdsRef[].add(tree)
             else:
               # set the play button in the gutter to play the line
               let treeLocal = tree
