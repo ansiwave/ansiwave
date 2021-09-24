@@ -27,9 +27,13 @@ proc dedupeParams(params: var seq[int]) =
     i = params.len - 1
     existingParams: HashSet[int]
     uniqueParams = params.toHashSet
-  # don't dedupe if we are setting RGB colors
-  if intersection(uniqueParams, [38, 48].toHashSet).len > 0:
-    return
+  # don't dedupe RGB colors
+  let rgbFg = params.find(38)
+  if rgbFg >= 0 and rgbFg < i:
+    i = rgbFg - 1
+  let rgbBg = params.find(48)
+  if rgbBg >= 0 and rgbBg < i:
+    i = rgbBg - 1
   while i >= 0:
     let param = params[i]
     # if it's a clear, ignore all prior params
