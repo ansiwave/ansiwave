@@ -58,6 +58,18 @@ proc dedupeParams(params: var seq[int]) =
       else:
         i.dec
 
+const colors = [
+  ([0.0, 0.0, 0.0], (iw.fgBlack, iw.bgBlack)),
+  ([255.0, 0.0, 0.0], (iw.fgRed, iw.bgRed)),
+  ([0.0, 128.0, 0.0], (iw.fgGreen, iw.bgGreen)),
+  ([255.0, 255.0, 0.0], (iw.fgYellow, iw.bgYellow)),
+  ([0.0, 0.0, 255.0], (iw.fgBlue, iw.bgBlue)),
+  ([255.0, 0.0, 255.0], (iw.fgMagenta, iw.bgMagenta)),
+  ([0.0, 255.0, 255.0], (iw.fgCyan, iw.bgCyan)),
+  ([255.0, 255.0, 255.0], (iw.fgWhite, iw.bgWhite)),
+]
+var tree = kdtree.newKdTree[(iw.ForegroundColor, iw.BackgroundColor)](colors)
+
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let
     trimmed = code[1 ..< code.len - 1]
@@ -97,17 +109,6 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
         # convert truecolor to standard 8 terminal colors
         elif mode == 2:
           if i + 4 < params.len:
-            const colors = [
-              ([0.0, 0.0, 0.0], (iw.fgBlack, iw.bgBlack)),
-              ([255.0, 0.0, 0.0], (iw.fgRed, iw.bgRed)),
-              ([0.0, 128.0, 0.0], (iw.fgGreen, iw.bgGreen)),
-              ([255.0, 255.0, 0.0], (iw.fgYellow, iw.bgYellow)),
-              ([0.0, 0.0, 255.0], (iw.fgBlue, iw.bgBlue)),
-              ([255.0, 0.0, 255.0], (iw.fgMagenta, iw.bgMagenta)),
-              ([0.0, 255.0, 255.0], (iw.fgCyan, iw.bgCyan)),
-              ([255.0, 255.0, 255.0], (iw.fgWhite, iw.bgWhite)),
-            ]
-            var tree = kdtree.newKdTree[(iw.ForegroundColor, iw.BackgroundColor)](colors)
             let (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(params[i + 2]), float(params[i + 3]), float(params[i + 4])])
             if param == 38:
               iw.setForegroundColor(tb, value[0])
