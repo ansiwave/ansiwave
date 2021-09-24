@@ -22,7 +22,7 @@ import streams
 from uri import nil
 
 const
-  version = "0.4.0"
+  version = "0.5.0"
   sleepMsecs = 10
   hintSecs = 5
   undoDelay = 0.5
