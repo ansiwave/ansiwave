@@ -1,0 +1,3 @@
+**/*.c linguist-vendored
+**/*.h linguist-vendored
+src/ansiwavepkg/chafa/** linguist-vendored
