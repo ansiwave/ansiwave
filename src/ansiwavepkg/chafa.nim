@@ -1,4 +1,4 @@
-when defined(amd64) and (defined(macosx) or defined(linux)):
+when defined(amd64) and not defined(musl) and (defined(macosx) or defined(linux)):
   import os
   const dir = currentSourcePath().parentDir().joinPath("chafa")
 
