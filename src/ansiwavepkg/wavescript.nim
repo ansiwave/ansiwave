@@ -88,7 +88,7 @@ const
                   '[', ']', '_', '=', ':', ';', '<', '>', '.', '"', '\'', '|', '\\', '?'}
   whitespaceChars* = [" ", "█", "▓", "▒", "░", "▀", "▄", "▌", "▐"].toHashSet
   operatorCommands = ["/,"].toHashSet
-  stringCommands = ["/image"].toHashSet # commands that receive their args as a single string
+  stringCommands = initHashSet[string]() # commands that receive their args as a single string
   commands = initCommands()
 
 proc initContext*(): Context =

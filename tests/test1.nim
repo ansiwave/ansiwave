@@ -40,13 +40,6 @@ test "Parse commands":
   let trees = parseAnsiwave(lines)
   check trees.len == 2
 
-test "Parse string commands":
-  const hello = "/image path/to/image.jpg"
-  let lines = ansiwave.splitLines(hello)
-  let trees = parseAnsiwave(lines)
-  check trees.len == 1
-  check trees[0].kind == wavescript.Valid
-
 test "Parse operators":
   let lines = ansiwave.splitLines("/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+")
   let trees = parseAnsiwave(lines)

@@ -49,12 +49,6 @@ And if you have any old-school ANSI art encoded in CP437, you can convert it int
 ansiwave hello.ans hello.ansiwave --width=80
 ```
 
-You can also convert any arbitrary image into an ansiwave:
-
-```
-ansiwave hello.jpg hello.ansiwave --width=80
-```
-
 Oh, and if you just want to look at an ansiwave, there is already an ansiwave viewer built into every 'nix machine on the planet:
 
 ```
