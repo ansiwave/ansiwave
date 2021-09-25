@@ -23,44 +23,60 @@ proc parseCode(codes: var seq[string], ch: Rune): bool =
   return false
 
 proc dedupeParams(params: var seq[int]) =
+  # partition the params so RGB values are grouped together.
+  # for example, @[0,38,2,4,6,8,48,2,114,129,163]
+  # turns into @[@[0], @[38,2,4,6,8], @[48,2,114,129,163]]
   var
-    i = params.len - 1
-    existingParams: HashSet[int]
-    uniqueParams = params.toHashSet
-  # don't dedupe RGB colors
-  let rgbFg = params.find(38)
-  if rgbFg >= 0 and rgbFg < i:
-    i = rgbFg - 1
-  let rgbBg = params.find(48)
-  if rgbBg >= 0 and rgbBg < i:
-    i = rgbBg - 1
-  while i >= 0:
+    partitionedParams: seq[seq[int]]
+    i = 0
+  while i < params.len:
     let param = params[i]
+    if param in {38, 48}:
+      if i + 1 < params.len:
+        let mode = params[i + 1]
+        if mode == 5:
+          if i + 2 < params.len:
+            partitionedParams.add(params[i .. i+2])
+            i += 3
+            continue
+        elif mode == 2:
+          if i + 4 < params.len:
+            partitionedParams.add(params[i .. i+4])
+            i += 5
+            continue
+        # the values appear to be invalid so just stop trying to make sense of them
+        break
+    else:
+      partitionedParams.add(@[param])
+    i += 1
+  # remove partitions that wouldn't affect rendering anyway
+  i = partitionedParams.len - 1
+  var existingParams: HashSet[int]
+  while i >= 0:
+    let param = partitionedParams[i][0]
     # if it's a clear, ignore all prior params
     if param == 0:
-      params = params[i ..< params.len]
+      partitionedParams = partitionedParams[i ..< partitionedParams.len]
       break
     elif param == 5:
       # remove blinking because it's annoying
-      params.delete(i)
-      i.dec
+      partitionedParams.delete(i)
     elif param in existingParams:
       # if the param already exists, no need to include it again
-      params.delete(i)
-      i.dec
+      partitionedParams.delete(i)
     else:
       existingParams.incl(param)
-      # if the param is a color, remove all prior colors of the same kind because it's redundant
-      if param >= 30 and param <= 37:
-        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 30 and x <= 37))
-        params = prevParams & params[i ..< params.len]
-        i = prevParams.len - 1
-      elif param >= 40 and param <= 47:
-        let prevParams = sequtils.filter(params[0 ..< i], proc (x: int): bool = not (x >= 40 and x <= 47))
-        params = prevParams & params[i ..< params.len]
-        i = prevParams.len - 1
-      else:
-        i.dec
+      # if the param is a color, add all other colors of the same type to existingParams
+      # so they are removed (they would have no effect anyway)
+      if param >= 30 and param <= 38:
+        existingParams.incl([30, 31, 32, 33, 34, 35, 36, 37, 38].toHashSet)
+      elif param >= 40 and param <= 48:
+        existingParams.incl([40, 41, 42, 43, 44, 45, 46, 47, 48].toHashSet)
+    i -= 1
+  # flatten the partitions back into the params seq
+  params = @[]
+  for partition in partitionedParams:
+    params.add(partition)
 
 const colors = [
   ([0.0, 0.0, 0.0], (iw.fgBlack, iw.bgBlack)),

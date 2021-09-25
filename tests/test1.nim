@@ -16,14 +16,14 @@ test "Dedupe codes":
   let newText2 = codes.dedupeCodes(text2)
   check newText2.escape == "\e[0;36;22;1;46m".escape
 
-test "Don't dedupe RGB codes":
+test "Dedupe RGB codes correctly":
   const text = "\e[38;2;255;255;255m"
   let newText = codes.dedupeCodes(text)
   check newText.escape == text.escape
 
-  const text2 = "\e[48;5;255;255;255m"
+  const text2 = "\e[0;38;2;4;6;8;48;2;114;129;163;38;2;114;129;163m"
   let newText2 = codes.dedupeCodes(text2)
-  check newText2.escape == text2.escape
+  check newText2.escape == "\e[0;48;2;114;129;163;38;2;114;129;163m".escape
 
 from ansiwavepkg/wavescript import nil
 
