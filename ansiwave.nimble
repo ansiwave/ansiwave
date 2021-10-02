@@ -13,6 +13,9 @@ task dev, "Run dev version":
   # is unstable in debug builds for some reason
   exec "nimble -d:release run ansiwave tests/variables.ansiwave"
 
+task bbs, "Run bbs test":
+  exec "nimble run ansiwave --bbstest"
+
 # Dependencies
 
 requires "nim >= 1.4.2"
@@ -23,3 +26,4 @@ requires "parasound >= 0.2.0"
 requires "illwill >= 0.2.0"
 requires "zippy >= 0.5.5"
 requires "stb_image >= 2.5"
+requires "wavecore >= 0.1.0"

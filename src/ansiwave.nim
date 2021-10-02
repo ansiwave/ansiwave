@@ -13,6 +13,8 @@ from ansiwavepkg/midi import nil
 from ansiwavepkg/sound import nil
 from ansiwavepkg/codes import stripCodes
 from ansiwavepkg/chafa import nil
+from ansiwavepkg/bbs import nil
+import ansiwavepkg/constants
 from paramidi import Context
 from json import nil
 from parseopt import nil
@@ -20,15 +22,6 @@ from zippy import nil
 from base64 import nil
 import streams
 from uri import nil
-
-const
-  version = "0.7.0"
-  sleepMsecs = 10
-  hintSecs = 5
-  undoDelay = 0.5
-  saveDelay = 0.5
-  linesPerScroll = 4
-  editorWidth = 80
 
 type
   Id* = enum
@@ -1439,6 +1432,8 @@ proc main*() =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
+  if opts.args.hasKey("bbstest"):
+    bbs.renderBBS()
   # render home if no args are passed
   if opts.input == "":
     renderHome(opts)

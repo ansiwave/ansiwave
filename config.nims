@@ -5,3 +5,6 @@ when defined(linux):
     switch("gcc.linkerexe", "musl-gcc")
   else:
     switch("passL", "-ldl -lm -lpthread")
+
+--threads:on
+--define:staticSqlite
