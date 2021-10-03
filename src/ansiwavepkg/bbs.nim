@@ -2,21 +2,20 @@ from illwill as iw import `[]`, `[]=`
 from wavecorepkg/db import nil
 from wavecorepkg/db/entities import nil
 from wavecorepkg/db/db_sqlite import nil
+import wavecorepkg/db/vfs
+from wavecorepkg/server import nil
 from os import nil
-from osproc import nil
 from strutils import format
 import constants
 
 proc init() =
   const
     filename = "tests/bbs/board.db"
-    port = "8000"
-  #vfs.readUrl = "http://localhost:" & port & "/" & filename
-  var process: osproc.Process = nil
+    port = 3000
+  var s = server.initServer("localhost", port, @["."])
+  server.start(s)
+  vfs.readUrl = "http://localhost:" & $port & "/" & filename
   try:
-    # start web server
-    process = osproc.startProcess("ruby", args=["-run", "-ehttpd", "tests/bbs", "-p" & port], options={osproc.poUsePath, osproc.poStdErrToStdOut})
-    os.sleep(1000)
     # create test db
     var conn = db.open(filename)
     db.init(conn)
@@ -32,9 +31,13 @@ proc init() =
     var p3 = entities.Post(parent_id: p2.id, user_id: alice.id, body: "What's up")
     p3.id = entities.insertPost(conn, p3)
     db_sqlite.close(conn)
+    # re-open db, but this time all reads happen over http
+    conn = db.open(filename, true)
+    discard entities.selectPostChildren(conn, p1.id)
+    db_sqlite.close(conn)
   finally:
-    osproc.kill(process)
     os.removeFile(filename)
+    server.stop(s)
 
 proc renderBBS*() =
   let
