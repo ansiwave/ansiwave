@@ -5,60 +5,86 @@ from wavecorepkg/db/db_sqlite import nil
 import wavecorepkg/db/vfs
 from wavecorepkg/server import nil
 from wavecorepkg/client import nil
-from os import nil
+from os import joinPath
 from strutils import format
 import constants
 
 const
-  filename = "tests/bbs/board.db"
   port = 3000
   address = "http://localhost:" & $port
 
-var s = server.initServer("localhost", port, ".")
+let
+  staticFileDir = "tests".joinPath("bbs")
+  dbPath = staticFileDir.joinPath(server.dbFilename)
+
+var s = server.initServer("localhost", port, staticFileDir)
 server.start(s)
 var c = client.initClient(address)
 client.start(c)
 var response: ptr Channel[client.Result[seq[entities.Post]]]
+const ansiArt =
+  """
+
+                           ______                     
+   _________        .---'''      '''---.              
+  :______.-':      :  .--------------.  :             
+  | ______  |      | :                : |             
+  |:______B:|      | |   Welcome to   | |             
+  |:______B:|      | |                | |             
+  |:______B:|      | | ANSIWAVE   BBS | |             
+  |         |      | |                | |             
+  |:_____:  |      | |     Enjoy      | |             
+  |    ==   |      | :   your stay    : |             
+  |       O |      :  '--------------'  :             
+  |       o |      :'---...______...---'              
+  |       o |-._.-i___/'             \._              
+  |'-.____o_|   '-.   '-...______...-'  `-._          
+  :_________:      `.____________________   `-.___.-. 
+                   .'.eeeeeeeeeeeeeeeeee.'.      :___:
+                 .'.eeeeeeeeeeeeeeeeeeeeee.'.         
+                :____________________________:
+  """
 
 proc init() =
-  vfs.readUrl = "http://localhost:" & $port & "/" & filename
+  vfs.readUrl = "http://localhost:" & $port & "/" & server.dbFilename
   # create test db
-  if os.fileExists(filename):
-    os.removeFile(filename)
-  var conn = db.open(filename)
+  if os.fileExists(dbPath):
+    os.removeFile(dbPath)
+  var conn = db.open(dbPath)
   db.init(conn)
-  var p1 = entities.Post(parent_id: 0, user_id: 0, body: "Hello, world!")
-  p1.id = entities.insertPost(conn, p1)
+  db_sqlite.close(conn)
+  var p1 = entities.Post(parent_id: 0, user_id: 0, body: ansiArt)
+  p1.id = server.insertPost(s, p1)
   var
     alice = entities.User(username: "Alice", public_key: "stuff")
     bob = entities.User(username: "Bob", public_key: "asdf")
-  alice.id = entities.insertUser(conn, alice)
-  bob.id = entities.insertUser(conn, bob)
+  alice.id = server.insertUser(s, alice)
+  bob.id = server.insertUser(s, bob)
   var p2 = entities.Post(parent_id: p1.id, user_id: bob.id, body: "Hello, i'm bob")
-  p2.id = entities.insertPost(conn, p2)
+  p2.id = server.insertPost(s, p2)
   var p3 = entities.Post(parent_id: p2.id, user_id: alice.id, body: "What's up")
-  p3.id = entities.insertPost(conn, p3)
-  db_sqlite.close(conn)
+  p3.id = server.insertPost(s, p3)
 
 proc renderBBS*() =
   init()
-  var res = client.queryPostChildren(c, filename, 1)
-  let
-    homeText = strutils.splitLines(readFile("tests/bbs/ansiwaves/1.ansiwave"))
+  var
+    root = client.query(c, server.ansiwavesDir.joinPath("1.ansiwave"))
+    threads = client.queryPostChildren(c, server.dbFilename, 1)
   while true:
     let
       width = iw.terminalWidth()
       height = iw.terminalHeight()
-      x = max(0, int(width/2 - editorWidth/2))
     var
       tb = iw.newTerminalBuffer(width, height)
       y = 0
-    for line in homeText:
-      iw.write(tb, x, y, line)
-      y.inc
-    client.get(res)
-    if res.ready and res.value.kind == client.Valid:
-      iw.write(tb, 0, 0, $res.value.valid)
+    client.get(root)
+    if root.ready:
+      for line in strutils.splitLines(root.value.valid.body):
+        iw.write(tb, 0, y, line)
+        y.inc
+    client.get(threads)
+    if threads.ready:
+      iw.write(tb, 0, 0, $threads.value.valid)
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
