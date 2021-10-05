@@ -42,7 +42,7 @@ proc init() =
 
 proc renderBBS*() =
   init()
-  response = client.queryPostChildren(c, filename, 1)
+  var res = client.queryPostChildren(c, filename, 1)
   let
     homeText = strutils.splitLines(readFile("tests/bbs/ansiwaves/1.ansiwave"))
   while true:
@@ -56,14 +56,10 @@ proc renderBBS*() =
     for line in homeText:
       iw.write(tb, x, y, line)
       y.inc
+    client.get(res)
+    if res.ready and res.value.kind == client.Valid:
+      iw.write(tb, 0, 0, $res.value.valid)
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
-    if response != nil:
-      let res = response[].tryRecv()
-      if res.dataAvailable:
-        echo res.msg
-        server.stop(s)
-        client.stop(c)
-        response = nil
 
