@@ -14,7 +14,7 @@ const
   port = 3000
   address = "http://localhost:" & $port
 
-var s = server.initServer("localhost", port, @["."])
+var s = server.initServer("localhost", port, ".")
 server.start(s)
 var c = client.initClient(address)
 client.start(c)
