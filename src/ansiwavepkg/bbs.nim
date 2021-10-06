@@ -8,6 +8,8 @@ from wavecorepkg/client import nil
 from os import joinPath
 from strutils import format
 import constants
+import unicode
+from codes import nil
 
 const
   port = 3000
@@ -62,7 +64,7 @@ proc init() =
   bob.id = server.insertUser(s, bob)
   var p2 = entities.Post(parent_id: p1.id, user_id: bob.id, body: "Hello, i'm bob")
   p2.id = server.insertPost(s, p2)
-  var p3 = entities.Post(parent_id: p2.id, user_id: alice.id, body: "What's up")
+  var p3 = entities.Post(parent_id: p1.id, user_id: alice.id, body: "What's up")
   p3.id = server.insertPost(s, p3)
 
 proc renderBBS*() =
@@ -76,15 +78,26 @@ proc renderBBS*() =
       height = iw.terminalHeight()
     var
       tb = iw.newTerminalBuffer(width, height)
-      y = 0
+      screenLine = 0
     client.get(root)
     if root.ready:
-      for line in strutils.splitLines(root.value.valid.body):
-        iw.write(tb, 0, y, line)
-        y.inc
+      let lines = strutils.splitLines(root.value.valid.body)
+      iw.drawRect(tb, 0, 0, editorWidth, lines.len + 1, doubleStyle = true)
+      for line in lines:
+        var runes = line.toRunes
+        codes.deleteAfter(runes, editorWidth - 1)
+        codes.write(tb, 1, 1 + screenLine, $runes)
+        screenLine += 1
+    screenLine += 2
     client.get(threads)
     if threads.ready:
-      iw.write(tb, 0, 0, $threads.value.valid)
+      for post in threads.value.valid:
+        let lines = strutils.splitLines(post.body)
+        iw.drawRect(tb, 0, screenLine, editorWidth, 1 + screenLine + lines.len, doubleStyle = false)
+        screenLine += 1
+        for line in lines:
+          iw.write(tb, 1, screenLine, line)
+          screenLine += 2
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
