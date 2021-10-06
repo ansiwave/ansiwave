@@ -811,7 +811,6 @@ proc renderBuffer(tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
     if screenLine > buffer.height - 1:
       break
     var line = lines[i][].toRunes
-    line = line[0 ..< lines[i][].runeLen]
     if scrollX < line.stripCodes.len:
       if scrollX > 0:
         codes.deleteBefore(line, scrollX)
