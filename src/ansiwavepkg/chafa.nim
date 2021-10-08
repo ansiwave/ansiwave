@@ -180,7 +180,7 @@ when defined(chafa):
       allocated_len*: csize_t
 
   proc image_to_ansi(data: ptr uint8, width: cint, height: cint, out_width: cint): ptr GString {.importc.}
-  proc g_string_free(s: pointer, free_segment: cint) {.importc.}
+  proc g_string_free(s: pointer, free_segment: cint): cint {.importc.}
 
   import stb_image/read as stbi
 
@@ -189,7 +189,7 @@ when defined(chafa):
     var data = stbi.loadFromMemory(cast[seq[uint8]](image), width, height, channels, stbi.RGBA)
     var gs = image_to_ansi(data[0].addr, width.cint, height.cint, outWidth)
     result = $ gs.str
-    chafa.g_string_free(gs, 1)
+    discard chafa.g_string_free(gs, 1)
 else:
   proc imageToAnsi*(image: string, outWidth: cint): string =
     raise newException(Exception, "Image import not supported on this platform")
