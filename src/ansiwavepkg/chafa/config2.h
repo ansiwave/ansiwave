@@ -14,13 +14,13 @@
 #define CHAFA_VERSION "1.8.0"
 
 /* Define if AVX2 intrinsics work. */
-#define HAVE_AVX2_INTRINSICS 1
+//#define HAVE_AVX2_INTRINSICS 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 
 /* Define if gcc x86 feature builtins work. */
-#define HAVE_GCC_X86_FEATURE_BUILTINS 1
+//#define HAVE_GCC_X86_FEATURE_BUILTINS 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -44,16 +44,16 @@
 #define HAVE_MMAP 1
 
 /* Define if MMX intrinsics work. */
-#define HAVE_MMX_INTRINSICS 1
+//#define HAVE_MMX_INTRINSICS 1
 
 /* Define if 32bit popcnt intrinsics work. */
-#define HAVE_POPCNT32_INTRINSICS 1
+//#define HAVE_POPCNT32_INTRINSICS 1
 
 /* Define if 64bit popcnt intrinsics work. */
-#define HAVE_POPCNT64_INTRINSICS 1
+//#define HAVE_POPCNT64_INTRINSICS 1
 
 /* Define if SSE 4.1 intrinsics work. */
-#define HAVE_SSE41_INTRINSICS 1
+//#define HAVE_SSE41_INTRINSICS 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1

@@ -3,7 +3,7 @@ when defined(chafa):
   const dir = currentSourcePath().parentDir().joinPath("chafa")
 
   {.passC: "-I" & dir & " -I" & dir.joinPath("internal").}
-  {.passC: "-mavx2".}
+  #{.passC: "-mavx2".}
   {.compile: "chafa/chafa.c".}
   {.compile: "chafa/chafa-canvas-config.c".}
   {.compile: "chafa/chafa-canvas.c".}
@@ -22,17 +22,17 @@ when defined(chafa):
   {.compile: "chafa/internal/chafa-indexed-image.c".}
   {.compile: "chafa/internal/chafa-iterm2-canvas.c".}
   {.compile: "chafa/internal/chafa-kitty-canvas.c".}
-  {.compile: "chafa/internal/chafa-mmx.c".}
+  #{.compile: "chafa/internal/chafa-mmx.c".}
   {.compile: "chafa/internal/chafa-palette.c".}
   {.compile: "chafa/internal/chafa-pca.c".}
   {.compile: "chafa/internal/chafa-pixops.c".}
-  {.compile: "chafa/internal/chafa-popcnt.c".}
+  #{.compile: "chafa/internal/chafa-popcnt.c".}
   {.compile: "chafa/internal/chafa-sixel-canvas.c".}
-  {.compile: "chafa/internal/chafa-sse41.c".}
+  #{.compile: "chafa/internal/chafa-sse41.c".}
   {.compile: "chafa/internal/chafa-string-util.c".}
   {.compile: "chafa/internal/chafa-symbols.c".}
   {.compile: "chafa/internal/chafa-work-cell.c".}
-  {.compile: "chafa/internal/smolscale/smolscale-avx2.c".}
+  #{.compile: "chafa/internal/smolscale/smolscale-avx2.c".}
   {.compile: "chafa/internal/smolscale/smolscale.c".}
 
   {.passC: "-I" & dir.joinPath("glib") & " -I" & dir.joinPath("glib/gnulib").}
