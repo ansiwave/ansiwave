@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#include "config2.h"
+#include "config.h"
 
 /* Enum switches must handle every value */
 #ifdef __GNUC__
