@@ -43,7 +43,7 @@ chafa_process_batches (gpointer ctx, GFunc batch_func, GFunc post_func, gint n_r
     batches = g_new0 (ChafaBatchInfo, n_batches);
     thread_pool = g_thread_pool_new (batch_func,
                                      (gpointer) ctx,
-                                     g_get_num_processors (),
+                                     1,
                                      FALSE,
                                      NULL);
 

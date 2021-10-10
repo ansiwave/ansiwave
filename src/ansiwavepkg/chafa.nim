@@ -36,7 +36,10 @@ when defined(chafa):
   {.compile: "chafa/internal/smolscale/smolscale.c".}
 
   {.passC: "-I" & dir.joinPath("glib") & " -I" & dir.joinPath("glib/gnulib").}
-  when defined(windows):
+  when defined(emscripten):
+    {.passC: "-I" & dir.joinPath("glib-emscripten").}
+    {.passC: "-s PTHREAD_POOL_SIZE=2".}
+  elif defined(windows):
     {.passC: "-I" & dir.joinPath("glib-windows").}
     {.passL: "-luuid -lintl -lws2_32 -lole32"}
   elif defined(macosx):
@@ -50,7 +53,7 @@ when defined(chafa):
   {.compile: "chafa/glib/garcbox.c".}
   {.compile: "chafa/glib/garray.c".}
   {.compile: "chafa/glib/gasyncqueue.c".}
-  #{.compile: "chafa/glib/gatomic.c".}
+  {.compile: "chafa/glib/gatomic.c".}
   {.compile: "chafa/glib/gbacktrace.c".}
   #{.compile: "chafa/glib/gbase64.c".}
   {.compile: "chafa/glib/gbitlock.c".}

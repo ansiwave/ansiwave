@@ -567,7 +567,7 @@ prepare_pixels_pass_1 (PrepareContext *prep_ctx)
                                               ? prepare_pixels_1_worker_nearest
                                               : prepare_pixels_1_worker_smooth),
                                      prep_ctx,
-                                     g_get_num_processors (),
+                                     1,
                                      FALSE,
                                      NULL);
 
@@ -726,7 +726,7 @@ prepare_pixels_pass_2 (PrepareContext *prep_ctx)
 
     thread_pool = g_thread_pool_new ((GFunc) prepare_pixels_2_worker,
                                      prep_ctx,
-                                     g_get_num_processors (),
+                                     1,
                                      FALSE,
                                      NULL);
 
