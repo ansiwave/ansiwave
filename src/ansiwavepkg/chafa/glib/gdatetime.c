@@ -45,7 +45,7 @@
 
 /* Prologue {{{1 */
 
-#include "config.h"
+#include "generated_config.h"
 
 /* langinfo.h in glibc 2.27 defines ALTMON_* only if _GNU_SOURCE is defined.  */
 #ifndef _GNU_SOURCE

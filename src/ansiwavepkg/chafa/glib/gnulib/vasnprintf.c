@@ -53,7 +53,7 @@
 #endif
 
 #ifndef VASNPRINTF
-# include <config.h>
+# include <generated_config.h>
 #endif
 #include "glib/galloca.h"
 

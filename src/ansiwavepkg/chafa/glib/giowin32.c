@@ -65,7 +65,7 @@
  * above bugs continue to work.
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "glib.h"
 

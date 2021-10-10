@@ -16,7 +16,7 @@
  */
 /* MT safe */
 
-#include "config.h"
+#include "generated_config.h"
 #include "glibconfig.h"
 
 #if defined(HAVE_POSIX_MEMALIGN) && !defined(_XOPEN_SOURCE)

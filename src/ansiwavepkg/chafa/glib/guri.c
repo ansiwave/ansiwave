@@ -16,7 +16,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <stdlib.h>
 #include <string.h>

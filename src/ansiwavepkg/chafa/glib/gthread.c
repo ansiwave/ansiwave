@@ -36,7 +36,7 @@
 #define G_IMPLEMENT_INLINES 1
 #define __G_THREAD_C__
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "gthread.h"
 #include "gthreadprivate.h"

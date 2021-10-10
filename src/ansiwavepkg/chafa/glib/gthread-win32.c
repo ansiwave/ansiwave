@@ -38,7 +38,7 @@
  * more freedom -- they can do as they please.
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "glib.h"
 #include "glib-init.h"

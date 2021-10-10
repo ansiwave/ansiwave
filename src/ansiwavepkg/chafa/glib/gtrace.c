@@ -55,7 +55,7 @@
  * Since: 2.66
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "gtrace-private.h"
 

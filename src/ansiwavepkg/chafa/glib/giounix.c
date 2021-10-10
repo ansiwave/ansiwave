@@ -29,7 +29,7 @@
  * MT safe
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #define _POSIX_SOURCE		/* for SSIZE_MAX */
 

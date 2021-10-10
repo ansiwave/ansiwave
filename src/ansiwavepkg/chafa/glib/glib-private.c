@@ -17,7 +17,7 @@
  * Author: Colin Walters <walters@verbum.org>
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "glib-private.h"
 #include "glib-init.h"

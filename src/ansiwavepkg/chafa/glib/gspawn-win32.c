@@ -40,7 +40,7 @@
 /* Define this to get some logging all the time */
 /* #define G_SPAWN_WIN32_DEBUG */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "glib.h"
 #include "glib-private.h"

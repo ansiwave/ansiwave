@@ -29,7 +29,7 @@
  * MT safe
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "ghook.h"
 

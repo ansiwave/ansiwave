@@ -1,4 +1,4 @@
-#include <config.h>
+#include <generated_config.h>
 
 /* Specification.  */
 #include <gnulib_math.h>

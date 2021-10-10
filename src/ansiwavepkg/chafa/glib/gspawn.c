@@ -18,7 +18,7 @@
  * along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <sys/time.h>
 #include <sys/types.h>

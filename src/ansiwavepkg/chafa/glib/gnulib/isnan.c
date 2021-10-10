@@ -16,7 +16,7 @@
 
 /* Written by Bruno Haible <bruno@clisp.org>, 2007.  */
 
-#include <config.h>
+#include <generated_config.h>
 
 /* Specification.  */
 #ifdef USE_LONG_DOUBLE

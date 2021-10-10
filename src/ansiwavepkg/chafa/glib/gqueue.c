@@ -51,7 +51,7 @@
  *
  * To free the entire queue, use g_queue_free().
  */
-#include "config.h"
+#include "generated_config.h"
 
 #include "gqueue.h"
 

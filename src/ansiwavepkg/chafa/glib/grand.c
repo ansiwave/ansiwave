@@ -34,7 +34,7 @@
  * MT safe
  */
 
-#include "config.h"
+#include "generated_config.h"
 #define _CRT_RAND_S
 
 #include <math.h>

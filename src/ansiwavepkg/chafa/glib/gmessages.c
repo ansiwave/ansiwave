@@ -166,7 +166,7 @@
  * than the one under test).
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <stdlib.h>
 #include <stdarg.h>

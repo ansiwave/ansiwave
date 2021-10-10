@@ -20,7 +20,7 @@
 
 /* Prologue {{{1 */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <glib/gvariant-serialiser.h>
 #include "gvariant-internal.h"

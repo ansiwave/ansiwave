@@ -177,7 +177,7 @@
  * ]|
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <string.h>
 #include <stdlib.h>

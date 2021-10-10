@@ -16,7 +16,7 @@
 
 /* Written by Bruno Haible <bruno@clisp.org>, 2008.  */
 
-#include <config.h>
+#include <generated_config.h>
 #include "gnulib_math.h"
 #include "isnand-nolibm.h"
 #include "isnan.c"

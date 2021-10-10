@@ -22,7 +22,7 @@
  * MT safe
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "gasyncqueue.h"
 #include "gasyncqueueprivate.h"

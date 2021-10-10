@@ -18,7 +18,7 @@
  * Author: Stef Walter <stefw@collabora.co.uk>
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include <string.h>
 

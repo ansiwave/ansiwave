@@ -27,7 +27,7 @@
  * MT safe for the unix part, FIXME: make the win32 part MT safe as well.
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 #include "glibconfig.h"
 

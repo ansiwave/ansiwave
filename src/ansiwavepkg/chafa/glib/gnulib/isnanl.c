@@ -17,7 +17,7 @@
 /* Written by Bruno Haible <bruno@clisp.org>, 2007.  */
 
 #define USE_LONG_DOUBLE
-#include <config.h>
+#include <generated_config.h>
 #include "gnulib_math.h"
 #include "isnanl-nolibm.h"
 #include "isnan.c"

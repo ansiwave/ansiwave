@@ -19,7 +19,7 @@
  * Authors: Colin Walters <walters@verbum.org>
  */
 
-#include "config.h"
+#include "generated_config.h"
 
 /* To make bionic export pipe2() */
 #ifndef _GNU_SOURCE
