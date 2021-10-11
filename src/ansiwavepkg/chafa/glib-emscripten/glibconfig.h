@@ -153,6 +153,9 @@ typedef unsigned int guintptr;
 #define G_THREADS_ENABLED
 #define G_THREADS_IMPL_POSIX
 
+#undef G_THREADS_ENABLED
+#undef G_THREADS_IMPL_POSIX
+
 #undef G_ATOMIC_LOCK_FREE
 
 #define GINT16_TO_LE(val)	((gint16) (val))

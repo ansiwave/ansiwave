@@ -38,7 +38,6 @@ when defined(chafa):
   {.passC: "-I" & dir.joinPath("glib") & " -I" & dir.joinPath("glib/gnulib").}
   when defined(emscripten):
     {.passC: "-I" & dir.joinPath("glib-emscripten").}
-    {.passC: "-s PTHREAD_POOL_SIZE=2".}
   elif defined(windows):
     {.passC: "-I" & dir.joinPath("glib-windows").}
     {.passL: "-luuid -lintl -lws2_32 -lole32"}

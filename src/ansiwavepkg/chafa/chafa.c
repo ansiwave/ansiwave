@@ -11,6 +11,8 @@ GString* image_to_ansi(guint8 *pixels, gint width, gint height, gint out_width)
     ChafaCanvas *canvas;
     GString *gs;
 
+    chafa_set_n_threads (1);
+
     /* Specify the symbols we want */
     symbol_map = chafa_symbol_map_new ();
     chafa_symbol_map_add_by_tags (symbol_map, CHAFA_SYMBOL_TAG_BLOCK);
