@@ -23,7 +23,6 @@ var s = server.initServer("localhost", port, staticFileDir)
 server.start(s)
 var c = client.initClient(address)
 client.start(c)
-var response: ptr Channel[client.Result[seq[entities.Post]]]
 const ansiArt =
   """
 
