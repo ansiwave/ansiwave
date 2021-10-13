@@ -2,7 +2,7 @@ from illwill as iw import `[]`, `[]=`
 from wavecorepkg/db import nil
 from wavecorepkg/db/entities import nil
 from wavecorepkg/db/db_sqlite import nil
-import wavecorepkg/db/vfs
+from wavecorepkg/db/vfs import nil
 from wavecorepkg/server import nil
 from wavecorepkg/client import nil
 from os import joinPath
@@ -48,6 +48,7 @@ const ansiArt =
 
 proc init() =
   vfs.readUrl = "http://localhost:" & $port & "/" & server.dbFilename
+  vfs.register()
   # create test db
   if os.fileExists(dbPath):
     os.removeFile(dbPath)
