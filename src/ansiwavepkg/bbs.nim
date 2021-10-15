@@ -23,7 +23,7 @@ proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & server.dbFilename
   vfs.register()
   var
-    root = client.query(c, server.ansiwavesDir.joinPath("1.ansiwave"))
+    root = client.query(c, server.ansiwavesDir.joinPath("1.ansiwavez"))
     threads = client.queryPostChildren(c, server.dbFilename, 1)
   while true:
     let
@@ -45,7 +45,7 @@ proc renderBBS*() =
     client.get(threads)
     if threads.ready:
       for post in threads.value.valid:
-        let lines = strutils.splitLines(post.body)
+        let lines = strutils.splitLines(post.body.uncompressed)
         iw.drawRect(tb, 0, screenLine, editorWidth, 1 + screenLine + lines.len, doubleStyle = false)
         screenLine += 1
         for line in lines:
