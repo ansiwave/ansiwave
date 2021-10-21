@@ -19,6 +19,28 @@ let
 var c = client.initClient(address)
 client.start(c)
 
+proc renderBBS*(tb: var iw.TerminalBuffer, root: var auto, threads: var auto) =
+  var screenLine = 0
+  client.get(root)
+  if root.ready:
+    let lines = strutils.splitLines(root.value.valid.body)
+    iw.drawRect(tb, 0, 0, editorWidth, lines.len + 1, doubleStyle = true)
+    for line in lines:
+      var runes = line.toRunes
+      codes.deleteAfter(runes, editorWidth - 1)
+      codes.write(tb, 1, 1 + screenLine, $runes)
+      screenLine += 1
+  screenLine += 2
+  client.get(threads)
+  if threads.ready:
+    for post in threads.value.valid:
+      let lines = strutils.splitLines(post.body.uncompressed)
+      iw.drawRect(tb, 0, screenLine, editorWidth, 1 + screenLine + lines.len, doubleStyle = false)
+      screenLine += 1
+      for line in lines:
+        iw.write(tb, 1, screenLine, line)
+        screenLine += 2
+
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & server.dbFilename
   vfs.register()
@@ -29,28 +51,8 @@ proc renderBBS*() =
     let
       width = iw.terminalWidth()
       height = iw.terminalHeight()
-    var
-      tb = iw.newTerminalBuffer(width, height)
-      screenLine = 0
-    client.get(root)
-    if root.ready:
-      let lines = strutils.splitLines(root.value.valid.body)
-      iw.drawRect(tb, 0, 0, editorWidth, lines.len + 1, doubleStyle = true)
-      for line in lines:
-        var runes = line.toRunes
-        codes.deleteAfter(runes, editorWidth - 1)
-        codes.write(tb, 1, 1 + screenLine, $runes)
-        screenLine += 1
-    screenLine += 2
-    client.get(threads)
-    if threads.ready:
-      for post in threads.value.valid:
-        let lines = strutils.splitLines(post.body.uncompressed)
-        iw.drawRect(tb, 0, screenLine, editorWidth, 1 + screenLine + lines.len, doubleStyle = false)
-        screenLine += 1
-        for line in lines:
-          iw.write(tb, 1, screenLine, line)
-          screenLine += 2
+    var tb = iw.newTerminalBuffer(width, height)
+    renderBBS(tb, root, threads)
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
