@@ -12,13 +12,8 @@ const
   address = "http://localhost:" & $port
   dbFilename* = "board.db"
   ansiwavesDir* = "ansiwaves"
-
-let
   staticFileDir = "tests".joinPath("bbs")
   dbPath = staticFileDir.joinPath(dbFilename)
-
-var c = client.initClient(address)
-client.start(c)
 
 proc renderBBS*(tb: var iw.TerminalBuffer, root: var auto, threads: var auto) =
   var screenLine = 0
@@ -45,6 +40,8 @@ proc renderBBS*(tb: var iw.TerminalBuffer, root: var auto, threads: var auto) =
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & dbFilename
   vfs.register()
+  var c = client.initClient(address)
+  client.start(c)
   var
     root = client.query(c, ansiwavesDir.joinPath("1.ansiwavez"))
     threads = client.queryPostChildren(c, dbFilename, 1)
