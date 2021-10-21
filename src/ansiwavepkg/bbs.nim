@@ -1,6 +1,5 @@
 from illwill as iw import `[]`, `[]=`
 from wavecorepkg/db/vfs import nil
-from wavecorepkg/server import nil
 from wavecorepkg/client import nil
 from os import joinPath
 from strutils import format
@@ -11,10 +10,12 @@ from codes import nil
 const
   port = 3000
   address = "http://localhost:" & $port
+  dbFilename* = "board.db"
+  ansiwavesDir* = "ansiwaves"
 
 let
   staticFileDir = "tests".joinPath("bbs")
-  dbPath = staticFileDir.joinPath(server.dbFilename)
+  dbPath = staticFileDir.joinPath(dbFilename)
 
 var c = client.initClient(address)
 client.start(c)
@@ -42,11 +43,11 @@ proc renderBBS*(tb: var iw.TerminalBuffer, root: var auto, threads: var auto) =
         screenLine += 2
 
 proc renderBBS*() =
-  vfs.readUrl = "http://localhost:" & $port & "/" & server.dbFilename
+  vfs.readUrl = "http://localhost:" & $port & "/" & dbFilename
   vfs.register()
   var
-    root = client.query(c, server.ansiwavesDir.joinPath("1.ansiwavez"))
-    threads = client.queryPostChildren(c, server.dbFilename, 1)
+    root = client.query(c, ansiwavesDir.joinPath("1.ansiwavez"))
+    threads = client.queryPostChildren(c, dbFilename, 1)
   while true:
     let
       width = iw.terminalWidth()
