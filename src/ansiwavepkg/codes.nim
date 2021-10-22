@@ -1,10 +1,10 @@
 from illwill as iw import `[]`, `[]=`
-from ansi import nil
+from ./ansi import nil
 from strutils import nil
 from sequtils import nil
 import unicode
 import sets
-from kdtree import nil
+from ./kdtree import nil
 
 proc parseCode(codes: var seq[string], ch: Rune): bool =
   proc terminated(s: string): bool =

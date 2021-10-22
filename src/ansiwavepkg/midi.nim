@@ -1,4 +1,4 @@
-from sound import nil
+from ./sound import nil
 import paramidi
 import paramidi/tsf
 import paramidi_soundfonts

@@ -3,9 +3,9 @@ from wavecorepkg/db/vfs import nil
 from wavecorepkg/client import nil
 from os import joinPath
 from strutils import format
-import constants
+import ./constants
 import unicode
-from codes import nil
+from ./codes import nil
 
 const
   port = 3000

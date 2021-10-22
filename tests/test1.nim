@@ -1,9 +1,9 @@
 import unittest
-from ansiwave import nil
-from ansiwavepkg/codes import nil
+from ./ansiwave import nil
+from ./ansiwavepkg/codes import nil
 import strutils, sequtils
 
-import ansiwavepkg/ansi
+import ./ansiwavepkg/ansi
 const content = staticRead("luke-and-yoda.ans")
 stdout.write(ansiToUtf8(content))
 
@@ -25,7 +25,7 @@ test "Dedupe RGB codes correctly":
   let newText2 = codes.dedupeCodes(text2)
   check newText2.escape == "\e[0;48;2;114;129;163;38;2;114;129;163m".escape
 
-from ansiwavepkg/wavescript import nil
+from ./ansiwavepkg/wavescript import nil
 
 proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
   var scriptContext = waveScript.initContext()
@@ -74,7 +74,7 @@ test "zlib compression":
   let b64 = base64.encode(output, safe = true)
   check text == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
-from ansiwavepkg/codes import nil
+from ./ansiwavepkg/codes import nil
 import unicode
 
 test "remove pointless clears":
@@ -83,7 +83,7 @@ test "remove pointless clears":
     after = "\e[0mHello!\e[30mWassup\e[0mGreetings"
   check codes.dedupeCodes(before).escape == after.escape
 
-from ansiwavepkg/chafa import nil
+from ./ansiwavepkg/chafa import nil
 
 test "convert image to ansi art":
   const img = staticRead("aintgottaexplainshit.jpg")
