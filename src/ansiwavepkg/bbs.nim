@@ -17,7 +17,7 @@ type
   Attr* = enum
     SelectedColumn,
     ComponentData, FocusIndex,
-    ScrollY, View,
+    ScrollY, View, ViewHeight,
   ComponentRef = ref ui.Component
 
 schema Fact(Id, Attr):
@@ -26,6 +26,7 @@ schema Fact(Id, Attr):
   FocusIndex: int
   ScrollY: int
   View: JsonNode
+  ViewHeight: int
 
 let rules =
   ruleset:
@@ -39,6 +40,7 @@ let rules =
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
         (id, View, view)
+        (id, ViewHeight, viewHeight)
 
 proc insert(session: var auto, comp: ui.Component) =
   let col = session.query(rules.getGlobals).selectedColumn
@@ -49,6 +51,7 @@ proc insert(session: var auto, comp: ui.Component) =
   session.insert(col, FocusIndex, 0)
   session.insert(col, ScrollY, 0)
   session.insert(col, View, cast[JsonNode](nil))
+  session.insert(col, ViewHeight, 0)
 
 proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffer =
   let
@@ -71,16 +74,18 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
   var
     y = 0
     blocks: seq[tuple[top: int, bottom: int]]
+    shouldCache = false
   let view =
     if comp.view != nil:
       comp.view
     else:
-      var shouldCache = false
       let v = ui.toJson(comp.data[], shouldCache)
       if shouldCache:
         session.insert(comp.id, View, v)
       v
   ui.render(result, view, 0, y, key, comp.scrollY, renderedFocusIndex, blocks)
+  if shouldCache and blocks.len > 0:
+    session.insert(comp.id, ViewHeight, blocks[blocks.len - 1].bottom)
   var focusIndex = renderedFocusIndex
   # adjust scroll and reset focusIndex if necessary
   if blocks.len > 0:
@@ -119,9 +124,7 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
     blocks = @[]
     ui.render(result, view, 0, y, key, comp.scrollY, focusIndex, blocks)
   let scrollY = session.query(rules.getSelectedColumn).scrollY
-  if (scrollY + height) > bufferHeight:
-    result = render(session, comp, scrollY + height)
-  else:
+  if (scrollY + height) <= bufferHeight:
     result.height = height
     result.buf = result.buf[scrollY * width ..< result.buf.len]
     result.buf = result.buf[0 ..< height * width]
@@ -143,7 +146,7 @@ proc renderBBS*() =
   while true:
     session.fireRules
     let comp = session.query(rules.getSelectedColumn)
-    var tb = render(session, comp, iw.terminalHeight() * 2)
+    var tb = render(session, comp, max(comp.viewHeight, iw.terminalHeight()))
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)
