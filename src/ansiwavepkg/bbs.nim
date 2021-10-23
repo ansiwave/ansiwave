@@ -6,7 +6,7 @@ from os import joinPath
 from strutils import format
 import ./constants
 import unicode
-from ./codes import nil
+from ./codes import stripCodes
 import json
 import tables
 
@@ -17,6 +17,11 @@ const
   ansiwavesDir* = "ansiwaves"
   staticFileDir = "tests".joinPath("bbs")
   dbPath = staticFileDir.joinPath(dbFilename)
+  actions = {
+    "show-replies": proc (data: OrderedTable[string, JsonNode]) =
+      # TODO: do something
+      discard
+  }.toTable
 
 type
   Post = object
@@ -27,20 +32,33 @@ proc init*[Post](c: client.Client, id: int): Post =
   result.main = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int)
+proc toJson*(post: entities.Post): JsonNode =
+  %*[
+    {
+      "type": "rect",
+      "children": strutils.splitLines(post.body.uncompressed)
+    },
+    {
+      "type": "button",
+      "text":
+        if post.reply_count == 0:
+          "Reply"
+        elif post.reply_count == 1:
+          "1 Reply"
+        else:
+          $post.reply_count & " Replies"
+      ,
+      "action": "show-replies",
+      "action-data": {"id": post.id},
+    },
+  ]
 
-proc render*(post: entities.Post): JsonNode =
-  %*{
-    "type": "rect",
-    "children": strutils.splitLines(post.body.uncompressed)
-  }
-
-proc render*(posts: seq[entities.Post]): JsonNode =
+proc toJson*(posts: seq[entities.Post]): JsonNode =
   result = JsonNode(kind: JArray)
   for post in posts:
-    result.elems.add(render(post))
+    result.elems.add(toJson(post))
 
-proc render*(comp: var Post): JsonNode =
+proc toJson*(comp: var Post): JsonNode =
   client.get(comp.main)
   client.get(comp.replies)
   %*[
@@ -63,42 +81,59 @@ proc render*(comp: var Post): JsonNode =
       if comp.replies.value.valid.len == 0:
         %"No replies"
       else:
-        render(comp.replies.value.valid)
+        toJson(comp.replies.value.valid)
   ]
 
-proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
+proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =
   var runes = node.toRunes
   codes.deleteAfter(runes, editorWidth - 1)
   y += 1
   codes.write(tb, x, y, $runes)
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key)
+
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key) =
   case node["type"].str:
   of "rect":
-    let
-      xStart = x
-      yStart = y
+    let yStart = y
     for child in node["children"]:
-      render(tb, child, x + 1, y)
+      render(tb, child, x + 1, y, key)
     y += 1
-    iw.drawRect(tb, xStart, yStart, editorWidth, y, doubleStyle = false)
+    iw.drawRect(tb, x, yStart, editorWidth, y, doubleStyle = false)
+    y += 1
+  of "button":
+    let
+      xStart = max(x + 1, editorWidth - node["text"].str.len)
+      yStart = y
+    # handle input
+    if key == iw.Key.Mouse:
+      let info = iw.getMouse()
+      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+        if info.x >= xStart and
+            info.x < xStart + node["text"].str.stripCodes.len and
+            info.y >= yStart and
+            info.y <= yStart + 2:
+          actions[node["action"].str](node["action-data"].fields)
+    render(tb, node["text"].str, xStart, y, key)
+    y += 1
+    iw.drawRect(tb, xStart - 1, yStart, editorWidth, y, doubleStyle = false)
     y += 1
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key) =
   case node.kind:
   of JString:
-    render(tb, node.str, x, y)
+    render(tb, node.str, x, y, key)
   of JObject:
-    render(tb, node.fields, x, y)
+    render(tb, node.fields, x, y, key)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y)
+      render(tb, item, x, y, key)
   else:
     raise newException(Exception, "Unhandled JSON type")
 
-proc render*(tb: var iw.TerminalBuffer, post: var Post) =
+proc render*(tb: var iw.TerminalBuffer, post: var Post, key: iw.Key) =
   var y = 0
-  render(tb, render(post), 0, y)
+  render(tb, toJson(post), 0, y, key)
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & dbFilename
@@ -110,8 +145,9 @@ proc renderBBS*() =
     let
       width = iw.terminalWidth()
       height = iw.terminalHeight()
+      key = iw.getKey()
     var tb = iw.newTerminalBuffer(width, height)
-    render(tb, post)
+    render(tb, post, key)
     # display and sleep
     iw.display(tb)
     os.sleep(sleepMsecs)
