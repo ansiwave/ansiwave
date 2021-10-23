@@ -916,8 +916,8 @@ type
     ##   illwillDeinit()
     ##
     width: int
-    height: int
-    buf: seq[TerminalChar]
+    height*: int
+    buf*: seq[TerminalChar]
     currBg: BackgroundColor
     currFg: ForegroundColor
     currStyle: set[Style]
