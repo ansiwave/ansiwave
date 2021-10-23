@@ -53,11 +53,17 @@ proc insert(session: var auto, comp: ui.Component) =
   session.insert(col, View, cast[JsonNode](nil))
   session.insert(col, ViewHeight, 0)
 
-proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffer =
+proc initSession*(c: client.Client): auto =
+  result = initSession(Fact, autoFire = false)
+  for r in rules.fields:
+    result.add(r)
+  result.insert(Global, SelectedColumn, 0)
+  result.insert(ui.initPost(c, 1))
+
+proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   let
-    width = iw.terminalWidth()
-    height = iw.terminalHeight()
-    key = iw.getKey()
+    comp = session.query(rules.getSelectedColumn)
+    bufferHeight = max(comp.viewHeight, iw.terminalHeight())
     maxScroll = max(1, int(height / 5))
     renderedFocusIndex =
       case key:
@@ -76,11 +82,11 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
     blocks: seq[tuple[top: int, bottom: int]]
   let view =
     if comp.view != nil:
+      finishedLoading = true
       comp.view
     else:
-      var shouldCache = false
-      let v = ui.toJson(comp.data[], shouldCache)
-      if shouldCache:
+      let v = ui.toJson(comp.data[], finishedLoading)
+      if finishedLoading:
         session.insert(comp.id, View, v)
       v
   ui.render(result, view, 0, y, key, comp.scrollY, renderedFocusIndex, blocks)
@@ -137,17 +143,13 @@ proc renderBBS*() =
   client.start(c)
 
   # create session
-  var session = initSession(Fact, autoFire = false)
-  for r in rules.fields:
-    session.add(r)
-  session.insert(Global, SelectedColumn, 0)
-  session.insert(ui.initPost(c, 1))
+  var session = initSession(c)
 
   # start loop
   while true:
     session.fireRules
-    let comp = session.query(rules.getSelectedColumn)
-    var tb = render(session, comp, max(comp.viewHeight, iw.terminalHeight()))
+    var finishedLoading = false
+    var tb = render(session, iw.terminalWidth(), iw.terminalHeight(), iw.getKey(), finishedLoading)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)

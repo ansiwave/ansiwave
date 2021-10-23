@@ -60,12 +60,12 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
   for post in posts:
     result.elems.add(toJson(post))
 
-proc toJson*(comp: var Component, shouldCache: var bool): JsonNode =
+proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
     client.get(comp.main)
     client.get(comp.replies)
-    shouldCache = comp.main.ready and comp.replies.ready
+    finishedLoading = comp.main.ready and comp.replies.ready
     %*[
       if not comp.main.ready:
         %"Loading..."
