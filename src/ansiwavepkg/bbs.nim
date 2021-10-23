@@ -1,6 +1,5 @@
 from ./illwill as iw import `[]`, `[]=`
 from wavecorepkg/db/vfs import nil
-from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from os import nil
 from ./ui import nil
@@ -47,42 +46,68 @@ proc insert(session: var auto, comp: ui.Component) =
   session.insert(col, FocusIndex, 0)
   session.insert(col, ScrollY, 0)
 
-proc render(session: var auto, comp: tuple, bufferHeightMultiple: int): iw.TerminalBuffer =
+proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffer =
   let
     width = iw.terminalWidth()
     height = iw.terminalHeight()
     key = iw.getKey()
-    bufferHeight = height * bufferHeightMultiple
+    maxScroll = max(1, int(height / 5))
+    renderedFocusIndex =
+      case key:
+      of iw.Key.Up:
+        if comp.focusIndex > 0:
+          comp.focusIndex - 1
+        else:
+          comp.focusIndex
+      of iw.Key.Down:
+        comp.focusIndex + 1
+      else:
+        comp.focusIndex
   result = iw.newTerminalBuffer(width, bufferHeight)
   var
     y = 0
-    focus = (index: 0, top: 0, bottom: 0)
-    focusIndex = comp.focusIndex
-  case key:
-  of iw.Key.Up:
-    if focusIndex > 0:
-      focusIndex -= 1
-      session.insert(comp.id, FocusIndex, focusIndex)
-  of iw.Key.Down:
-    focusIndex += 1
+    blocks: seq[tuple[top: int, bottom: int]]
+  ui.render(result, ui.toJson(comp.data[]), 0, y, key, renderedFocusIndex, blocks)
+  var focusIndex = renderedFocusIndex
+  # adjust scroll and reset focusIndex if necessary
+  if blocks.len > 0:
+    if focusIndex > blocks.len - 1:
+      focusIndex = blocks.len - 1
+    case key:
+    of iw.Key.Up:
+      if blocks[focusIndex].top < comp.scrollY:
+        let limit = comp.scrollY - maxScroll
+        if blocks[focusIndex].top < limit:
+          session.insert(comp.id, ScrollY, limit)
+          for i in 0 .. blocks.len - 1:
+            if blocks[i].bottom > limit:
+              focusIndex = i
+              break
+        else:
+          session.insert(comp.id, ScrollY, blocks[focusIndex].top)
+    of iw.Key.Down:
+      if blocks[focusIndex].bottom > comp.scrollY + height:
+        let limit = comp.scrollY + maxScroll
+        if blocks[focusIndex].bottom - height > limit:
+          session.insert(comp.id, ScrollY, limit)
+          for i in countdown(blocks.len - 1, 0):
+            if blocks[i].top < limit + height:
+              focusIndex = i
+              break
+        else:
+          session.insert(comp.id, ScrollY, blocks[focusIndex].bottom - height)
+    else:
+      discard
+  if focusIndex != comp.focusIndex:
     session.insert(comp.id, FocusIndex, focusIndex)
-  else:
-    discard
-  ui.render(result, ui.toJson(comp.data[]), 0, y, key, focusIndex, focus)
-  case key:
-  of iw.Key.Up:
-    if focus.top < comp.scrollY:
-      session.insert(comp.id, ScrollY, focus.top)
-  of iw.Key.Down:
-    if focus.bottom > comp.scrollY + height:
-      session.insert(comp.id, ScrollY, focus.bottom - height)
-    if focusIndex > focus.index:
-      session.insert(comp.id, FocusIndex, focus.index)
-  else:
-    discard
+  # if focusIndex was reset, re-render so the correct block has the double lines
+  if focusIndex != renderedFocusIndex:
+    y = 0
+    blocks = @[]
+    ui.render(result, ui.toJson(comp.data[]), 0, y, key, focusIndex, blocks)
   let scrollY = session.query(rules.getSelectedColumn).scrollY
   if (scrollY + height) > bufferHeight:
-    result = render(session, comp, bufferHeightMultiple * 2)
+    result = render(session, comp, scrollY + height)
   else:
     result.height = height
     result.buf = result.buf[scrollY * width ..< result.buf.len]
@@ -105,7 +130,7 @@ proc renderBBS*() =
   while true:
     session.fireRules
     let comp = session.query(rules.getSelectedColumn)
-    var tb = render(session, comp, 2)
+    var tb = render(session, comp, iw.terminalHeight() * 2)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)
