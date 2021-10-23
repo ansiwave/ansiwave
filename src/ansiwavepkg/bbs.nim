@@ -24,11 +24,14 @@ const
   }.toTable
 
 type
-  Post = object
+  Component = object of RootObj
+    focusIndex: int
+  Post = ref object of Component
     main: client.ChannelValue[client.Response]
     replies: client.ChannelValue[seq[entities.Post]]
 
 proc init*[Post](c: client.Client, id: int): Post =
+  new result
   result.main = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
 
@@ -90,16 +93,18 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: i
   y += 1
   codes.write(tb, x, y, $runes)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key)
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, currFocusIndex: var int)
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, currFocusIndex: var int) =
+  let isFocused = focusIndex == currFocusIndex
+  currFocusIndex += 1
   case node["type"].str:
   of "rect":
     let yStart = y
     for child in node["children"]:
-      render(tb, child, x + 1, y, key)
+      render(tb, child, x + 1, y, key, focusIndex, currFocusIndex)
     y += 1
-    iw.drawRect(tb, x, yStart, editorWidth, y, doubleStyle = false)
+    iw.drawRect(tb, x, yStart, editorWidth, y, doubleStyle = isFocused)
     y += 1
   of "button":
     let
@@ -116,24 +121,36 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
           actions[node["action"].str](node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
-    iw.drawRect(tb, xStart - 1, yStart, editorWidth, y, doubleStyle = false)
+    iw.drawRect(tb, xStart - 1, yStart, editorWidth, y, doubleStyle = isFocused)
     y += 1
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, currFocusIndex: var int) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y, key)
   of JObject:
-    render(tb, node.fields, x, y, key)
+    render(tb, node.fields, x, y, key, focusIndex, currFocusIndex)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, key)
+      render(tb, item, x, y, key, focusIndex, currFocusIndex)
   else:
     raise newException(Exception, "Unhandled JSON type")
 
 proc render*(tb: var iw.TerminalBuffer, post: var Post, key: iw.Key) =
-  var y = 0
-  render(tb, toJson(post), 0, y, key)
+  var
+    y = 0
+    currFocusIndex = 0
+  case key:
+  of iw.Key.Up:
+    if post.focusIndex > 0:
+      post.focusIndex -= 1
+  of iw.Key.Down:
+    post.focusIndex = post.focusIndex + 1
+  else:
+    discard
+  render(tb, toJson(post), 0, y, key, post.focusIndex, currFocusIndex)
+  if post.focusIndex > currFocusIndex:
+    post.focusIndex = currFocusIndex
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & dbFilename
