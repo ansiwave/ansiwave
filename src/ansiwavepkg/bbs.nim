@@ -47,13 +47,13 @@ proc insert(session: var auto, comp: ui.Component) =
   session.insert(col, FocusIndex, 0)
   session.insert(col, ScrollY, 0)
 
-proc render(session: var auto, comp: tuple): iw.TerminalBuffer =
+proc render(session: var auto, comp: tuple, bufferHeightMultiple: int): iw.TerminalBuffer =
   let
     width = iw.terminalWidth()
     height = iw.terminalHeight()
     key = iw.getKey()
     #maxScroll = 10
-    bufferHeight = height * 2
+    bufferHeight = height * bufferHeightMultiple
   result = iw.newTerminalBuffer(width, bufferHeight)
   var
     y = 0
@@ -84,9 +84,12 @@ proc render(session: var auto, comp: tuple): iw.TerminalBuffer =
   else:
     discard
   let scrollY = session.query(rules.getSelectedColumn).scrollY
-  result.height = height
-  result.buf = result.buf[scrollY * width ..< result.buf.len]
-  result.buf = result.buf[0 ..< height * width]
+  if (scrollY + height) > bufferHeight:
+    result = render(session, comp, bufferHeightMultiple * 2)
+  else:
+    result.height = height
+    result.buf = result.buf[scrollY * width ..< result.buf.len]
+    result.buf = result.buf[0 ..< height * width]
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
@@ -105,7 +108,7 @@ proc renderBBS*() =
   while true:
     session.fireRules
     let comp = session.query(rules.getSelectedColumn)
-    var tb = render(session, comp)
+    var tb = render(session, comp, 2)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)
