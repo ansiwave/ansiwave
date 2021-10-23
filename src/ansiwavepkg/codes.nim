@@ -1,4 +1,4 @@
-from illwill as iw import `[]`, `[]=`
+from ./illwill as iw import `[]`, `[]=`
 from ./ansi import nil
 from strutils import nil
 from sequtils import nil

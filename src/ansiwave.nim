@@ -1,4 +1,4 @@
-from illwill as iw import `[]`, `[]=`
+from ./ansiwavepkg/illwill as iw import `[]`, `[]=`
 import tables, sets
 import pararules
 import unicode

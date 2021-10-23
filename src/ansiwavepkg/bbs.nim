@@ -1,4 +1,4 @@
-from illwill as iw import `[]`, `[]=`
+from ./illwill as iw import `[]`, `[]=`
 from wavecorepkg/db/vfs import nil
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil

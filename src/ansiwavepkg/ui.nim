@@ -1,4 +1,4 @@
-from illwill as iw import `[]`, `[]=`
+from ./illwill as iw import `[]`, `[]=`
 import ./constants
 import unicode
 from ./codes import stripCodes
