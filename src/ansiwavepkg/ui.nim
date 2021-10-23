@@ -10,11 +10,13 @@ from strutils import format
 from os import joinPath
 
 type
-  Component = object of RootObj
-    focusIndex: int
-  Post* = ref object of Component
-    main: client.ChannelValue[client.Response]
-    replies: client.ChannelValue[seq[entities.Post]]
+  ComponentKind = enum
+    Post,
+  Component* = object
+    case kind: ComponentKind
+    of Post:
+      main: client.ChannelValue[client.Response]
+      replies: client.ChannelValue[seq[entities.Post]]
 
 const
   dbFilename* = "board.db"
@@ -27,8 +29,8 @@ const
       discard
   }.toTable
 
-proc init*[Post](c: client.Client, id: int): Post =
-  new result
+proc initPost*(c: client.Client, id: int): Component =
+  result = Component(kind: Post)
   result.main = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
 
@@ -58,7 +60,7 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
   for post in posts:
     result.elems.add(toJson(post))
 
-proc toJson*(comp: var Post): JsonNode =
+proc toJson*(comp: var Component): JsonNode =
   client.get(comp.main)
   client.get(comp.replies)
   %*[
@@ -132,20 +134,4 @@ proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key:
       render(tb, item, x, y, key, focusIndex, currFocusIndex)
   else:
     raise newException(Exception, "Unhandled JSON type")
-
-proc render*(tb: var iw.TerminalBuffer, post: var Post, key: iw.Key) =
-  var
-    y = 0
-    currFocusIndex = 0
-  case key:
-  of iw.Key.Up:
-    if post.focusIndex > 0:
-      post.focusIndex -= 1
-  of iw.Key.Down:
-    post.focusIndex = post.focusIndex + 1
-  else:
-    discard
-  render(tb, toJson(post), 0, y, key, post.focusIndex, currFocusIndex)
-  if post.focusIndex > currFocusIndex:
-    post.focusIndex = currFocusIndex
 
