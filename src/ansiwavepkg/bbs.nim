@@ -74,17 +74,18 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
   var
     y = 0
     blocks: seq[tuple[top: int, bottom: int]]
-    shouldCache = false
   let view =
     if comp.view != nil:
       comp.view
     else:
+      var shouldCache = false
       let v = ui.toJson(comp.data[], shouldCache)
       if shouldCache:
         session.insert(comp.id, View, v)
       v
   ui.render(result, view, 0, y, key, comp.scrollY, renderedFocusIndex, blocks)
-  if shouldCache and blocks.len > 0:
+  # update the view height if it has increased
+  if blocks.len > 0 and blocks[blocks.len - 1].bottom > comp.viewHeight:
     session.insert(comp.id, ViewHeight, blocks[blocks.len - 1].bottom)
   var focusIndex = renderedFocusIndex
   # adjust scroll and reset focusIndex if necessary
