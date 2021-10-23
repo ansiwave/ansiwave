@@ -60,31 +60,34 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
   for post in posts:
     result.elems.add(toJson(post))
 
-proc toJson*(comp: var Component): JsonNode =
-  client.get(comp.main)
-  client.get(comp.replies)
-  %*[
-    if not comp.main.ready:
-      %"Loading..."
-    elif comp.main.value.kind == client.Error:
-      %"Failed to load!"
-    else:
-      %*{
-        "type": "rect",
-        "children": strutils.splitLines(comp.main.value.valid.body)
-      }
-    ,
-    "", # spacer
-    if not comp.replies.ready:
-      %"Loading replies"
-    elif comp.replies.value.kind == client.Error:
-      %"Failed to load replies!"
-    else:
-      if comp.replies.value.valid.len == 0:
-        %"No replies"
+proc toJson*(comp: var Component, shouldCache: var bool): JsonNode =
+  case comp.kind:
+  of Post:
+    client.get(comp.main)
+    client.get(comp.replies)
+    shouldCache = comp.main.ready and comp.replies.ready
+    %*[
+      if not comp.main.ready:
+        %"Loading..."
+      elif comp.main.value.kind == client.Error:
+        %"Failed to load!"
       else:
-        toJson(comp.replies.value.valid)
-  ]
+        %*{
+          "type": "rect",
+          "children": strutils.splitLines(comp.main.value.valid.body)
+        }
+      ,
+      "", # spacer
+      if not comp.replies.ready:
+        %"Loading replies"
+      elif comp.replies.value.kind == client.Error:
+        %"Failed to load replies!"
+      else:
+        if comp.replies.value.valid.len == 0:
+          %"No replies"
+        else:
+          toJson(comp.replies.value.valid)
+    ]
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =
   var runes = node.toRunes

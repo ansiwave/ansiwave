@@ -5,6 +5,7 @@ from os import nil
 from ./ui import nil
 from ./constants import nil
 import pararules
+from json import JsonNode
 
 const
   port = 3000
@@ -16,7 +17,7 @@ type
   Attr* = enum
     SelectedColumn,
     ComponentData, FocusIndex,
-    ScrollY,
+    ScrollY, View,
   ComponentRef = ref ui.Component
 
 schema Fact(Id, Attr):
@@ -24,6 +25,7 @@ schema Fact(Id, Attr):
   ComponentData: ComponentRef
   FocusIndex: int
   ScrollY: int
+  View: JsonNode
 
 let rules =
   ruleset:
@@ -36,6 +38,7 @@ let rules =
         (id, ComponentData, data)
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
+        (id, View, view)
 
 proc insert(session: var auto, comp: ui.Component) =
   let col = session.query(rules.getGlobals).selectedColumn
@@ -45,6 +48,7 @@ proc insert(session: var auto, comp: ui.Component) =
   session.insert(col, ComponentData, compRef)
   session.insert(col, FocusIndex, 0)
   session.insert(col, ScrollY, 0)
+  session.insert(col, View, cast[JsonNode](nil))
 
 proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffer =
   let
@@ -67,7 +71,16 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
   var
     y = 0
     blocks: seq[tuple[top: int, bottom: int]]
-  ui.render(result, ui.toJson(comp.data[]), 0, y, key, renderedFocusIndex, blocks)
+  let view =
+    if comp.view != nil:
+      comp.view
+    else:
+      var shouldCache = false
+      let v = ui.toJson(comp.data[], shouldCache)
+      if shouldCache:
+        session.insert(comp.id, View, v)
+      v
+  ui.render(result, view, 0, y, key, renderedFocusIndex, blocks)
   var focusIndex = renderedFocusIndex
   # adjust scroll and reset focusIndex if necessary
   if blocks.len > 0:
@@ -104,7 +117,7 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
   if focusIndex != renderedFocusIndex:
     y = 0
     blocks = @[]
-    ui.render(result, ui.toJson(comp.data[]), 0, y, key, focusIndex, blocks)
+    ui.render(result, view, 0, y, key, focusIndex, blocks)
   let scrollY = session.query(rules.getSelectedColumn).scrollY
   if (scrollY + height) > bufferHeight:
     result = render(session, comp, scrollY + height)
