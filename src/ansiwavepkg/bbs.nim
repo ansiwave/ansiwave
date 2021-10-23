@@ -52,7 +52,7 @@ proc render(session: var auto, comp: tuple): iw.TerminalBuffer =
     width = iw.terminalWidth()
     height = iw.terminalHeight()
     key = iw.getKey()
-    maxScroll = 10
+    #maxScroll = 10
     bufferHeight = height * 2
   result = iw.newTerminalBuffer(width, bufferHeight)
   var
@@ -73,10 +73,12 @@ proc render(session: var auto, comp: tuple): iw.TerminalBuffer =
   case key:
   of iw.Key.Up:
     if focus.top < comp.scrollY:
-      session.insert(comp.id, ScrollY, max(comp.scrollY - maxScroll, focus.top))
+      #session.insert(comp.id, ScrollY, max(comp.scrollY - maxScroll, focus.top))
+      session.insert(comp.id, ScrollY, focus.top)
   of iw.Key.Down:
     if focus.bottom > comp.scrollY + height:
-      session.insert(comp.id, ScrollY, min(comp.scrollY + maxScroll, focus.bottom - height))
+      #session.insert(comp.id, ScrollY, min(comp.scrollY + maxScroll, focus.bottom - height))
+      session.insert(comp.id, ScrollY, focus.bottom - height)
     if focusIndex > focus.index:
       session.insert(comp.id, FocusIndex, focus.index)
   else:
