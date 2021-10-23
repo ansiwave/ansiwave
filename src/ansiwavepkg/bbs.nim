@@ -80,7 +80,7 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
       if shouldCache:
         session.insert(comp.id, View, v)
       v
-  ui.render(result, view, 0, y, key, renderedFocusIndex, blocks)
+  ui.render(result, view, 0, y, key, comp.scrollY, renderedFocusIndex, blocks)
   var focusIndex = renderedFocusIndex
   # adjust scroll and reset focusIndex if necessary
   if blocks.len > 0:
@@ -117,7 +117,7 @@ proc render(session: var auto, comp: tuple, bufferHeight: int): iw.TerminalBuffe
   if focusIndex != renderedFocusIndex:
     y = 0
     blocks = @[]
-    ui.render(result, view, 0, y, key, focusIndex, blocks)
+    ui.render(result, view, 0, y, key, comp.scrollY, focusIndex, blocks)
   let scrollY = session.query(rules.getSelectedColumn).scrollY
   if (scrollY + height) > bufferHeight:
     result = render(session, comp, scrollY + height)
