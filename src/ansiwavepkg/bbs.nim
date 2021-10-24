@@ -79,9 +79,9 @@ proc initSession*(c: client.Client): auto =
     result.add(r)
   result.insert(Global, SelectedPage, 0)
   result.insert(ui.initPost(c, 1), 0)
-  result.fireRules
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
+  session.fireRules
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
@@ -173,7 +173,6 @@ proc renderBBS*() =
 
   # start loop
   while true:
-    session.fireRules
     var finishedLoading = false
     var tb = render(session, iw.terminalWidth(), iw.terminalHeight(), iw.getKey(), finishedLoading)
     # display and sleep
