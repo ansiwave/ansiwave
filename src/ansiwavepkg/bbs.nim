@@ -30,7 +30,7 @@ type
     view: JsonNode
     viewHeight: int
     viewFocusAreas: ViewFocusAreasType
-  Pages = Table[int, Page]
+  Pages = ref Table[int, Page]
 
 schema Fact(Id, Attr):
   SelectedPage: int
@@ -58,6 +58,7 @@ let rules =
         (id, ViewFocusAreas, viewFocusAreas)
       thenFinally:
         var t: Pages
+        new t
         for page in session.queryAll(this):
           t[page.id] = page
         session.insert(Global, AllPages, t)
