@@ -68,7 +68,7 @@ proc initSession*(c: client.Client): auto =
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   let
     comp = session.query(rules.getSelectedColumn)
-    bufferHeight = max(comp.viewHeight, iw.terminalHeight())
+    bufferHeight = max(comp.viewHeight, height)
     maxScroll = max(1, int(height / 5))
     view =
       if comp.view != nil:
