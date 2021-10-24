@@ -140,7 +140,7 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
         break
     i += 1
 
-proc write*(tb: var iw.TerminalBuffer, x, y: Natural, s: string) =
+proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
   var currX = x
   var codes: seq[string]
   for ch in runes(s):

@@ -95,16 +95,16 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: i
   y += 1
   codes.write(tb, x, y, $runes)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, scrollY: int, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, scrollY: int, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
   let
     isFocused = focusIndex == blocks.len
     yStart = y
   case node["type"].str:
   of "rect":
     for child in node["children"]:
-      render(tb, child, x + 1, y, key, scrollY, focusIndex, blocks)
+      render(tb, child, x + 1, y, key, focusIndex, blocks)
     y += 1
     iw.drawRect(tb, x, yStart, x + editorWidth + 1, y, doubleStyle = isFocused)
     y += 1
@@ -116,8 +116,8 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         if info.x >= xStart and
             info.x < xStart + node["text"].str.stripCodes.len and
-            info.y + scrollY >= yStart and
-            info.y + scrollY <= yStart + 2:
+            info.y >= yStart and
+            info.y <= yStart + 2:
           actions[node["action"].str](node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
@@ -125,15 +125,15 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     y += 1
   blocks.add((top: yStart, bottom: y))
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, scrollY: int, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y, key)
   of JObject:
-    render(tb, node.fields, x, y, key, scrollY, focusIndex, blocks)
+    render(tb, node.fields, x, y, key, focusIndex, blocks)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, key, scrollY, focusIndex, blocks)
+      render(tb, item, x, y, key, focusIndex, blocks)
   else:
     raise newException(Exception, "Unhandled JSON type")
 

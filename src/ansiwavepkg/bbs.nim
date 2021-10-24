@@ -102,7 +102,6 @@ proc initSession*(c: client.Client): auto =
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
   result.insertPage(ui.initPost(c, 1), 1)
-  result.insertPage(ui.initPost(c, 10), 10)
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
@@ -125,7 +124,6 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
-    bufferHeight = max(page.viewHeight, height)
     maxScroll = max(1, int(height / 5))
     view =
       if page.view != nil:
@@ -136,7 +134,7 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
         if finishedLoading:
           session.insert(page.id, View, v)
         v
-  result = iw.newTerminalBuffer(width, bufferHeight)
+  result = iw.newTerminalBuffer(width, height)
   var
     focusIndex =
       case key:
@@ -191,18 +189,13 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
     session.insert(page.id, ScrollY, scrollY)
   # render
   var
-    y = 0
+    y = - scrollY
     blocks: seq[tuple[top: int, bottom: int]]
-  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, scrollY, focusIndex, blocks)
+  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, focusIndex, blocks)
   # update the view height if it has increased
   if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
     session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
     session.insert(page.id, ViewFocusAreas, blocks)
-  # adjust buffer so part above the scroll line isn't visible
-  if (scrollY + height) <= bufferHeight:
-    result.height = height
-    result.buf = result.buf[scrollY * width ..< result.buf.len]
-    result.buf = result.buf[0 ..< height * width]
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
