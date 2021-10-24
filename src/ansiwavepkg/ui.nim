@@ -106,10 +106,10 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     for child in node["children"]:
       render(tb, child, x + 1, y, key, scrollY, focusIndex, blocks)
     y += 1
-    iw.drawRect(tb, x, yStart, editorWidth, y, doubleStyle = isFocused)
+    iw.drawRect(tb, x, yStart, x + editorWidth + 1, y, doubleStyle = isFocused)
     y += 1
   of "button":
-    let xStart = max(x + 1, editorWidth - node["text"].str.len)
+    let xStart = max(x + 1, editorWidth + 1 - node["text"].str.len)
     # handle input
     if key == iw.Key.Mouse:
       let info = iw.getMouse()
@@ -121,7 +121,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
           actions[node["action"].str](node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
-    iw.drawRect(tb, xStart - 1, yStart, editorWidth, y, doubleStyle = isFocused)
+    iw.drawRect(tb, xStart - 1, yStart, editorWidth + 1, y, doubleStyle = isFocused)
     y += 1
   blocks.add((top: yStart, bottom: y))
 
