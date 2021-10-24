@@ -103,15 +103,18 @@ proc initSession*(c: client.Client): auto =
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
+  var keyHandled = false
   block:
     let globals = session.query(rules.getGlobals)
     case key:
     of iw.Key.Left:
       if globals.breadcrumbsIndex > 0:
+        keyHandled = true
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         session.fireRules
     of iw.Key.Right:
       if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1:
+        keyHandled = true
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
         session.fireRules
     else:
@@ -135,11 +138,13 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
     focusIndex =
       case key:
       of iw.Key.Up:
+        keyHandled = true
         if page.focusIndex > 0:
           page.focusIndex - 1
         else:
           page.focusIndex
       of iw.Key.Down:
+        keyHandled = true
         page.focusIndex + 1
       else:
         page.focusIndex
@@ -185,7 +190,7 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
   var
     y = 0
     blocks: seq[tuple[top: int, bottom: int]]
-  ui.render(result, view, 0, y, key, scrollY, focusIndex, blocks)
+  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, scrollY, focusIndex, blocks)
   # update the view height if it has increased
   if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
     session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
