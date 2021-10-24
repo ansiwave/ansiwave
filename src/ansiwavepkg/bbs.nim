@@ -17,8 +17,7 @@ type
     Global,
   Attr* = enum
     SelectedPage, AllPages,
-    ComponentData, FocusIndex,
-    ScrollY,
+    ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
   ComponentRef = ref ui.Component
   ViewFocusAreasType = seq[tuple[top: int, bottom: int]]
@@ -78,8 +77,9 @@ proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  result.insert(Global, SelectedPage, 0)
-  result.insert(ui.initPost(c, 1), 0)
+  let id = 1
+  result.insert(Global, SelectedPage, id)
+  result.insert(ui.initPost(c, id), id)
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
