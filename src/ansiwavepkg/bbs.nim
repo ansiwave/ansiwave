@@ -16,7 +16,7 @@ type
   Id* = enum
     Global,
   Attr* = enum
-    SelectedPage, AllPages,
+    SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
   ComponentRef = ref ui.Component
@@ -30,10 +30,13 @@ type
     viewHeight: int
     viewFocusAreas: ViewFocusAreasType
   Pages = ref Table[int, Page]
+  PageBreadcrumbsType = seq[int]
 
 schema Fact(Id, Attr):
   SelectedPage: int
   AllPages: Pages
+  PageBreadcrumbs: PageBreadcrumbsType
+  PageBreadcrumbsIndex: int
   ComponentData: ComponentRef
   FocusIndex: int
   ScrollY: int
@@ -47,6 +50,14 @@ let rules =
       what:
         (Global, SelectedPage, selectedPage)
         (Global, AllPages, pages)
+        (Global, PageBreadcrumbs, breadcrumbs)
+        (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
+    rule changeSelectedPage(Fact):
+      what:
+        (Global, PageBreadcrumbs, breadcrumbs)
+        (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
+      then:
+        session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
     rule getPage(Fact):
       what:
         (id, ComponentData, data)
@@ -62,7 +73,7 @@ let rules =
           t[page.id] = page
         session.insert(Global, AllPages, t)
 
-proc insert(session: var auto, comp: ui.Component, id: int) =
+proc insertPage(session: var auto, comp: ui.Component, id: int) =
   var compRef: ComponentRef
   new compRef
   compRef[] = comp
@@ -73,16 +84,38 @@ proc insert(session: var auto, comp: ui.Component, id: int) =
   session.insert(id, ViewHeight, 0)
   session.insert(id, ViewFocusAreas, @[])
 
+  var globals = session.query(rules.getGlobals)
+  var breadcrumbs = globals.breadcrumbs
+  if globals.breadcrumbsIndex < breadcrumbs.len - 1:
+    breadcrumbs = breadcrumbs[0 ..< globals.breadcrumbsIndex]
+  breadcrumbs.add(id)
+  session.insert(Global, PageBreadcrumbs, breadcrumbs)
+  session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+
 proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  let id = 1
-  result.insert(Global, SelectedPage, id)
-  result.insert(ui.initPost(c, id), id)
+  result.insert(Global, SelectedPage, -1)
+  result.insert(Global, AllPages, cast[Pages](nil))
+  result.insert(Global, PageBreadcrumbs, cast[PageBreadcrumbsType](@[]))
+  result.insert(Global, PageBreadcrumbsIndex, -1)
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
+  block:
+    let globals = session.query(rules.getGlobals)
+    case key:
+    of iw.Key.Left:
+      if globals.breadcrumbsIndex > 0:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+        session.fireRules
+    of iw.Key.Right:
+      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+        session.fireRules
+    else:
+      discard
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
@@ -171,6 +204,8 @@ proc renderBBS*() =
 
   # create session
   var session = initSession(c)
+  session.insertPage(ui.initPost(c, 1), 1)
+  session.insertPage(ui.initPost(c, 10), 10)
 
   # start loop
   while true:
