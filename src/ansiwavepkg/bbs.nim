@@ -98,8 +98,11 @@ proc initSession*(c: client.Client): auto =
     result.add(r)
   result.insert(Global, SelectedPage, -1)
   result.insert(Global, AllPages, cast[Pages](nil))
-  result.insert(Global, PageBreadcrumbs, cast[PageBreadcrumbsType](@[]))
+  let breadcrumbs: PageBreadcrumbsType = @[]
+  result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
+  result.insertPage(ui.initPost(c, 1), 1)
+  result.insertPage(ui.initPost(c, 10), 10)
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
@@ -209,8 +212,6 @@ proc renderBBS*() =
 
   # create session
   var session = initSession(c)
-  session.insertPage(ui.initPost(c, 1), 1)
-  session.insertPage(ui.initPost(c, 10), 10)
 
   # start loop
   while true:
