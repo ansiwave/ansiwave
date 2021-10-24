@@ -6,6 +6,7 @@ from ./ui import nil
 from ./constants import nil
 import pararules
 from json import JsonNode
+import tables
 
 const
   port = 3000
@@ -15,15 +16,25 @@ type
   Id* = enum
     Global,
   Attr* = enum
-    SelectedColumn,
+    SelectedPage, AllPages,
     ComponentData, FocusIndex,
     ScrollY,
     View, ViewHeight, ViewFocusAreas,
   ComponentRef = ref ui.Component
   ViewFocusAreasType = seq[tuple[top: int, bottom: int]]
+  Page = tuple
+    id: int
+    data: ComponentRef
+    focusIndex: int
+    scrollY: int
+    view: JsonNode
+    viewHeight: int
+    viewFocusAreas: ViewFocusAreasType
+  Pages = Table[int, Page]
 
 schema Fact(Id, Attr):
-  SelectedColumn: int
+  SelectedPage: int
+  AllPages: Pages
   ComponentData: ComponentRef
   FocusIndex: int
   ScrollY: int
@@ -35,110 +46,116 @@ let rules =
   ruleset:
     rule getGlobals(Fact):
       what:
-        (Global, SelectedColumn, selectedColumn)
-    rule getSelectedColumn(Fact):
+        (Global, SelectedPage, selectedPage)
+        (Global, AllPages, pages)
+    rule getPage(Fact):
       what:
-        (Global, SelectedColumn, id)
         (id, ComponentData, data)
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
         (id, View, view)
         (id, ViewHeight, viewHeight)
         (id, ViewFocusAreas, viewFocusAreas)
+      thenFinally:
+        var t: Pages
+        for page in session.queryAll(this):
+          t[page.id] = page
+        session.insert(Global, AllPages, t)
 
-proc insert(session: var auto, comp: ui.Component) =
-  let col = session.query(rules.getGlobals).selectedColumn
+proc insert(session: var auto, comp: ui.Component, id: int) =
   var compRef: ComponentRef
   new compRef
   compRef[] = comp
-  session.insert(col, ComponentData, compRef)
-  session.insert(col, FocusIndex, 0)
-  session.insert(col, ScrollY, 0)
-  session.insert(col, View, cast[JsonNode](nil))
-  session.insert(col, ViewHeight, 0)
-  session.insert(col, ViewFocusAreas, @[])
+  session.insert(id, ComponentData, compRef)
+  session.insert(id, FocusIndex, 0)
+  session.insert(id, ScrollY, 0)
+  session.insert(id, View, cast[JsonNode](nil))
+  session.insert(id, ViewHeight, 0)
+  session.insert(id, ViewFocusAreas, @[])
 
 proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  result.insert(Global, SelectedColumn, 0)
-  result.insert(ui.initPost(c, 1))
+  result.insert(Global, SelectedPage, 0)
+  result.insert(ui.initPost(c, 1), 0)
+  result.fireRules
 
 proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   let
-    comp = session.query(rules.getSelectedColumn)
-    bufferHeight = max(comp.viewHeight, height)
+    globals = session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+    bufferHeight = max(page.viewHeight, height)
     maxScroll = max(1, int(height / 5))
     view =
-      if comp.view != nil:
+      if page.view != nil:
         finishedLoading = true
-        comp.view
+        page.view
       else:
-        let v = ui.toJson(comp.data[], finishedLoading)
+        let v = ui.toJson(page.data[], finishedLoading)
         if finishedLoading:
-          session.insert(comp.id, View, v)
+          session.insert(page.id, View, v)
         v
   result = iw.newTerminalBuffer(width, bufferHeight)
   var
     focusIndex =
       case key:
       of iw.Key.Up:
-        if comp.focusIndex > 0:
-          comp.focusIndex - 1
+        if page.focusIndex > 0:
+          page.focusIndex - 1
         else:
-          comp.focusIndex
+          page.focusIndex
       of iw.Key.Down:
-        comp.focusIndex + 1
+        page.focusIndex + 1
       else:
-        comp.focusIndex
-    scrollY = comp.scrollY
+        page.focusIndex
+    scrollY = page.scrollY
   # adjust focusIndex and scrollY based on viewFocusAreas
-  if comp.viewFocusAreas.len > 0:
+  if page.viewFocusAreas.len > 0:
     # don't let it go beyond the last focused area
-    if focusIndex > comp.viewFocusAreas.len - 1:
-      focusIndex = comp.viewFocusAreas.len - 1
+    if focusIndex > page.viewFocusAreas.len - 1:
+      focusIndex = page.viewFocusAreas.len - 1
     # when going up or down, if the next focus area's edge is
     # beyond the current viewable scroll area, adjust scrollY
     # so we can see it. if the adjustment is greater than maxScroll,
     # only scroll maxScroll rows and update the focusIndex.
     case key:
     of iw.Key.Up:
-      if comp.viewFocusAreas[focusIndex].top < comp.scrollY:
-        scrollY = comp.viewFocusAreas[focusIndex].top
-        let limit = comp.scrollY - maxScroll
+      if page.viewFocusAreas[focusIndex].top < page.scrollY:
+        scrollY = page.viewFocusAreas[focusIndex].top
+        let limit = page.scrollY - maxScroll
         if scrollY < limit:
           scrollY = limit
-          for i in 0 .. comp.viewFocusAreas.len - 1:
-            if comp.viewFocusAreas[i].bottom > limit:
+          for i in 0 .. page.viewFocusAreas.len - 1:
+            if page.viewFocusAreas[i].bottom > limit:
               focusIndex = i
               break
     of iw.Key.Down:
-      if comp.viewFocusAreas[focusIndex].bottom > comp.scrollY + height:
-        scrollY = comp.viewFocusAreas[focusIndex].bottom - height
-        let limit = comp.scrollY + maxScroll
+      if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
+        scrollY = page.viewFocusAreas[focusIndex].bottom - height
+        let limit = page.scrollY + maxScroll
         if scrollY > limit:
           scrollY = limit
-          for i in countdown(comp.viewFocusAreas.len - 1, 0):
-            if comp.viewFocusAreas[i].top < limit + height:
+          for i in countdown(page.viewFocusAreas.len - 1, 0):
+            if page.viewFocusAreas[i].top < limit + height:
               focusIndex = i
               break
     else:
       discard
   # update values if necessary
-  if focusIndex != comp.focusIndex:
-    session.insert(comp.id, FocusIndex, focusIndex)
-  if scrollY != comp.scrollY:
-    session.insert(comp.id, ScrollY, scrollY)
+  if focusIndex != page.focusIndex:
+    session.insert(page.id, FocusIndex, focusIndex)
+  if scrollY != page.scrollY:
+    session.insert(page.id, ScrollY, scrollY)
   # render
   var
     y = 0
     blocks: seq[tuple[top: int, bottom: int]]
   ui.render(result, view, 0, y, key, scrollY, focusIndex, blocks)
   # update the view height if it has increased
-  if blocks.len > 0 and blocks[blocks.len - 1].bottom > comp.viewHeight:
-    session.insert(comp.id, ViewHeight, blocks[blocks.len - 1].bottom)
-    session.insert(comp.id, ViewFocusAreas, blocks)
+  if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
+    session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
+    session.insert(page.id, ViewFocusAreas, blocks)
   # adjust buffer so part above the scroll line isn't visible
   if (scrollY + height) <= bufferHeight:
     result.height = height
