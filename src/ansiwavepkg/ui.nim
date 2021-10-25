@@ -11,12 +11,14 @@ from os import joinPath
 
 type
   ComponentKind = enum
-    Post,
+    Post, PostReplies,
   Component* = object
     case kind: ComponentKind
     of Post:
-      main: client.ChannelValue[client.Response]
+      post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
+    of PostReplies:
+      postReplies: client.ChannelValue[seq[entities.Post]]
 
 const
   dbFilename* = "board.db"
@@ -26,8 +28,12 @@ const
 
 proc initPost*(c: client.Client, id: int): Component =
   result = Component(kind: Post)
-  result.main = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
+  result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
+
+proc initPostReplies*(c: client.Client, id: int): Component =
+  result = Component(kind: PostReplies)
+  result.postReplies = client.queryPostChildren(c, dbFilename, id)
 
 proc toJson*(post: entities.Post): JsonNode =
   %*[
@@ -58,18 +64,18 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
 proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
-    client.get(comp.main)
+    client.get(comp.post)
     client.get(comp.replies)
-    finishedLoading = comp.main.ready and comp.replies.ready
+    finishedLoading = comp.post.ready and comp.replies.ready
     %*[
-      if not comp.main.ready:
+      if not comp.post.ready:
         %"Loading..."
-      elif comp.main.value.kind == client.Error:
+      elif comp.post.value.kind == client.Error:
         %"Failed to load!"
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.main.value.valid.body)
+          "children": strutils.splitLines(comp.post.value.valid.body)
         }
       ,
       "", # spacer
@@ -82,6 +88,20 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           %"No replies"
         else:
           toJson(comp.replies.value.valid)
+    ]
+  of PostReplies:
+    client.get(comp.postReplies)
+    finishedLoading = comp.postReplies.ready
+    %*[
+      if not comp.postReplies.ready:
+        %"Loading replies"
+      elif comp.postReplies.value.kind == client.Error:
+        %"Failed to load replies!"
+      else:
+        if comp.postReplies.value.valid.len == 0:
+          %"No replies"
+        else:
+          toJson(comp.postReplies.value.valid)
     ]
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =

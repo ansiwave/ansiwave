@@ -107,7 +107,7 @@ proc handleAction(session: var auto, clnt: client.Client, actionName: string, ac
   case actionName:
   of "show-replies":
     let id = actionData["id"].num.int
-    session.insertPage(ui.initPost(clnt, id), id)
+    session.insertPage(ui.initPostReplies(clnt, id), id)
   else:
     discard
 
