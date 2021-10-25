@@ -103,7 +103,15 @@ proc initSession*(c: client.Client): auto =
   result.insert(Global, PageBreadcrumbsIndex, -1)
   result.insertPage(ui.initPost(c, 1), 1)
 
-proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
+proc handleAction(session: var auto, clnt: client.Client, actionName: string, actionData: OrderedTable[string, JsonNode]) =
+  case actionName:
+  of "show-replies":
+    let id = actionData["id"].num.int
+    session.insertPage(ui.initPost(clnt, id), id)
+  else:
+    discard
+
+proc render*(session: var auto, clnt: client.Client, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   var keyHandled = false
   block:
@@ -197,20 +205,22 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
   if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
     session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
     session.insert(page.id, ViewFocusAreas, blocks)
+  if action.actionName != "":
+    handleAction(session, clnt, action.actionName, action.actionData)
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
   vfs.register()
-  var c = client.initClient(address)
-  client.start(c)
+  var clnt = client.initClient(address)
+  client.start(clnt)
 
   # create session
-  var session = initSession(c)
+  var session = initSession(clnt)
 
   # start loop
   while true:
     var finishedLoading = false
-    var tb = render(session, iw.terminalWidth(), iw.terminalHeight(), iw.getKey(), finishedLoading)
+    var tb = render(session, clnt, iw.terminalWidth(), iw.terminalHeight(), iw.getKey(), finishedLoading)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)
