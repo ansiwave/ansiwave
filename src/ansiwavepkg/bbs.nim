@@ -106,8 +106,13 @@ proc initSession*(c: client.Client): auto =
 proc handleAction(session: var auto, clnt: client.Client, actionName: string, actionData: OrderedTable[string, JsonNode]) =
   case actionName:
   of "show-replies":
-    let id = actionData["id"].num.int
-    session.insertPage(ui.initPostReplies(clnt, id), id)
+    let
+      id = actionData["id"].num.int
+      globals = session.query(rules.getGlobals)
+    if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
+      session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+    else:
+      session.insertPage(ui.initPostReplies(clnt, id), id)
   else:
     discard
 
@@ -121,11 +126,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
       if globals.breadcrumbsIndex > 0:
         keyHandled = true
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
-        session.fireRules
-    of iw.Key.Right:
-      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1:
-        keyHandled = true
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
         session.fireRules
     else:
       discard

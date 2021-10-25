@@ -134,7 +134,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
             info.y >= yStart and
             info.y <= yStart + 2:
           action = (node["action"].str, node["action-data"].fields)
-    elif key == iw.Key.Enter and isFocused:
+    elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
       action = (node["action"].str, node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
