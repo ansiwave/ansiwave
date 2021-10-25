@@ -87,7 +87,7 @@ proc insertPage(session: var auto, comp: ui.Component, id: int) =
   var globals = session.query(rules.getGlobals)
   var breadcrumbs = globals.breadcrumbs
   if globals.breadcrumbsIndex < breadcrumbs.len - 1:
-    breadcrumbs = breadcrumbs[0 ..< globals.breadcrumbsIndex]
+    breadcrumbs = breadcrumbs[0 .. globals.breadcrumbsIndex]
   breadcrumbs.add(id)
   session.insert(Global, PageBreadcrumbs, breadcrumbs)
   session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
