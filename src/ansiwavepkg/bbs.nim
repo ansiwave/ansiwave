@@ -73,6 +73,15 @@ let rules =
           t[page.id] = page
         session.insert(Global, AllPages, t)
 
+proc goToPage(session: var auto, id: int) =
+  var globals = session.query(rules.getGlobals)
+  var breadcrumbs = globals.breadcrumbs
+  if globals.breadcrumbsIndex < breadcrumbs.len - 1:
+    breadcrumbs = breadcrumbs[0 .. globals.breadcrumbsIndex]
+  breadcrumbs.add(id)
+  session.insert(Global, PageBreadcrumbs, breadcrumbs)
+  session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+
 proc insertPage(session: var auto, comp: ui.Component, id: int) =
   var compRef: ComponentRef
   new compRef
@@ -83,14 +92,7 @@ proc insertPage(session: var auto, comp: ui.Component, id: int) =
   session.insert(id, View, cast[JsonNode](nil))
   session.insert(id, ViewHeight, 0)
   session.insert(id, ViewFocusAreas, @[])
-
-  var globals = session.query(rules.getGlobals)
-  var breadcrumbs = globals.breadcrumbs
-  if globals.breadcrumbsIndex < breadcrumbs.len - 1:
-    breadcrumbs = breadcrumbs[0 .. globals.breadcrumbsIndex]
-  breadcrumbs.add(id)
-  session.insert(Global, PageBreadcrumbs, breadcrumbs)
-  session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+  session.goToPage(id)
 
 proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
@@ -112,7 +114,10 @@ proc handleAction(session: var auto, clnt: client.Client, actionName: string, ac
     if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
     else:
-      session.insertPage(ui.initPostReplies(clnt, id), id)
+      if globals.pages.hasKey(id):
+        session.goToPage(id)
+      else:
+        session.insertPage(ui.initPostReplies(clnt, id), id)
   else:
     discard
 
