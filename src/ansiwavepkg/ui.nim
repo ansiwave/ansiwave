@@ -110,9 +110,9 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: i
   y += 1
   codes.write(tb, x, y, $runes)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
   let
     isFocused = focusIndex == blocks.len
     yStart = y
@@ -134,6 +134,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
             info.y >= yStart and
             info.y <= yStart + 2:
           action = (node["action"].str, node["action-data"].fields)
+          focusIndex = blocks.len
     elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
       action = (node["action"].str, node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
@@ -142,7 +143,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     y += 1
   blocks.add((top: yStart, bottom: y))
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y, key)

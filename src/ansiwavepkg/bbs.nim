@@ -195,17 +195,17 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
               break
     else:
       discard
-  # update values if necessary
-  if focusIndex != page.focusIndex:
-    session.insert(page.id, FocusIndex, focusIndex)
-  if scrollY != page.scrollY:
-    session.insert(page.id, ScrollY, scrollY)
   # render
   var
     y = - scrollY
     blocks: seq[tuple[top: int, bottom: int]]
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
   ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, focusIndex, blocks, action)
+  # update values if necessary
+  if focusIndex != page.focusIndex:
+    session.insert(page.id, FocusIndex, focusIndex)
+  if scrollY != page.scrollY:
+    session.insert(page.id, ScrollY, scrollY)
   # update the view height if it has increased
   if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
     session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
