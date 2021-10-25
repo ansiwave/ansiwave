@@ -23,11 +23,6 @@ const
   staticFileDir = "tests".joinPath("bbs")
   dbPath = staticFileDir.joinPath(dbFilename)
   ansiwavesDir = "ansiwaves"
-  actions = {
-    "show-replies": proc (data: OrderedTable[string, JsonNode]) =
-      # TODO: do something
-      discard
-  }.toTable
 
 proc initPost*(c: client.Client, id: int): Component =
   result = Component(kind: Post)
@@ -95,16 +90,16 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: i
   y += 1
   codes.write(tb, x, y, $runes)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
   let
     isFocused = focusIndex == blocks.len
     yStart = y
   case node["type"].str:
   of "rect":
     for child in node["children"]:
-      render(tb, child, x + 1, y, key, focusIndex, blocks)
+      render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     y += 1
     iw.drawRect(tb, x, yStart, x + editorWidth + 1, y, doubleStyle = isFocused)
     y += 1
@@ -118,22 +113,22 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
             info.x < xStart + node["text"].str.stripCodes.len and
             info.y >= yStart and
             info.y <= yStart + 2:
-          actions[node["action"].str](node["action-data"].fields)
+          action = (node["action"].str, node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
     iw.drawRect(tb, xStart - 1, yStart, editorWidth + 1, y, doubleStyle = isFocused)
     y += 1
   blocks.add((top: yStart, bottom: y))
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y, key)
   of JObject:
-    render(tb, node.fields, x, y, key, focusIndex, blocks)
+    render(tb, node.fields, x, y, key, focusIndex, blocks, action)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, key, focusIndex, blocks)
+      render(tb, item, x, y, key, focusIndex, blocks, action)
   else:
     raise newException(Exception, "Unhandled JSON type")
 

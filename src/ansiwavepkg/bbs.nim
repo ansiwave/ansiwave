@@ -191,7 +191,8 @@ proc render*(session: var auto, width: int, height: int, key: iw.Key, finishedLo
   var
     y = - scrollY
     blocks: seq[tuple[top: int, bottom: int]]
-  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, focusIndex, blocks)
+    action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
+  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, focusIndex, blocks, action)
   # update the view height if it has increased
   if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
     session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
