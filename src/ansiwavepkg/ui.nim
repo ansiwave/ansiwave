@@ -114,6 +114,8 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
             info.y >= yStart and
             info.y <= yStart + 2:
           action = (node["action"].str, node["action-data"].fields)
+    elif key == iw.Key.Enter and isFocused:
+      action = (node["action"].str, node["action-data"].fields)
     render(tb, node["text"].str, xStart, y, key)
     y += 1
     iw.drawRect(tb, xStart - 1, yStart, editorWidth + 1, y, doubleStyle = isFocused)
