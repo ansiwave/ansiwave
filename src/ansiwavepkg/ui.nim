@@ -11,14 +11,12 @@ from os import joinPath
 
 type
   ComponentKind = enum
-    Post, PostReplies,
+    Post,
   Component* = object
     case kind: ComponentKind
     of Post:
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
-    of PostReplies:
-      postReplies: client.ChannelValue[seq[entities.Post]]
 
 const
   dbFilename* = "board.db"
@@ -31,26 +29,11 @@ proc initPost*(c: client.Client, id: int): Component =
   result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
 
-proc initPostReplies*(c: client.Client, id: int): Component =
-  result = Component(kind: PostReplies)
-  result.postReplies = client.queryPostChildren(c, dbFilename, id)
-
 proc toJson*(post: entities.Post): JsonNode =
   %*[
     {
       "type": "rect",
-      "children": strutils.splitLines(post.body.uncompressed)
-    },
-    {
-      "type": "button",
-      "text":
-        if post.reply_count == 0:
-          "Reply"
-        elif post.reply_count == 1:
-          "1 Reply"
-        else:
-          $post.reply_count & " Replies"
-      ,
+      "children": strutils.splitLines(post.body.uncompressed),
       "action": "show-replies",
       "action-data": {"id": post.id},
     },
@@ -89,20 +72,6 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
         else:
           toJson(comp.replies.value.valid)
     ]
-  of PostReplies:
-    client.get(comp.postReplies)
-    finishedLoading = comp.postReplies.ready
-    %*[
-      if not comp.postReplies.ready:
-        %"Loading replies"
-      elif comp.postReplies.value.kind == client.Error:
-        %"Failed to load replies!"
-      else:
-        if comp.postReplies.value.valid.len == 0:
-          %"No replies"
-        else:
-          toJson(comp.postReplies.value.valid)
-    ]
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =
   var runes = node.toRunes
@@ -116,31 +85,34 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   let
     isFocused = focusIndex == blocks.len
     yStart = y
+    xEnd = x + editorWidth + 1
+  var xStart = x
   case node["type"].str:
   of "rect":
     for child in node["children"]:
       render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     y += 1
-    iw.drawRect(tb, x, yStart, x + editorWidth + 1, y, doubleStyle = isFocused)
+    iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   of "button":
-    let xStart = max(x + 1, editorWidth + 1 - node["text"].str.len)
-    # handle input
+    xStart = max(x, editorWidth - node["text"].str.len)
+    render(tb, node["text"].str, xStart, y, key)
+    y += 1
+    iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
+    y += 1
+  # handle input
+  if node.hasKey("action"):
     if key == iw.Key.Mouse:
       let info = iw.getMouse()
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         if info.x >= xStart and
-            info.x < xStart + node["text"].str.stripCodes.len and
+            info.x < xEnd and
             info.y >= yStart and
-            info.y <= yStart + 2:
+            info.y <= y:
           action = (node["action"].str, node["action-data"].fields)
           focusIndex = blocks.len
     elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
       action = (node["action"].str, node["action-data"].fields)
-    render(tb, node["text"].str, xStart, y, key)
-    y += 1
-    iw.drawRect(tb, xStart - 1, yStart, editorWidth + 1, y, doubleStyle = isFocused)
-    y += 1
   blocks.add((top: yStart, bottom: y))
 
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =

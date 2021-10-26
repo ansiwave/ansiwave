@@ -117,7 +117,7 @@ proc handleAction(session: var auto, clnt: client.Client, actionName: string, ac
       if globals.pages.hasKey(id):
         session.goToPage(id)
       else:
-        session.insertPage(ui.initPostReplies(clnt, id), id)
+        session.insertPage(ui.initPost(clnt, id), id)
   else:
     discard
 
