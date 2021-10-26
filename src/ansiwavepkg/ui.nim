@@ -34,6 +34,12 @@ proc toJson*(post: entities.Post): JsonNode =
     {
       "type": "rect",
       "children": strutils.splitLines(post.body.uncompressed),
+      "top-right":
+        if post.reply_count == 1:
+          "1 reply"
+        else:
+          $post.reply_count & " replies"
+      ,
       "action": "show-replies",
       "action-data": {"id": post.id},
     },
@@ -93,6 +99,8 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     y += 1
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
+    if node.hasKey("top-right"):
+      iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
     y += 1
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len)
