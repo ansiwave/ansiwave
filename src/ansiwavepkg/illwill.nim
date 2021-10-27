@@ -250,7 +250,7 @@ type
   ScrollDirection* {.pure.} = enum
     sdNone, sdUp, sdDown
 
-var gMouseInfo = MouseInfo()
+var gMouseInfo* = MouseInfo()
 var gMouse: bool = false
 
 proc getMouse*(): MouseInfo =
