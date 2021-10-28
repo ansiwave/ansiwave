@@ -104,6 +104,7 @@ proc initSession*(c: client.Client): auto =
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
   result.insertPage(ui.initPost(c, 1), 1)
+  result.fireRules
 
 proc handleAction(session: var auto, clnt: client.Client, actionName: string, actionData: OrderedTable[string, JsonNode]) =
   case actionName:
@@ -212,6 +213,12 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
     session.insert(page.id, ViewFocusAreas, blocks)
   if action.actionName != "":
     handleAction(session, clnt, action.actionName, action.actionData)
+
+proc viewHeight*(session: auto): int =
+  let
+    globals = session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  page.viewHeight
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
