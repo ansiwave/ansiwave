@@ -71,7 +71,7 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
         "type": "rect",
         "children": [""],
         "top-left": "Write a reply",
-        "top-left-focused": "Press Enter to send",
+        "top-left-focused": "Press Enter to send, or Esc to use the full editor",
       },
       "", # spacer
       if not comp.replies.ready:
