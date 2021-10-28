@@ -67,6 +67,12 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           "children": strutils.splitLines(comp.post.value.valid.body)
         }
       ,
+      {
+        "type": "rect",
+        "children": [""],
+        "top-left": "Write a reply",
+        "top-left-focused": "Press Enter to send",
+      },
       "", # spacer
       if not comp.replies.ready:
         %"Loading replies"
@@ -99,7 +105,13 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     y += 1
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
-    if node.hasKey("top-right"):
+    if node.hasKey("top-left-focused") and isFocused:
+      iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
+    elif node.hasKey("top-left"):
+      iw.write(tb, x + 1, yStart, node["top-left"].str)
+    if node.hasKey("top-right-focused") and isFocused:
+      iw.write(tb, xEnd - node["top-right-focused"].str.runeLen, yStart, node["top-right-focused"].str)
+    elif node.hasKey("top-right"):
       iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
     y += 1
   of "button":
@@ -109,17 +121,18 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   # handle input
-  if node.hasKey("action"):
-    if key == iw.Key.Mouse:
-      let info = iw.getMouse()
-      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-        if info.x >= xStart and
-            info.x < xEnd and
-            info.y >= yStart and
-            info.y <= y:
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
+    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+      if info.x >= xStart and
+          info.x < xEnd and
+          info.y >= yStart and
+          info.y <= y:
+        if node.hasKey("action"):
           action = (node["action"].str, node["action-data"].fields)
-          focusIndex = blocks.len
-    elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
+        focusIndex = blocks.len
+  elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
+    if node.hasKey("action"):
       action = (node["action"].str, node["action-data"].fields)
   blocks.add((top: yStart, bottom: y))
 
