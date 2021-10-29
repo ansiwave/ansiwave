@@ -8,6 +8,7 @@ from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from strutils import format
 from os import joinPath
+from ./ui/editor import nil
 
 type
   ComponentKind = enum
@@ -17,6 +18,7 @@ type
     of Post:
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
+      replyEditor: editor.EditorSession
 
 const
   dbFilename* = "board.db"
@@ -28,6 +30,7 @@ proc initPost*(c: client.Client, id: int): Component =
   result = Component(kind: Post)
   result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
+  result.replyEditor = editor.init()
 
 proc toJson*(post: entities.Post): JsonNode =
   %*[
