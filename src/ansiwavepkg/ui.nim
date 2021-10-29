@@ -91,8 +91,8 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =
   var runes = node.toRunes
   codes.deleteAfter(runes, editorWidth - 1)
-  y += 1
   codes.write(tb, x, y, $runes)
+  y += 1
 
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]])
 
@@ -104,9 +104,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   var xStart = x
   case node["type"].str:
   of "rect":
+    y += 1
     for child in node["children"]:
       render(tb, child, x + 1, y, key, focusIndex, blocks, action)
-    y += 1
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     if node.hasKey("top-left-focused") and isFocused:
       iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
@@ -119,9 +119,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     y += 1
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len)
-    render(tb, node["text"].str, xStart, y, key)
     y += 1
-    iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
+    render(tb, node["text"].str, xStart, y, key)
+    iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   # handle input
   if key == iw.Key.Mouse:

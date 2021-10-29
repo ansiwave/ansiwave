@@ -208,8 +208,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
   # update the view height if it has increased
-  if blocks.len > 0 and blocks[blocks.len - 1].bottom > page.viewHeight:
-    session.insert(page.id, ViewHeight, blocks[blocks.len - 1].bottom)
+  if y + scrollY > page.viewHeight:
+    session.insert(page.id, ViewHeight, y + scrollY)
     session.insert(page.id, ViewFocusAreas, blocks)
   if action.actionName != "":
     handleAction(session, clnt, action.actionName, action.actionData)
