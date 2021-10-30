@@ -70,12 +70,7 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           "children": strutils.splitLines(comp.post.value.valid.body)
         }
       ,
-      {
-        "type": "rect",
-        "children": [""],
-        "top-left": "Write a reply",
-        "top-left-focused": "Press Enter to send, or Esc to use the full editor",
-      },
+      editor.toJson(comp.replyEditor),
       "", # spacer
       if not comp.replies.ready:
         %"Loading replies"

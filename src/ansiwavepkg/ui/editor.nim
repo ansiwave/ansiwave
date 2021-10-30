@@ -1,5 +1,6 @@
 import pararules
 from pararules/engine import Session, Vars
+import json
 
 type
   Id = enum
@@ -35,3 +36,10 @@ proc init*(): EditorSession =
   result.insert(Editor, ScrollX, 0)
   result.insert(Editor, ScrollY, 0)
 
+proc toJson*(session: EditorSession): JsonNode =
+  %*{
+    "type": "rect",
+    "children": [""],
+    "top-left": "Write a reply",
+    "top-left-focused": "Press Enter to send, or Esc to use the full editor",
+  }
