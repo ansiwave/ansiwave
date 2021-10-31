@@ -44,6 +44,6 @@ proc toJson*(session: EditorSession): JsonNode =
     "children-after": [
       {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
     ],
-    "top-left": "Write a reply",
-    "top-left-focused": "Press Enter to send, or Esc to use the full editor",
+    "top-left": "Write a post",
+    "top-left-focused": "Write a post (press Enter to send, or Esc to use the full editor)",
   }
