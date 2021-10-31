@@ -106,19 +106,20 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initPost(c, 1), 1)
   result.fireRules
 
-proc handleAction(session: var auto, clnt: client.Client, actionName: string, actionData: OrderedTable[string, JsonNode]) =
+proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, key: iw.Key, actionName: string, actionData: OrderedTable[string, JsonNode]) =
   case actionName:
   of "show-replies":
-    let
-      id = actionData["id"].num.int
-      globals = session.query(rules.getGlobals)
-    if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
-      session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
-    else:
-      if globals.pages.hasKey(id):
-        session.goToPage(id)
+    if key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}:
+      let
+        id = actionData["id"].num.int
+        globals = session.query(rules.getGlobals)
+      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
       else:
-        session.insertPage(ui.initPost(clnt, id), id)
+        if globals.pages.hasKey(id):
+          session.goToPage(id)
+        else:
+          session.insertPage(ui.initPost(clnt, id), id)
   else:
     discard
 
@@ -201,7 +202,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
     y = - scrollY
     blocks: seq[tuple[top: int, bottom: int]]
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
-  ui.render(result, view, 0, y, if keyHandled: iw.Key.None else: key, focusIndex, blocks, action)
+  ui.render(result, view, 0, y, key, focusIndex, blocks, action)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
@@ -211,8 +212,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
   if y + scrollY > page.viewHeight:
     session.insert(page.id, ViewHeight, y + scrollY)
     session.insert(page.id, ViewFocusAreas, blocks)
-  if action.actionName != "":
-    handleAction(session, clnt, action.actionName, action.actionData)
+  if not keyHandled and action.actionName != "":
+    handleAction(session, clnt, page.data[], key, action.actionName, action.actionData)
 
 proc viewHeight*(session: auto): int =
   let

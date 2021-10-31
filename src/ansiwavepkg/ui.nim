@@ -147,7 +147,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
           if node.hasKey("action"):
             action = (node["action"].str, node["action-data"].fields)
           focusIndex = blocks.len
-    elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
+    elif isFocused:
       if node.hasKey("action"):
         action = (node["action"].str, node["action-data"].fields)
     blocks.add((top: yStart, bottom: y))
