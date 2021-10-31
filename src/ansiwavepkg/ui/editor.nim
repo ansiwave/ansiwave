@@ -37,9 +37,13 @@ proc init*(): EditorSession =
   result.insert(Editor, ScrollY, 0)
 
 proc toJson*(session: EditorSession): JsonNode =
+  let editor = session.query(rules.getEditor)
   %*{
     "type": "rect",
-    "children": [""],
+    "children": [
+      "",
+      {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
+    ],
     "top-left": "Write a reply",
     "top-left-focused": "Press Enter to send, or Esc to use the full editor",
   }

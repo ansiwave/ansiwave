@@ -3,7 +3,7 @@ import ./constants
 import unicode
 from ./codes import stripCodes
 import json
-import tables
+import tables, sets
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from strutils import format
@@ -96,8 +96,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     isFocused = focusIndex == blocks.len
     yStart = y
     xEnd = x + editorWidth + 1
+    nodeType = node["type"].str
   var xStart = x
-  case node["type"].str:
+  case nodeType:
   of "rect":
     y += 1
     for child in node["children"]:
@@ -118,21 +119,36 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     render(tb, node["text"].str, xStart, y, key)
     iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
-  # handle input
-  if key == iw.Key.Mouse:
-    let info = iw.getMouse()
-    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-      if info.x >= xStart and
-          info.x < xEnd and
-          info.y >= yStart and
-          info.y <= y:
-        if node.hasKey("action"):
-          action = (node["action"].str, node["action-data"].fields)
-        focusIndex = blocks.len
-  elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
-    if node.hasKey("action"):
-      action = (node["action"].str, node["action-data"].fields)
-  blocks.add((top: yStart, bottom: y))
+  of "cursor":
+    if isFocused:
+      let
+        col = int(x + node["x"].num)
+        row = int(y + node["y"].num - 1)
+      var ch = tb[col, row]
+      ch.bg = iw.bgYellow
+      if ch.fg == iw.fgYellow:
+        ch.fg = iw.fgWhite
+      elif $ch.ch == "█":
+        ch.fg = iw.fgYellow
+      tb[col, row] = ch
+      iw.setCursorPos(tb, col, row)
+  const focusables = ["rect", "button"].toHashSet
+  if nodeType in focusables:
+    # handle input
+    if key == iw.Key.Mouse:
+      let info = iw.getMouse()
+      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+        if info.x >= xStart and
+            info.x < xEnd and
+            info.y >= yStart and
+            info.y <= y:
+          if node.hasKey("action"):
+            action = (node["action"].str, node["action-data"].fields)
+          focusIndex = blocks.len
+    elif isFocused and key in {iw.Key.Enter, iw.Key.Right}:
+      if node.hasKey("action"):
+        action = (node["action"].str, node["action-data"].fields)
+    blocks.add((top: yStart, bottom: y))
 
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
   case node.kind:
