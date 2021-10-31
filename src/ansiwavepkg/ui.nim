@@ -33,20 +33,18 @@ proc initPost*(c: client.Client, id: int): Component =
   result.replyEditor = editor.init()
 
 proc toJson*(post: entities.Post): JsonNode =
-  %*[
-    {
-      "type": "rect",
-      "children": strutils.splitLines(post.body.uncompressed),
-      "top-right":
-        if post.reply_count == 1:
-          "1 reply"
-        else:
-          $post.reply_count & " replies"
-      ,
-      "action": "show-replies",
-      "action-data": {"id": post.id},
-    },
-  ]
+  %*{
+    "type": "rect",
+    "children": strutils.splitLines(post.body.uncompressed),
+    "top-right":
+      if post.reply_count == 1:
+        "1 reply"
+      else:
+        $post.reply_count & " replies"
+    ,
+    "action": "show-replies",
+    "action-data": {"id": post.id},
+  }
 
 proc toJson*(posts: seq[entities.Post]): JsonNode =
   result = JsonNode(kind: JArray)
