@@ -104,6 +104,10 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     for child in node["children"]:
       render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
+    if node.hasKey("children-after"):
+      for child in node["children-after"]:
+        var y = yStart + 1
+        render(tb, child, x + 1, y, key, focusIndex, blocks, action)
     if node.hasKey("top-left-focused") and isFocused:
       iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
     elif node.hasKey("top-left"):
@@ -123,7 +127,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     if isFocused:
       let
         col = int(x + node["x"].num)
-        row = int(y + node["y"].num - 1)
+        row = int(y + node["y"].num)
       var ch = tb[col, row]
       ch.bg = iw.bgYellow
       if ch.fg == iw.fgYellow:

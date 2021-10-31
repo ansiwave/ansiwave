@@ -40,8 +40,8 @@ proc toJson*(session: EditorSession): JsonNode =
   let editor = session.query(rules.getEditor)
   %*{
     "type": "rect",
-    "children": [
-      "",
+    "children": [""],
+    "children-after": [
       {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
     ],
     "top-left": "Write a reply",
