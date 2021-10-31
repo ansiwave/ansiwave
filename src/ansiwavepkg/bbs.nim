@@ -20,7 +20,7 @@ type
     ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
   ComponentRef = ref ui.Component
-  ViewFocusAreasType = seq[tuple[top: int, bottom: int]]
+  ViewFocusAreasType = seq[ui.ViewFocusArea]
   Page = tuple
     id: int
     data: ComponentRef
@@ -106,10 +106,11 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initPost(c, 1), 1)
   result.fireRules
 
-proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, key: iw.Key, actionName: string, actionData: OrderedTable[string, JsonNode]) =
+proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, key: iw.Key, actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-replies":
-    if key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}:
+    result = key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    if result:
       let
         id = actionData["id"].num.int
         globals = session.query(rules.getGlobals)
@@ -125,13 +126,11 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
-  var keyHandled = false
   block:
     let globals = session.query(rules.getGlobals)
     case key:
     of iw.Key.Left:
       if globals.breadcrumbsIndex > 0:
-        keyHandled = true
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         session.fireRules
     else:
@@ -150,59 +149,74 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
           session.insert(page.id, View, v)
         v
   result = iw.newTerminalBuffer(width, height)
+  # if there is any input, find the associated action
   var
-    focusIndex =
-      case key:
-      of iw.Key.Up:
-        keyHandled = true
-        if page.focusIndex > 0:
-          page.focusIndex - 1
-        else:
-          page.focusIndex
-      of iw.Key.Down:
-        keyHandled = true
-        page.focusIndex + 1
-      else:
-        page.focusIndex
+    action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
+    focusIndex = page.focusIndex
     scrollY = page.scrollY
-  # adjust focusIndex and scrollY based on viewFocusAreas
-  if page.viewFocusAreas.len > 0:
-    # don't let it go beyond the last focused area
-    if focusIndex > page.viewFocusAreas.len - 1:
-      focusIndex = page.viewFocusAreas.len - 1
-    # when going up or down, if the next focus area's edge is
-    # beyond the current viewable scroll area, adjust scrollY
-    # so we can see it. if the adjustment is greater than maxScroll,
-    # only scroll maxScroll rows and update the focusIndex.
+  if key != iw.Key.None and page.focusIndex < page.viewFocusAreas.len:
+    if key == iw.Key.Mouse:
+      let info = iw.getMouse()
+      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+        for i in 0 ..< page.viewFocusAreas.len:
+          let area = page.viewFocusAreas[i]
+          if info.x >= area.left and
+              info.x <= area.right and
+              info.y + scrollY >= area.top and
+              info.y + scrollY <= area.bottom:
+            action = (area.action, area.actionData)
+            focusIndex = i
+            break
+    else:
+      let area = page.viewFocusAreas[page.focusIndex]
+      action = (area.action, area.actionData)
+  # handle the action
+  if not handleAction(session, clnt, page.data[], key, action.actionName, action.actionData):
     case key:
     of iw.Key.Up:
-      if page.viewFocusAreas[focusIndex].top < page.scrollY:
-        scrollY = page.viewFocusAreas[focusIndex].top
-        let limit = page.scrollY - maxScroll
-        if scrollY < limit:
-          scrollY = limit
-          for i in 0 .. page.viewFocusAreas.len - 1:
-            if page.viewFocusAreas[i].bottom > limit:
-              focusIndex = i
-              break
+      if page.focusIndex > 0:
+        focusIndex = page.focusIndex - 1
     of iw.Key.Down:
-      if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
-        scrollY = page.viewFocusAreas[focusIndex].bottom - height
-        let limit = page.scrollY + maxScroll
-        if scrollY > limit:
-          scrollY = limit
-          for i in countdown(page.viewFocusAreas.len - 1, 0):
-            if page.viewFocusAreas[i].top < limit + height:
-              focusIndex = i
-              break
+      focusIndex = page.focusIndex + 1
     else:
       discard
+    # adjust focusIndex and scrollY based on viewFocusAreas
+    if page.viewFocusAreas.len > 0:
+      # don't let it go beyond the last focused area
+      if focusIndex > page.viewFocusAreas.len - 1:
+        focusIndex = page.viewFocusAreas.len - 1
+      # when going up or down, if the next focus area's edge is
+      # beyond the current viewable scroll area, adjust scrollY
+      # so we can see it. if the adjustment is greater than maxScroll,
+      # only scroll maxScroll rows and update the focusIndex.
+      case key:
+      of iw.Key.Up:
+        if page.viewFocusAreas[focusIndex].top < page.scrollY:
+          scrollY = page.viewFocusAreas[focusIndex].top
+          let limit = page.scrollY - maxScroll
+          if scrollY < limit:
+            scrollY = limit
+            for i in 0 .. page.viewFocusAreas.len - 1:
+              if page.viewFocusAreas[i].bottom > limit:
+                focusIndex = i
+                break
+      of iw.Key.Down:
+        if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
+          scrollY = page.viewFocusAreas[focusIndex].bottom - height
+          let limit = page.scrollY + maxScroll
+          if scrollY > limit:
+            scrollY = limit
+            for i in countdown(page.viewFocusAreas.len - 1, 0):
+              if page.viewFocusAreas[i].top < limit + height:
+                focusIndex = i
+                break
+      else:
+        discard
   # render
   var
     y = - scrollY
-    blocks: seq[tuple[top: int, bottom: int]]
-    action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
-  ui.render(result, view, 0, y, key, focusIndex, blocks, action)
+    areas: seq[ui.ViewFocusArea]
+  ui.render(result, view, 0, y, key, focusIndex, areas)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
@@ -211,9 +225,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
   # update the view height if it has increased
   if y + scrollY > page.viewHeight:
     session.insert(page.id, ViewHeight, y + scrollY)
-    session.insert(page.id, ViewFocusAreas, blocks)
-  if not keyHandled and action.actionName != "":
-    handleAction(session, clnt, page.data[], key, action.actionName, action.actionData)
+    session.insert(page.id, ViewFocusAreas, areas)
 
 proc viewHeight*(session: auto): int =
   let

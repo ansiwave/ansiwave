@@ -19,6 +19,7 @@ type
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
       replyEditor: editor.EditorSession
+  ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
   dbFilename* = "board.db"
@@ -87,11 +88,11 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: i
   codes.write(tb, x, y, $runes)
   y += 1
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea]) =
   let
-    isFocused = focusIndex == blocks.len
+    isFocused = focusIndex == areas.len
     yStart = y
     xEnd = x + editorWidth + 1
     nodeType = node["type"].str
@@ -100,12 +101,12 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   of "rect":
     y += 1
     for child in node["children"]:
-      render(tb, child, x + 1, y, key, focusIndex, blocks, action)
+      render(tb, child, x + 1, y, key, focusIndex, areas)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     if node.hasKey("children-after"):
       for child in node["children-after"]:
         var y = yStart + 1
-        render(tb, child, x + 1, y, key, focusIndex, blocks, action)
+        render(tb, child, x + 1, y, key, focusIndex, areas)
     if node.hasKey("top-left-focused") and isFocused:
       iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
     elif node.hasKey("top-left"):
@@ -136,31 +137,25 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.setCursorPos(tb, col, row)
   const focusables = ["rect", "button"].toHashSet
   if nodeType in focusables:
-    # handle input
-    if key == iw.Key.Mouse:
-      let info = iw.getMouse()
-      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-        if info.x >= xStart and
-            info.x < xEnd and
-            info.y >= yStart and
-            info.y <= y:
-          if node.hasKey("action"):
-            action = (node["action"].str, node["action-data"].fields)
-          focusIndex = blocks.len
-    elif isFocused:
-      if node.hasKey("action"):
-        action = (node["action"].str, node["action-data"].fields)
-    blocks.add((top: yStart, bottom: y))
+    var area: ViewFocusArea
+    area.top = yStart
+    area.bottom = y
+    area.left = xStart
+    area.right = xEnd
+    if node.hasKey("action"):
+      area.action = node["action"].str
+      area.actionData = node["action-data"].fields
+    areas.add(area)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: var int, blocks: var seq[tuple[top: int, bottom: int]], action: var tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea]) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y, key)
   of JObject:
-    render(tb, node.fields, x, y, key, focusIndex, blocks, action)
+    render(tb, node.fields, x, y, key, focusIndex, areas)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, key, focusIndex, blocks, action)
+      render(tb, item, x, y, key, focusIndex, areas)
   else:
     raise newException(Exception, "Unhandled JSON type")
 
