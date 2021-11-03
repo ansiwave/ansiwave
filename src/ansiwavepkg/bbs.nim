@@ -5,6 +5,7 @@ from os import nil
 from ./ui import nil
 from ./constants import nil
 import pararules
+from pararules/engine import Session, Vars
 from json import JsonNode
 import tables
 
@@ -43,6 +44,9 @@ schema Fact(Id, Attr):
   View: JsonNode
   ViewHeight: int
   ViewFocusAreas: ViewFocusAreasType
+
+type
+  BbsSession* = Session[Fact, Vars[Fact]]
 
 let rules =
   ruleset:
