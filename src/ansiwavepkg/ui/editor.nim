@@ -253,12 +253,6 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
 
 let rules* =
   ruleset:
-    rule getEditor(Fact):
-      what:
-        (Editor, CursorX, cursorX)
-        (Editor, CursorY, cursorY)
-        (Editor, ScrollX, cursorX)
-        (Editor, ScrollY, cursorY)
     rule getGlobals(Fact):
       what:
         (Global, SelectedBuffer, selectedBuffer)
@@ -503,6 +497,32 @@ let rules* =
         (id, LastEditTime, lastEditTime)
         (id, LastSaveTime, lastSaveTime)
         (id, Name, name)
+    rule getEditor(Fact):
+      what:
+        (Editor, CursorX, cursorX)
+        (Editor, CursorY, cursorY)
+        (Editor, ScrollX, scrollX)
+        (Editor, ScrollY, scrollY)
+        (Editor, Lines, lines)
+        (Editor, X, x)
+        (Editor, Y, y)
+        (Editor, Width, width)
+        (Editor, Height, height)
+        (Editor, Editable, editable)
+        (Editor, SelectedMode, mode)
+        (Editor, SelectedChar, selectedChar)
+        (Editor, SelectedFgColor, selectedFgColor)
+        (Editor, SelectedBgColor, selectedBgColor)
+        (Editor, Prompt, prompt)
+        (Editor, ValidCommands, commands)
+        (Editor, InvalidCommands, errors)
+        (Editor, Links, links)
+        (Editor, UndoHistory, undoHistory)
+        (Editor, UndoIndex, undoIndex)
+        (Editor, InsertMode, insertMode)
+        (Editor, LastEditTime, lastEditTime)
+        (Editor, LastSaveTime, lastSaveTime)
+        (Editor, Name, name)
 
 proc getCurrentLine(session: var auto, bufferId: int): int =
   session.query(rules.getBuffer, id = bufferId).cursorY
@@ -1210,10 +1230,12 @@ proc init*(): EditorSession =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  result.insert(Editor, CursorX, 0)
-  result.insert(Editor, CursorY, 0)
-  result.insert(Editor, ScrollX, 0)
-  result.insert(Editor, ScrollY, 0)
+  result.insertBuffer(Editor, "Editor", 0, 0, true, "")
+  result.insert(Global, SelectedBuffer, Editor)
+  result.insert(Global, HintText, "")
+  result.insert(Global, HintTime, 0.0)
+  onWindowResize(result, 80, 24)
+  result.fireRules
 
 proc toJson*(session: EditorSession): JsonNode =
   let editor = session.query(rules.getEditor)

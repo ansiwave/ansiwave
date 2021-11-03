@@ -20,7 +20,7 @@ from zippy import nil
 from base64 import nil
 import streams
 from uri import nil
-from ./ansiwavepkg/ui/editor import initFact
+from ./ansiwavepkg/ui/editor import nil
 
 proc exitClean(ex: ref Exception) =
   iw.illwillDeinit()
@@ -164,7 +164,7 @@ proc convert(opts: editor.Options) =
 
 proc saveEditor(session: var auto, opts: editor.Options) =
   let globals = session.query(editor.rules.getGlobals)
-  let buffer = session.query(editor.rules.getBuffer, id = editor.Editor)
+  let buffer = session.query(editor.rules.getEditor)
   if buffer.editable and
       buffer.lastEditTime > buffer.lastSaveTime and
       times.epochTime() - buffer.lastEditTime > saveDelay:
