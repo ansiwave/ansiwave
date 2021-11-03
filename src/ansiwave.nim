@@ -250,8 +250,6 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
       discard
   session.insert(buffer.id, Prompt, None)
 
-proc insertAnsi(session: var auto, ansi: string)
-
 let rules =
   ruleset:
     rule getGlobals(Fact):
@@ -635,24 +633,6 @@ proc setCursor(tb: var iw.TerminalBuffer, col: int, row: int) =
     ch.fg = iw.fgYellow
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
-
-proc insertAnsi(session: var auto, ansi: string) =
-  let
-    buffer = session.query(rules.getBuffer, id = Editor)
-    editable = buffer.editable and buffer.mode == 0
-  if not editable:
-    return
-  let
-    ansiLines = splitLines(ansi)
-    startLine = buffer.cursorY
-  var newLines: RefStrings
-  new newLines
-  newLines[] = buffer.lines[][0 ..< startLine]
-  newLines[] &= ansiLines[]
-  newLines[] &= buffer.lines[][startLine + 1 ..< buffer.lines[].len]
-  session.insert(buffer.id, Lines, newLines)
-  session.insert(buffer.id, CursorX, 0)
-  session.insert(buffer.id, CursorY, startLine)
 
 proc onInput(key: iw.Key, buffer: tuple): bool =
   let editable = buffer.editable and buffer.mode == 0
