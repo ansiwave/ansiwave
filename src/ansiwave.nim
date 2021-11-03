@@ -128,11 +128,11 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc getCurrentLine(bufferId: int): int
-proc moveCursor(bufferId: int, x: int, y: int)
+proc getCurrentLine(session: var auto, bufferId: int): int
+proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
 proc tick*(): iw.TerminalBuffer
 
-proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
+proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if events.len == 0:
     return
   var
@@ -159,7 +159,7 @@ proc play(events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTime
       let (line, time) = lineTimes[lineTimesIdx + 1]
       if currTime >= time:
         lineTimesIdx.inc
-        moveCursor(bufferId, 0, line)
+        moveCursor(session, bufferId, 0, line)
         tb = tick()
     # draw progress bar
     iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
@@ -205,7 +205,7 @@ proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefComman
     link.callback()
   session.insert(bufferId, InvalidCommands, errsRef)
   session.insert(bufferId, Links, linksRef)
-  if getCurrentLine(bufferId) != line:
+  if getCurrentLine(session, bufferId) != line:
     session.insert(bufferId, CursorX, 0)
     session.insert(bufferId, CursorY, line)
 
@@ -245,7 +245,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      play(res.events, buffer.id, buffer.width, lineTimes)
+      play(session, res.events, buffer.id, buffer.width, lineTimes)
     of midi.Error:
       discard
   session.insert(buffer.id, Prompt, None)
@@ -369,7 +369,7 @@ let rules =
                       midi.CompileResult(kind: midi.Error, message: e.msg)
                   case res.kind:
                   of midi.Valid:
-                    play(res.events, id, width, @[])
+                    play(sess, res.events, id, width, @[])
                   of midi.Error:
                     if id == Editor.ord:
                       setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
@@ -406,7 +406,7 @@ let rules =
               proc () =
                 sess.insert(Global, SelectedBuffer, Editor)
                 sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
-                if getCurrentLine(Editor.ord) != line:
+                if getCurrentLine(sess, Editor.ord) != line:
                   sess.insert(Editor, CursorX, 0)
                   sess.insert(Editor, CursorY, line)
             linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
@@ -501,13 +501,12 @@ let rules =
 
 var session* = initSession(Fact, autoFire = false)
 
-proc getCurrentLine(bufferId: int): int =
+proc getCurrentLine(session: var auto, bufferId: int): int =
   session.query(rules.getBuffer, id = bufferId).cursorY
 
-proc moveCursor(bufferId: int, x: int, y: int) =
+proc moveCursor(session: var auto, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
   session.insert(bufferId, CursorY, y)
-  session.fireRules
 
 proc onWindowResize(width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
