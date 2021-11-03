@@ -18,7 +18,7 @@ type
     of Post:
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
-      replyEditor: editor.EditorSession
+      replyEditor*: editor.EditorSession
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const

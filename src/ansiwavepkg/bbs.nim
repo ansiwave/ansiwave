@@ -3,6 +3,7 @@ from wavecorepkg/db/vfs import nil
 from wavecorepkg/client import nil
 from os import nil
 from ./ui import nil
+from ./ui/editor import nil
 from ./constants import nil
 import pararules
 from pararules/engine import Session, Vars
@@ -21,7 +22,7 @@ type
     ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
   ComponentRef = ref ui.Component
-  ViewFocusAreasType = seq[ui.ViewFocusArea]
+  ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
     id: int
     data: ComponentRef
@@ -29,13 +30,13 @@ type
     scrollY: int
     view: JsonNode
     viewHeight: int
-    viewFocusAreas: ViewFocusAreasType
-  Pages = ref Table[int, Page]
+    viewFocusAreas: ViewFocusAreaSeq
+  PageTable = ref Table[int, Page]
   PageBreadcrumbsType = seq[int]
 
 schema Fact(Id, Attr):
   SelectedPage: int
-  AllPages: Pages
+  AllPages: PageTable
   PageBreadcrumbs: PageBreadcrumbsType
   PageBreadcrumbsIndex: int
   ComponentData: ComponentRef
@@ -43,7 +44,7 @@ schema Fact(Id, Attr):
   ScrollY: int
   View: JsonNode
   ViewHeight: int
-  ViewFocusAreas: ViewFocusAreasType
+  ViewFocusAreas: ViewFocusAreaSeq
 
 type
   BbsSession* = Session[Fact, Vars[Fact]]
@@ -71,7 +72,7 @@ let rules =
         (id, ViewHeight, viewHeight)
         (id, ViewFocusAreas, viewFocusAreas)
       thenFinally:
-        var t: Pages
+        var t: PageTable
         new t
         for page in session.queryAll(this):
           t[page.id] = page
@@ -103,7 +104,7 @@ proc initSession*(c: client.Client): auto =
   for r in rules.fields:
     result.add(r)
   result.insert(Global, SelectedPage, -1)
-  result.insert(Global, AllPages, cast[Pages](nil))
+  result.insert(Global, AllPages, cast[PageTable](nil))
   let breadcrumbs: PageBreadcrumbsType = @[]
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
@@ -125,6 +126,10 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
           session.goToPage(id)
         else:
           session.insertPage(ui.initPost(clnt, id), id)
+  of "edit":
+    if key notin {iw.Key.Up, iw.Key.Down, iw.Key.Enter, iw.Key.Escape}:
+      let buffer = editor.getEditor(comp.replyEditor)
+      result = editor.onInput(comp.replyEditor, key, buffer) or editor.onInput(comp.replyEditor, key.ord, buffer)
   else:
     discard
 
@@ -143,15 +148,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
     maxScroll = max(1, int(height / 5))
-    view =
-      if page.view != nil:
-        finishedLoading = true
-        page.view
-      else:
-        let v = ui.toJson(page.data[], finishedLoading)
-        if finishedLoading:
-          session.insert(page.id, View, v)
-        v
+    view = ui.toJson(page.data[], finishedLoading)
+  if finishedLoading:
+    session.insert(page.id, View, view)
   result = iw.newTerminalBuffer(width, height)
   # if there is any input, find the associated action
   var

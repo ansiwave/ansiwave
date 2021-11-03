@@ -34,7 +34,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime, Name,
+    LastEditTime, LastSaveTime, Name, AllBuffers,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -54,6 +54,33 @@ type
     input*: string
     output*: string
     args*: Table[string, string]
+  Buffer = tuple
+    id: int
+    cursorX: int
+    cursorY: int
+    scrollX: int
+    scrollY: int
+    lines: RefStrings
+    x: int
+    y: int
+    width: int
+    height: int
+    editable: bool
+    mode: int
+    selectedChar: string
+    selectedFgColor: string
+    selectedBgColor: string
+    prompt: PromptKind
+    commands: RefCommands
+    errors: RefCommands
+    links: RefLinks
+    undoHistory: Snapshots
+    undoIndex: int
+    insertMode: bool
+    lastEditTime: float
+    lastSaveTime: float
+    name: string
+  BufferTable = ref Table[int, Buffer]
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -83,6 +110,7 @@ schema Fact(Id, Attr):
   LastEditTime: float
   LastSaveTime: float
   Name: string
+  AllBuffers: BufferTable
 
 type
   EditorSession* = Session[Fact, Vars[Fact]]
@@ -258,6 +286,7 @@ let rules* =
         (Global, SelectedBuffer, selectedBuffer)
         (Global, HintText, hintText)
         (Global, HintTime, hintTime)
+        (Global, AllBuffers, buffers)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -497,32 +526,12 @@ let rules* =
         (id, LastEditTime, lastEditTime)
         (id, LastSaveTime, lastSaveTime)
         (id, Name, name)
-    rule getEditor(Fact):
-      what:
-        (Editor, CursorX, cursorX)
-        (Editor, CursorY, cursorY)
-        (Editor, ScrollX, scrollX)
-        (Editor, ScrollY, scrollY)
-        (Editor, Lines, lines)
-        (Editor, X, x)
-        (Editor, Y, y)
-        (Editor, Width, width)
-        (Editor, Height, height)
-        (Editor, Editable, editable)
-        (Editor, SelectedMode, mode)
-        (Editor, SelectedChar, selectedChar)
-        (Editor, SelectedFgColor, selectedFgColor)
-        (Editor, SelectedBgColor, selectedBgColor)
-        (Editor, Prompt, prompt)
-        (Editor, ValidCommands, commands)
-        (Editor, InvalidCommands, errors)
-        (Editor, Links, links)
-        (Editor, UndoHistory, undoHistory)
-        (Editor, UndoIndex, undoIndex)
-        (Editor, InsertMode, insertMode)
-        (Editor, LastEditTime, lastEditTime)
-        (Editor, LastSaveTime, lastSaveTime)
-        (Editor, Name, name)
+      thenFinally:
+        var t: BufferTable
+        new t
+        for buffer in session.queryAll(this):
+          t[buffer.id] = buffer
+        session.insert(Global, AllBuffers, t)
 
 proc getCurrentLine(session: var auto, bufferId: int): int =
   session.query(rules.getBuffer, id = bufferId).cursorY
@@ -659,7 +668,7 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
 
-proc onInput(session: var auto, key: iw.Key, buffer: tuple): bool =
+proc onInput*(session: var auto, key: iw.Key, buffer: tuple): bool =
   let editable = buffer.editable and buffer.mode == 0
   case key:
   of iw.Key.Backspace:
@@ -767,7 +776,7 @@ proc makePrefix(buffer: tuple): string =
   elif buffer.selectedFgColor != "" and buffer.selectedBgColor != "":
     result = buffer.selectedFgColor & buffer.selectedBgColor
 
-proc onInput(session: var auto, code: int, buffer: tuple): bool =
+proc onInput*(session: var auto, code: int, buffer: tuple): bool =
   if buffer.mode != 0 or code < 32:
     return false
   let ch =
@@ -1237,14 +1246,23 @@ proc init*(): EditorSession =
   onWindowResize(result, 80, 24)
   result.fireRules
 
-proc toJson*(session: EditorSession): JsonNode =
-  let editor = session.query(rules.getEditor)
+proc getEditor*(session: auto): Buffer =
+  session.query(rules.getGlobals).buffers[Editor.ord]
+
+proc toJson*(session: var EditorSession): JsonNode =
+  session.fireRules
+  let editor = session.getEditor
+  var lines: seq[string]
+  for line in editor.lines[]:
+    lines.add(line[])
   %*{
     "type": "rect",
-    "children": [""],
+    "children": lines,
     "children-after": [
       {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
     ],
     "top-left": "Write a post",
     "top-left-focused": "Write a post (press Enter to send, or Esc to use the full editor)",
+    "action": "edit",
+    "action-data": {},
   }

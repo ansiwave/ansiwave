@@ -164,7 +164,7 @@ proc convert(opts: editor.Options) =
 
 proc saveEditor(session: var auto, opts: editor.Options) =
   let globals = session.query(editor.rules.getGlobals)
-  let buffer = session.query(editor.rules.getEditor)
+  let buffer = globals.buffers[editor.Editor.ord]
   if buffer.editable and
       buffer.lastEditTime > buffer.lastSaveTime and
       times.epochTime() - buffer.lastEditTime > saveDelay:
