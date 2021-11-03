@@ -1,6 +1,7 @@
 import unittest
 from ./ansiwave import nil
 from ./ansiwavepkg/codes import nil
+from ./ansiwavepkg/ui/editor import nil
 import strutils, sequtils
 
 import ./ansiwavepkg/ansi
@@ -36,22 +37,22 @@ proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
 
 test "Parse commands":
   const hello = staticRead("hello.ansiwave")
-  let lines = ansiwave.splitLines(hello)
+  let lines = editor.splitLines(hello)
   let trees = parseAnsiwave(lines)
   check trees.len == 2
 
 test "Parse operators":
-  let lines = ansiwave.splitLines("/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+")
+  let lines = editor.splitLines("/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+")
   let trees = parseAnsiwave(lines)
   check trees.len == 1
 
 test "Parse broken symbol":
-  let lines = ansiwave.splitLines("/instrument -hello-world")
+  let lines = editor.splitLines("/instrument -hello-world")
   let trees = parseAnsiwave(lines)
   check trees.len == 1
 
 test "/,":
-  let text = ansiwave.splitLines("""
+  let text = editor.splitLines("""
 /banjo /octave 3 /16 b c+ /8 d+ b c+ a b g a
 /,
 /guitar /octave 3 /16 r r /8 g r d r g g d
@@ -61,7 +62,7 @@ test "/,":
 
 test "variables":
   const text = staticRead("variables.ansiwave")
-  let lines = ansiwave.splitLines(text)
+  let lines = editor.splitLines(text)
   let trees = parseAnsiwave(lines)
   check trees.len == 4
 
