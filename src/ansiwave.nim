@@ -130,13 +130,13 @@ proc set(lines: var RefStrings, i: int, line: string) =
 
 proc getCurrentLine(session: var auto, bufferId: int): int
 proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
-proc tick*(): iw.TerminalBuffer
+proc tick*(session: var auto): iw.TerminalBuffer
 
 proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if events.len == 0:
     return
   var
-    tb = tick()
+    tb = tick(session)
     lineTimesIdx = -1
   iw.display(tb) # render once to give quick feedback, since midi.play can time to run
   let
@@ -160,7 +160,7 @@ proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, bufferW
       if currTime >= time:
         lineTimesIdx.inc
         moveCursor(session, bufferId, 0, line)
-        tb = tick()
+        tb = tick(session)
     # draw progress bar
     iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
     iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
@@ -604,7 +604,7 @@ proc parseLink(link: string): Table[string, string] =
           else:
             keyVal[1]
 
-proc copyLink(buffer: tuple) =
+proc copyLink(session: var auto, buffer: tuple) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
   iw.showCursor()
@@ -618,7 +618,7 @@ proc copyLink(buffer: tuple) =
   iw.illwillInit(fullscreen=true, mouse=true)
   iw.hideCursor()
   iw.setDoubleBuffering(false)
-  var tb = tick()
+  var tb = tick(session)
   iw.display(tb)
   iw.setDoubleBuffering(true)
 
@@ -1091,7 +1091,7 @@ proc init*(opts: Options) =
 
   onWindowResize(iw.terminalWidth(), iw.terminalHeight())
 
-proc tick*(): iw.TerminalBuffer =
+proc tick*(session: var auto): iw.TerminalBuffer =
   let key = iw.getKey()
 
   let
@@ -1107,9 +1107,10 @@ proc tick*(): iw.TerminalBuffer =
   # render top bar
   case Id(globals.selectedBuffer):
   of Editor:
+    var sess = session
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(session, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
+        renderButton(tb, "♫ Play", 1, 1, key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
       else:
         0
 
@@ -1123,8 +1124,8 @@ proc tick*(): iw.TerminalBuffer =
 
       let
         choices = [
-          (id: 0, label: "Write Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 0)),
-          (id: 1, label: "Draw Mode", callback: proc () = session.insert(selectedBuffer.id, SelectedMode, 1)),
+          (id: 0, label: "Write Mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
+          (id: 1, label: "Draw Mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
         ]
         shortcut = (key: {iw.Key.CtrlE}, hint: "Hint: switch modes with Ctrl E")
       x = renderRadioButtons(tb, x, 0, choices, selectedBuffer.mode, key, false, shortcut)
@@ -1148,8 +1149,9 @@ proc tick*(): iw.TerminalBuffer =
     let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈ Tutorial\e[0m", 1, 0, key, proc () = discard)
     discard renderButton(tb, "↨ Copy Line", titleX, 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
   of Publish:
+    var sess = session
     let titleX = renderButton(tb, "\e[3m≈ANSIWAVE≈ Publish\e[0m", 1, 0, key, proc () = discard)
-    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(session.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+    discard renderButton(tb, "↕ Copy Link", titleX, 0, key, proc () = copyLink(sess, sess.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
   else:
     discard
 
@@ -1158,14 +1160,15 @@ proc tick*(): iw.TerminalBuffer =
   # render bottom bar
   var x = 0
   if selectedBuffer.prompt != StopPlaying:
+    var sess = session
     let
       editor = session.query(rules.getBuffer, id = Editor)
       errorCount = editor.errors[].len
       choices = [
-        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "Edit" else: "View"), editor.name), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Editor)),
-        (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Errors)),
-        (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Tutorial)),
-        (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = session.insert(Global, SelectedBuffer, Publish)),
+        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "Edit" else: "View"), editor.name), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
+        (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
+        (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
+        (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
       ]
       shortcut = (key: {iw.Key.CtrlN}, hint: "Hint: switch tabs with Ctrl N")
     x = renderRadioButtons(tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
@@ -1186,10 +1189,11 @@ proc tick*(): iw.TerminalBuffer =
     if showHint:
       codes.write(tb, textX, windowHeight - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying:
+      var sess = session
       let cb =
         proc () =
-          session.insert(Global, HintText, "Press Ctrl C to exit")
-          session.insert(Global, HintTime, times.epochTime() + hintSecs)
+          sess.insert(Global, HintText, "Press Ctrl C to exit")
+          sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(tb, text, textX, windowHeight - 1, key, cb)
 
   return tb
@@ -1421,7 +1425,7 @@ proc main*() =
   init(opts)
   var tickCount = 0
   while true:
-    var tb = tick()
+    var tb = tick(session)
     # save if necessary
     # don't render every tick because it's wasteful
     if tickCount mod 5 == 0:
