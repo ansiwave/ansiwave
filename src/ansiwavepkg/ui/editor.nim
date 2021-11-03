@@ -776,7 +776,7 @@ proc makePrefix(buffer: tuple): string =
   elif buffer.selectedFgColor != "" and buffer.selectedBgColor != "":
     result = buffer.selectedFgColor & buffer.selectedBgColor
 
-proc onInput*(session: var auto, code: int, buffer: tuple): bool =
+proc onInput*(session: var auto, code: uint32, buffer: tuple): bool =
   if buffer.mode != 0 or code < 32:
     return false
   let ch =
@@ -900,7 +900,7 @@ proc renderBuffer(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, k
   elif focused:
     if key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
-      discard onInput(session, key, buffer) or onInput(session, key.ord, buffer)
+      discard onInput(session, key, buffer) or onInput(session, key.ord.uint32, buffer)
 
   let
     col = buffer.x + 1 + buffer.cursorX - buffer.scrollX

@@ -111,10 +111,10 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initPost(c, 1), 1)
   result.fireRules
 
-proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, key: iw.Key, actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
+proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-replies":
-    result = key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
       let
         id = actionData["id"].num.int
@@ -127,17 +127,19 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
         else:
           session.insertPage(ui.initPost(clnt, id), id)
   of "edit":
-    if key notin {iw.Key.Up, iw.Key.Down, iw.Key.Enter, iw.Key.Escape}:
-      let buffer = editor.getEditor(comp.replyEditor)
-      result = editor.onInput(comp.replyEditor, key, buffer) or editor.onInput(comp.replyEditor, key.ord, buffer)
+    let buffer = editor.getEditor(comp.replyEditor)
+    if input.key == iw.Key.None:
+      result = editor.onInput(comp.replyEditor, input.codepoint, buffer)
+    elif input.key notin {iw.Key.Up, iw.Key.Down, iw.Key.Enter, iw.Key.Escape}:
+      result = editor.onInput(comp.replyEditor, input.key, buffer) or editor.onInput(comp.replyEditor, input.key.ord.uint32, buffer)
   else:
     discard
 
-proc render*(session: var auto, clnt: client.Client, width: int, height: int, key: iw.Key, finishedLoading: var bool): iw.TerminalBuffer =
+proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   block:
     let globals = session.query(rules.getGlobals)
-    case key:
+    case input.key:
     of iw.Key.Left:
       if globals.breadcrumbsIndex > 0:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
@@ -157,8 +159,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
     focusIndex = page.focusIndex
     scrollY = page.scrollY
-  if key != iw.Key.None and page.focusIndex < page.viewFocusAreas.len:
-    if key == iw.Key.Mouse:
+  if (input.key != iw.Key.None or input.codepoint > 0) and page.focusIndex < page.viewFocusAreas.len:
+    if input.key == iw.Key.Mouse:
       let info = iw.getMouse()
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         for i in 0 ..< page.viewFocusAreas.len:
@@ -174,8 +176,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
       let area = page.viewFocusAreas[page.focusIndex]
       action = (area.action, area.actionData)
   # handle the action
-  if not handleAction(session, clnt, page.data[], key, action.actionName, action.actionData):
-    case key:
+  if not handleAction(session, clnt, page.data[], input, action.actionName, action.actionData):
+    case input.key:
     of iw.Key.Up:
       if page.focusIndex > 0:
         focusIndex = page.focusIndex - 1
@@ -192,7 +194,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
       # beyond the current viewable scroll area, adjust scrollY
       # so we can see it. if the adjustment is greater than maxScroll,
       # only scroll maxScroll rows and update the focusIndex.
-      case key:
+      case input.key:
       of iw.Key.Up:
         if page.viewFocusAreas[focusIndex].top < page.scrollY:
           scrollY = page.viewFocusAreas[focusIndex].top
@@ -219,7 +221,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, ke
   var
     y = - scrollY
     areas: seq[ui.ViewFocusArea]
-  ui.render(result, view, 0, y, key, focusIndex, areas)
+  ui.render(result, view, 0, y, focusIndex, areas)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
@@ -249,7 +251,7 @@ proc renderBBS*() =
   # start loop
   while true:
     var finishedLoading = false
-    var tb = render(session, clnt, iw.terminalWidth(), iw.terminalHeight(), iw.getKey(), finishedLoading)
+    var tb = render(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)

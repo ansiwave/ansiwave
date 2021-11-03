@@ -82,15 +82,15 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           toJson(comp.replies.value.valid)
     ]
 
-proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int, key: iw.Key) =
+proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
   codes.deleteAfter(runes, editorWidth - 1)
   codes.write(tb, x, y, $runes)
   y += 1
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =
   let
     isFocused = focusIndex == areas.len
     yStart = y
@@ -101,12 +101,12 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   of "rect":
     y += 1
     for child in node["children"]:
-      render(tb, child, x + 1, y, key, focusIndex, areas)
+      render(tb, child, x + 1, y, focusIndex, areas)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     if node.hasKey("children-after"):
       for child in node["children-after"]:
         var y = yStart + 1
-        render(tb, child, x + 1, y, key, focusIndex, areas)
+        render(tb, child, x + 1, y, focusIndex, areas)
     if node.hasKey("top-left-focused") and isFocused:
       iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
     elif node.hasKey("top-left"):
@@ -119,7 +119,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len)
     y += 1
-    render(tb, node["text"].str, xStart, y, key)
+    render(tb, node["text"].str, xStart, y)
     iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   of "cursor":
@@ -147,15 +147,15 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       area.actionData = node["action-data"].fields
     areas.add(area)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, key: iw.Key, focusIndex: int, areas: var seq[ViewFocusArea]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =
   case node.kind:
   of JString:
-    render(tb, node.str, x, y, key)
+    render(tb, node.str, x, y)
   of JObject:
-    render(tb, node.fields, x, y, key, focusIndex, areas)
+    render(tb, node.fields, x, y, focusIndex, areas)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, key, focusIndex, areas)
+      render(tb, item, x, y, focusIndex, areas)
   else:
     raise newException(Exception, "Unhandled JSON type")
 
