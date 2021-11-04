@@ -32,7 +32,10 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
 proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, playResult: sound.PlayResult] =
   # get the sound font
   # in a release build, embed it in the binary.
-  when defined(release):
+  when defined(emscripten):
+    var sf = cast[ptr tsf](nil)
+    raise newException(Exception, "Not supported for now")
+  elif defined(release):
     # if there is a soundfont in the root of this repo, use it.
     # otherwise, use a soundfont from paramidi_soundfonts
     const soundfont =
