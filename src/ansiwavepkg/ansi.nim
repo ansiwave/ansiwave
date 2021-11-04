@@ -74,6 +74,8 @@ proc parseParams*(code: string): seq[int] =
   assert code[0] == '['
   let parts = strutils.split(code[1 ..< code.len], ";")
   for part in parts:
+    if part == "":
+      continue
     let num = strutils.parseInt(part)
     result.add(num)
 
@@ -236,13 +238,17 @@ proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[
           of 'm':
             merge(brush, params)
           of 'A': # up
-            incClamp(curPos, 0, -params[0], lineWidth)
+            let amount = if params.len == 0: 1 else: params[0]
+            incClamp(curPos, 0, -amount, lineWidth)
           of 'B': # down
-            incClamp(curPos, 0, params[0], lineWidth)
+            let amount = if params.len == 0: 1 else: params[0]
+            incClamp(curPos, 0, amount, lineWidth)
           of 'C': # forward
-            incClamp(curPos, params[0], 0, lineWidth)
+            let amount = if params.len == 0: 1 else: params[0]
+            incClamp(curPos, amount, 0, lineWidth)
           of 'D': # back
-            incClamp(curPos, -params[0], 0, lineWidth)
+            let amount = if params.len == 0: 1 else: params[0]
+            incClamp(curPos, -amount, 0, lineWidth)
           of 'H', 'f': # to x, y
             curPos.row = params[0]
             curPos.col = params[1]
