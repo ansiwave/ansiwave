@@ -144,7 +144,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     view = ui.toJson(page.data[], finishedLoading)
   if finishedLoading:
     session.insert(page.id, View, view)
-  result = iw.newTerminalBuffer(width, height)
   # if there is any input, find the associated action
   var
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
@@ -217,6 +216,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   var
     y = - scrollY
     areas: seq[ui.ViewFocusArea]
+  result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
   ui.render(result, view, 0, y, focusIndex, areas)
   # update values if necessary
   if focusIndex != page.focusIndex:
@@ -228,12 +228,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   if y > page.viewHeight and scrollY == 0:
     session.insert(page.id, ViewHeight, y)
     session.insert(page.id, ViewFocusAreas, areas)
-
-proc viewHeight*(session: auto): int =
-  let
-    globals = session.query(rules.getGlobals)
-    page = globals.pages[globals.selectedPage]
-  page.viewHeight
+    # if the view height has changed, emscripten needs to render again
+    when defined(emscripten):
+      return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
