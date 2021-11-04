@@ -137,15 +137,6 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
-  block:
-    let globals = session.query(rules.getGlobals)
-    case input.key:
-    of iw.Key.Left:
-      if globals.breadcrumbsIndex > 0:
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
-        session.fireRules
-    else:
-      discard
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
@@ -183,6 +174,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         focusIndex = page.focusIndex - 1
     of iw.Key.Down:
       focusIndex = page.focusIndex + 1
+    of iw.Key.Left:
+      if globals.breadcrumbsIndex > 0:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+        # since we have changed the page, we need to rerun this function from the beginning
+        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
     else:
       discard
     # adjust focusIndex and scrollY based on viewFocusAreas
