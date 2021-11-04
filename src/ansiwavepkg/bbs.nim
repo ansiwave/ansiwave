@@ -139,9 +139,7 @@ proc renderHtml*(session: auto): string =
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
-  var finishedLoading: bool
-  let json = ui.toJson(page.data[], finishedLoading)
-  "TEST"
+  ui.toHtml(page.data[])
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules

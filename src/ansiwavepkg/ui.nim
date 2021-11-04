@@ -34,17 +34,18 @@ proc initPost*(c: client.Client, id: int): Component =
   result.replyEditor = editor.init()
 
 proc toJson*(post: entities.Post): JsonNode =
+  let replies =
+    if post.reply_count == 1:
+      "1 reply"
+    else:
+      $post.reply_count & " replies"
   %*{
     "type": "rect",
     "children": strutils.splitLines(post.body.uncompressed),
-    "top-right":
-      if post.reply_count == 1:
-        "1 reply"
-      else:
-        $post.reply_count & " replies"
-    ,
+    "top-right": replies,
     "action": "show-replies",
     "action-data": {"id": post.id},
+    "action-accessible-text": replies,
   }
 
 proc toJson*(posts: seq[entities.Post]): JsonNode =
@@ -81,6 +82,38 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
         else:
           toJson(comp.replies.value.valid)
     ]
+
+proc toHtml(node: JsonNode): string
+
+proc toHtml(node: OrderedTable[string, JsonNode]): string =
+  let nodeType = node["type"].str
+  case nodeType:
+  of "rect":
+    result &= "<div title='Post'>"
+    for child in node["children"]:
+      result &= toHtml(child)
+    if node.hasKey("action") and node.hasKey("action-accessible-text"):
+      # TODO: make this link go somewhere
+      result &= "<br/><a href=''>" & node["action-accessible-text"].str & "</a>"
+    result &= "</div>"
+  else:
+    discard
+
+proc toHtml(node: JsonNode): string =
+  case node.kind:
+  of JString:
+    result = node.str.stripCodes & "\n"
+  of JObject:
+    result = toHtml(node.fields)
+  of JArray:
+    for item in node.elems:
+      result &= toHtml(item)
+  else:
+    raise newException(Exception, "Unhandled JSON type")
+
+proc toHtml*(comp: var Component): string =
+  var finishedLoading = false
+  comp.toJson(finishedLoading).toHtml
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
