@@ -96,6 +96,10 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
       # TODO: make this link go somewhere
       result &= "<br/><a href=''>" & node["action-accessible-text"].str & "</a>"
     result &= "</div>"
+  of "button":
+    result &= "<button>" & node["text"].str & "</button>"
+  of "form":
+    discard # TODO: support forms (for input) eventually
   else:
     discard
 
@@ -150,11 +154,14 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
     y += 1
   of "button":
-    xStart = max(x, editorWidth - node["text"].str.len)
+    xStart = max(x, editorWidth - node["text"].str.len + 1)
     y += 1
     render(tb, node["text"].str, xStart, y)
     iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
+  of "form":
+    for child in node["children"]:
+      render(tb, child, x, y, focusIndex, areas)
   of "cursor":
     if isFocused:
       let

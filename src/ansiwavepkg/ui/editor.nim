@@ -1256,13 +1256,22 @@ proc toJson*(session: var EditorSession): JsonNode =
   for line in editor.lines[]:
     lines.add(line[])
   %*{
-    "type": "rect",
-    "children": lines,
-    "children-after": [
-      {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
+    "type": "form",
+    "children": [
+      {
+        "type": "rect",
+        "children": lines,
+        "children-after": [
+          {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
+        ],
+        "top-left": "Write a post",
+        "top-left-focused": "Write a post (press Esc to use the full editor)",
+        "action": "edit",
+        "action-data": {},
+      },
+      {
+        "type": "button",
+        "text": "Send",
+      },
     ],
-    "top-left": "Write a post",
-    "top-left-focused": "Write a post (press Enter to send, or Esc to use the full editor)",
-    "action": "edit",
-    "action-data": {},
   }
