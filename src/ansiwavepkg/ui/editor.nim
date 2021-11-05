@@ -1110,7 +1110,9 @@ proc init*(opts: Options): EditorSession =
   except Exception as ex:
     exitClean(ex)
 
-  if editorName == "":
+  if opts.bbsMode:
+    editorName = "post"
+  elif editorName == "":
     editorName = "hello"
 
   result = initSession(Fact, autoFire = false)
