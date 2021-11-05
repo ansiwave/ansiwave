@@ -94,6 +94,7 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           toJson(comp.replies.value.valid)
     ]
   of Editor:
+    finishedLoading = true
     %*{
       "type": "editor",
       "action": "edit",
