@@ -181,7 +181,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         focusIndex = page.focusIndex - 1
     of iw.Key.Down:
       focusIndex = page.focusIndex + 1
-    of iw.Key.Left:
+    of iw.Key.Left, iw.Key.Escape:
       if globals.breadcrumbsIndex > 0:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         # since we have changed the page, we need to rerun this function from the beginning
