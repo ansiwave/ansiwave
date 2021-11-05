@@ -148,6 +148,15 @@ proc renderHtml*(session: auto): string =
     page = globals.pages[globals.selectedPage]
   ui.toHtml(page.data[])
 
+proc isEditor(page: Page): bool =
+  page.data[].kind == ui.Editor
+
+proc isEditor*(session: auto): bool =
+  let
+    globals = session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  page.isEditor
+
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
@@ -229,7 +238,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   var
     y = - scrollY
     areas: seq[ui.ViewFocusArea]
-  if page.data[].kind == ui.Editor:
+  if page.isEditor:
     result = editor.tick(page.data[].session, width, height, input)
     page.data[].session.fireRules
   else:
