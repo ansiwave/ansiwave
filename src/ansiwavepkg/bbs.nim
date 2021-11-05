@@ -139,14 +139,6 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
           session.goToPage(id)
         else:
           session.insertPage(ui.initEditor(id), id)
-#[
-  of "edit":
-    let buffer = editor.getEditor(comp.replyEditor)
-    if input.key == iw.Key.None:
-      result = editor.onInput(comp.replyEditor, input.codepoint, buffer)
-    else:
-      result = editor.onInput(comp.replyEditor, input.key, buffer) or editor.onInput(comp.replyEditor, input.key.ord.uint32, buffer)
-]#
   else:
     discard
 
@@ -238,7 +230,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     y = - scrollY
     areas: seq[ui.ViewFocusArea]
   if page.data[].kind == ui.Editor:
-    result = editor.tick(page.data[].session, width, height)
+    result = editor.tick(page.data[].session, width, height, input)
+    page.data[].session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
   ui.render(result, view, 0, y, focusIndex, areas)

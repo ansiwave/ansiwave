@@ -811,7 +811,7 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   true
 
-proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
+proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32]) =
   let focused = buffer.prompt != StopPlaying
   iw.drawRect(tb, buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
 
@@ -836,7 +836,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
       if buffer.links[].contains(i):
         let linkY = buffer.y + 1 + screenLine
         iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
-        if key == iw.Key.Mouse:
+        if input.key == iw.Key.Mouse:
           let info = iw.getMouse()
           if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
             if info.x == buffer.x and info.y == linkY:
@@ -855,11 +855,11 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
               session.insert(Global, HintText, hintText)
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
               buffer.links[i].callback()
-        elif i == buffer.cursorY and key == iw.Key.Tab and buffer.prompt == None:
+        elif i == buffer.cursorY and input.key == iw.Key.Tab and buffer.prompt == None:
           buffer.links[i].callback()
     screenLine += 1
 
-  if key == iw.Key.Mouse:
+  if input.key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
@@ -898,9 +898,11 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
       of iw.ScrollDirection.sdDown:
         session.insert(buffer.id, CursorY, buffer.cursorY + linesPerScroll)
   elif focused:
-    if key != iw.Key.None:
+    if input.key == iw.Key.None:
+      discard editor.onInput(session, input.codepoint, buffer)
+    else:
       session.insert(buffer.id, Prompt, None)
-      discard onInput(session, key, buffer) or onInput(session, key.ord.uint32, buffer)
+      discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
 
   let
     col = buffer.x + 1 + buffer.cursorX - buffer.scrollX
@@ -1122,12 +1124,12 @@ proc init*(opts: Options = Options()): EditorSession =
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
-  result.fireRules
 
   onWindowResize(result, 80, 24)
+  result.fireRules
 
-proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, height: int) =
-  let key = iw.getKey()
+proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]) =
+  let key = input.key
 
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
@@ -1187,7 +1189,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, he
   else:
     discard
 
-  renderBuffer(session, tb, selectedBuffer, key)
+  renderBuffer(session, tb, selectedBuffer, input)
 
   # render bottom bar
   var x = 0
@@ -1228,11 +1230,11 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, he
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(session, tb, text, textX, windowHeight - 1, key, cb)
 
-proc tick*(session: var EditorSession, width: int, height: int): iw.TerminalBuffer =
+proc tick*(session: var EditorSession, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   result = iw.newTerminalBuffer(width, height)
-  tick(session, result, width, height)
+  tick(session, result, width, height, input)
 
 proc tick*(session: var EditorSession): iw.TerminalBuffer =
   let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
-  tick(session, windowWidth, windowHeight)
+  tick(session, windowWidth, windowHeight, (iw.Key.None, 0'u32))
 
