@@ -126,6 +126,19 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
           session.goToPage(id)
         else:
           session.insertPage(ui.initPost(clnt, id), id)
+  of "show-editor":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    if result:
+      let
+        id = actionData["id"].num.int
+        globals = session.query(rules.getGlobals)
+      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+      else:
+        if globals.pages.hasKey(id):
+          session.goToPage(id)
+        else:
+          session.insertPage(ui.initEditor(id), id)
 #[
   of "edit":
     let buffer = editor.getEditor(comp.replyEditor)
@@ -224,7 +237,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   var
     y = - scrollY
     areas: seq[ui.ViewFocusArea]
-  result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
+  if page.data[].kind == ui.Editor:
+    result = editor.tick(page.data[].session, width, height)
+  else:
+    result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
   ui.render(result, view, 0, y, focusIndex, areas)
   # update values if necessary
   if focusIndex != page.focusIndex:

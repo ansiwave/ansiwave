@@ -1080,7 +1080,7 @@ proc redo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(opts: Options): EditorSession =
+proc init*(opts: Options = Options()): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
   var
@@ -1124,18 +1124,15 @@ proc init*(opts: Options): EditorSession =
   result.insert(Global, HintTime, 0.0)
   result.fireRules
 
-  onWindowResize(result, iw.terminalWidth(), iw.terminalHeight())
+  onWindowResize(result, 80, 24)
 
-proc tick*(session: var EditorSession): iw.TerminalBuffer =
+proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, height: int) =
   let key = iw.getKey()
 
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
-    width = iw.terminalWidth()
-    height = iw.terminalHeight()
-  var tb = iw.newTerminalBuffer(width, height)
   if width != windowWidth or height != windowHeight:
     onWindowResize(session, width, height)
 
@@ -1231,5 +1228,11 @@ proc tick*(session: var EditorSession): iw.TerminalBuffer =
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(session, tb, text, textX, windowHeight - 1, key, cb)
 
-  return tb
+proc tick*(session: var EditorSession, width: int, height: int): iw.TerminalBuffer =
+  result = iw.newTerminalBuffer(width, height)
+  tick(session, result, width, height)
+
+proc tick*(session: var EditorSession): iw.TerminalBuffer =
+  let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
+  tick(session, windowWidth, windowHeight)
 

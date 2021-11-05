@@ -8,15 +8,19 @@ from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from strutils import format
 from os import joinPath
+from ./ui/editor import nil
 
 type
-  ComponentKind = enum
-    Post,
+  ComponentKind* = enum
+    Post, Editor,
   Component* = object
-    case kind: ComponentKind
+    case kind*: ComponentKind
     of Post:
       post: client.ChannelValue[client.Response]
+      postId: int
       replies: client.ChannelValue[seq[entities.Post]]
+    of Editor:
+      session*: editor.EditorSession
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -28,7 +32,12 @@ const
 proc initPost*(c: client.Client, id: int): Component =
   result = Component(kind: Post)
   result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
+  result.postId = id
   result.replies = client.queryPostChildren(c, dbFilename, id)
+
+proc initEditor*(id: int): Component =
+  result = Component(kind: Editor)
+  result.session = editor.init()
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -70,6 +79,8 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
       {
         "type": "button",
         "text": "Write a post",
+        "action": "show-editor",
+        "action-data": {"id": -comp.postId},
       },
       "", # spacer
       if not comp.replies.ready:
@@ -82,6 +93,10 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
         else:
           toJson(comp.replies.value.valid)
     ]
+  of Editor:
+    %*{
+      "type": "editor",
+    }
 
 proc toHtml(node: JsonNode): string
 
@@ -98,6 +113,8 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
     result &= "</div>"
   of "button":
     result &= "<button>" & node["text"].str & "</button>"
+  of "editor":
+    result &= "Editor not supported in HTML version for now"
   else:
     discard
 
@@ -170,6 +187,8 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
         ch.fg = iw.fgYellow
       tb[col, row] = ch
       iw.setCursorPos(tb, col, row)
+  of "editor":
+    discard
   const focusables = ["rect", "button"].toHashSet
   if nodeType in focusables:
     var area: ViewFocusArea
