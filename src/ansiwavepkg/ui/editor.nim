@@ -34,7 +34,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime, Name, AllBuffers,
+    LastEditTime, LastSaveTime, Name, AllBuffers, Opts,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -54,6 +54,7 @@ type
     input*: string
     output*: string
     args*: Table[string, string]
+    bbsMode*: bool
   Buffer = tuple
     id: int
     cursorX: int
@@ -111,6 +112,7 @@ schema Fact(Id, Attr):
   LastSaveTime: float
   Name: string
   AllBuffers: BufferTable
+  Opts: Options
 
 type
   EditorSession* = Session[Fact, Vars[Fact]]
@@ -287,6 +289,7 @@ let rules* =
         (Global, HintText, hintText)
         (Global, HintTime, hintTime)
         (Global, AllBuffers, buffers)
+        (Global, Opts, options)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -1082,7 +1085,7 @@ proc redo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(opts: Options = Options()): EditorSession =
+proc init*(opts: Options): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
   var
@@ -1119,13 +1122,16 @@ proc init*(opts: Options = Options()): EditorSession =
     publishText = staticRead("../assets/publish.ansiwave")
   insertBuffer(result, Editor, editorName, 0, 2, not isUri, editorText)
   insertBuffer(result, Errors, "Errors", 0, 1, false, "")
-  insertBuffer(result, Tutorial, "Tutorial", 0, 1, false, tutorialText)
-  insertBuffer(result, Publish, "Publish", 0, 1, false, publishText)
+  if not opts.bbsMode:
+    insertBuffer(result, Tutorial, "Tutorial", 0, 1, false, tutorialText)
+    insertBuffer(result, Publish, "Publish", 0, 1, false, publishText)
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
 
   onWindowResize(result, 80, 24)
+
+  result.insert(Global, Opts, opts)
   result.fireRules
 
 proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]) =
@@ -1205,7 +1211,12 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, he
         (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
       ]
       shortcut = (key: {iw.Key.CtrlN}, hint: "Hint: switch tabs with Ctrl N")
-    x = renderRadioButtons(session, tb, 0, windowHeight - 1, choices, globals.selectedBuffer, key, true, shortcut)
+    var selectedChoices = @choices
+    selectedChoices.setLen(0)
+    for choice in choices:
+      if globals.buffers.hasKey(choice.id):
+        selectedChoices.add(choice)
+    x = renderRadioButtons(session, tb, 0, windowHeight - 1, selectedChoices, globals.selectedBuffer, key, true, shortcut)
 
   # render hints
   if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
@@ -1222,7 +1233,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, he
       textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
     if showHint:
       codes.write(tb, textX, windowHeight - 1, "\e[3m" & text & "\e[0m")
-    elif selectedBuffer.prompt != StopPlaying:
+    elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
       var sess = session
       let cb =
         proc () =

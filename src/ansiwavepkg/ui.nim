@@ -37,7 +37,7 @@ proc initPost*(c: client.Client, id: int): Component =
 
 proc initEditor*(id: int): Component =
   result = Component(kind: Editor)
-  result.session = editor.init()
+  result.session = editor.init(editor.Options(bbsMode: true))
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
