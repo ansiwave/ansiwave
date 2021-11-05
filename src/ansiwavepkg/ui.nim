@@ -96,6 +96,8 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
   of Editor:
     %*{
       "type": "editor",
+      "action": "edit",
+      "action-data": {},
     }
 
 proc toHtml(node: JsonNode): string
@@ -189,7 +191,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.setCursorPos(tb, col, row)
   of "editor":
     discard
-  const focusables = ["rect", "button"].toHashSet
+  const focusables = ["rect", "button", "editor"].toHashSet
   if nodeType in focusables:
     var area: ViewFocusArea
     area.top = yStart
