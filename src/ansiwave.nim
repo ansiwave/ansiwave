@@ -262,8 +262,7 @@ proc main*() =
   if opts.input == "":
     exitClean("No file or link to open")
   # enter the main render loop
-  var session = editor.initSession()
-  editor.init(session, opts)
+  var session = editor.init(opts)
   var tickCount = 0
   while true:
     var tb = editor.tick(session)

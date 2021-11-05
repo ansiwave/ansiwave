@@ -157,11 +157,11 @@ proc set(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc getCurrentLine(session: var auto, bufferId: int): int
-proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
-proc tick*(session: var auto): iw.TerminalBuffer
+proc getCurrentLine(session: var EditorSession, bufferId: int): int
+proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
+proc tick*(session: var EditorSession): iw.TerminalBuffer
 
-proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
+proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if events.len == 0:
     return
   var
@@ -200,7 +200,7 @@ proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, bufferW
     os.sleep(sleepMsecs)
   midi.stop(playResult.addrs)
 
-proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
+proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
   let
     cb =
@@ -212,7 +212,7 @@ proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: 
   linksRef[cmdLine] = link
   link
 
-proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string, goToError: bool = false) =
+proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string, goToError: bool = false) =
   var cmdIndex = -1
   for i in 0 ..< cmdsRef[].len:
     if cmdsRef[0].line == line:
@@ -238,7 +238,7 @@ proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefComman
     session.insert(bufferId, CursorX, 0)
     session.insert(bufferId, CursorY, line)
 
-proc compileAndPlayAll(session: var auto, buffer: tuple) =
+proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
   session.insert(buffer.id, Prompt, StopPlaying)
   var
     noErrors = true
@@ -533,18 +533,18 @@ let rules* =
           t[buffer.id] = buffer
         session.insert(Global, AllBuffers, t)
 
-proc getCurrentLine(session: var auto, bufferId: int): int =
+proc getCurrentLine(session: var EditorSession, bufferId: int): int =
   session.query(rules.getBuffer, id = bufferId).cursorY
 
-proc moveCursor(session: var auto, bufferId: int, x: int, y: int) =
+proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
   session.insert(bufferId, CursorY, y)
 
-proc onWindowResize(session: var auto, width: int, height: int) =
+proc onWindowResize(session: var EditorSession, width: int, height: int) =
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
 
-proc insertBuffer(session: var auto, id: Id, name: string, x: int, y: int, editable: bool, text: string) =
+proc insertBuffer(session: var EditorSession, id: Id, name: string, x: int, y: int, editable: bool, text: string) =
   session.insert(id, Name, name)
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
@@ -597,7 +597,7 @@ proc copyLine(buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
     buffer.lines[buffer.cursorY][].stripCodes.toClipboard
 
-proc pasteLine(session: var auto, buffer: tuple) =
+proc pasteLine(session: var EditorSession, buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
     var lines = buffer.lines
     lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
@@ -638,7 +638,7 @@ proc parseLink*(link: string): Table[string, string] =
           else:
             keyVal[1]
 
-proc copyLink(session: var auto, buffer: tuple) =
+proc copyLink(session: var EditorSession, buffer: tuple) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
   iw.showCursor()
@@ -668,7 +668,7 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)
 
-proc onInput*(session: var auto, key: iw.Key, buffer: tuple): bool =
+proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
   let editable = buffer.editable and buffer.mode == 0
   case key:
   of iw.Key.Backspace:
@@ -776,7 +776,7 @@ proc makePrefix(buffer: tuple): string =
   elif buffer.selectedFgColor != "" and buffer.selectedBgColor != "":
     result = buffer.selectedFgColor & buffer.selectedBgColor
 
-proc onInput*(session: var auto, code: uint32, buffer: tuple): bool =
+proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   if buffer.mode != 0 or code < 32:
     return false
   let ch =
@@ -811,7 +811,7 @@ proc onInput*(session: var auto, code: uint32, buffer: tuple): bool =
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   true
 
-proc renderBuffer(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
+proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key) =
   let focused = buffer.prompt != StopPlaying
   iw.drawRect(tb, buffer.x, buffer.y, buffer.x + buffer.width + 1, buffer.y + buffer.height + 1, doubleStyle = focused)
 
@@ -929,7 +929,7 @@ proc renderBuffer(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, k
     let x = buffer.x + 1 + buffer.width - prompt.runeLen
     iw.write(tb, max(x, buffer.x + 1), buffer.y, prompt)
 
-proc renderRadioButtons(session: var auto, tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: set[iw.Key], hint: string]): int =
+proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: set[iw.Key], hint: string]): int =
   const space = 2
   var
     xx = x
@@ -969,7 +969,7 @@ proc renderRadioButtons(session: var auto, tb: var iw.TerminalBuffer, x: int, y:
     xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
   return xx
 
-proc renderButton(session: var auto, tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
+proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
   codes.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
@@ -985,7 +985,7 @@ proc renderButton(session: var auto, tb: var iw.TerminalBuffer, text: string, x:
   elif key in shortcut.key:
     cb()
 
-proc renderColors(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
+proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int): int =
   const
     colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
@@ -1037,7 +1037,7 @@ proc renderColors(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, k
     except:
       discard
 
-proc renderBrushes(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
+proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int): int =
   const
     brushChars        = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
     brushShortcuts    = ['1', '2', '3', '4', '5', '6', '7', '8']
@@ -1072,15 +1072,15 @@ proc renderBrushes(session: var auto, tb: var iw.TerminalBuffer, buffer: tuple, 
     except:
       discard
 
-proc undo(session: var auto, buffer: tuple) =
+proc undo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex > 0:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex - 1)
 
-proc redo(session: var auto, buffer: tuple) =
+proc redo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(session: var auto, opts: Options) =
+proc init*(opts: Options): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
   var
@@ -1108,24 +1108,25 @@ proc init*(session: var auto, opts: Options) =
   if editorName == "":
     editorName = "hello"
 
+  result = initSession(Fact, autoFire = false)
   for r in rules.fields:
-    session.add(r)
+    result.add(r)
 
   const
     tutorialText = staticRead("../assets/tutorial.ansiwave")
     publishText = staticRead("../assets/publish.ansiwave")
-  insertBuffer(session, Editor, editorName, 0, 2, not isUri, editorText)
-  insertBuffer(session, Errors, "Errors", 0, 1, false, "")
-  insertBuffer(session, Tutorial, "Tutorial", 0, 1, false, tutorialText)
-  insertBuffer(session, Publish, "Publish", 0, 1, false, publishText)
-  session.insert(Global, SelectedBuffer, Editor)
-  session.insert(Global, HintText, "")
-  session.insert(Global, HintTime, 0.0)
-  session.fireRules
+  insertBuffer(result, Editor, editorName, 0, 2, not isUri, editorText)
+  insertBuffer(result, Errors, "Errors", 0, 1, false, "")
+  insertBuffer(result, Tutorial, "Tutorial", 0, 1, false, tutorialText)
+  insertBuffer(result, Publish, "Publish", 0, 1, false, publishText)
+  result.insert(Global, SelectedBuffer, Editor)
+  result.insert(Global, HintText, "")
+  result.insert(Global, HintTime, 0.0)
+  result.fireRules
 
-  onWindowResize(session, iw.terminalWidth(), iw.terminalHeight())
+  onWindowResize(result, iw.terminalWidth(), iw.terminalHeight())
 
-proc tick*(session: var auto): iw.TerminalBuffer =
+proc tick*(session: var EditorSession): iw.TerminalBuffer =
   let key = iw.getKey()
 
   let
@@ -1232,46 +1233,3 @@ proc tick*(session: var auto): iw.TerminalBuffer =
 
   return tb
 
-proc initSession*(): EditorSession =
-  initSession(Fact, autoFire = false)
-
-proc init*(): EditorSession =
-  result = initSession(Fact, autoFire = false)
-  for r in rules.fields:
-    result.add(r)
-  result.insertBuffer(Editor, "Editor", 0, 0, true, "")
-  result.insert(Global, SelectedBuffer, Editor)
-  result.insert(Global, HintText, "")
-  result.insert(Global, HintTime, 0.0)
-  onWindowResize(result, 80, 24)
-  result.fireRules
-
-proc getEditor*(session: auto): Buffer =
-  session.query(rules.getGlobals).buffers[Editor.ord]
-
-proc toJson*(session: var EditorSession): JsonNode =
-  session.fireRules
-  let editor = session.getEditor
-  var lines: seq[string]
-  for line in editor.lines[]:
-    lines.add(line[])
-  %*{
-    "type": "form",
-    "children": [
-      {
-        "type": "rect",
-        "children": lines,
-        "children-after": [
-          {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
-        ],
-        "top-left": "Write a post",
-        "top-left-focused": "Write a post (press Esc to use the full editor)",
-        "action": "edit",
-        "action-data": {},
-      },
-      {
-        "type": "button",
-        "text": "Send",
-      },
-    ],
-  }

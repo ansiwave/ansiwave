@@ -8,7 +8,6 @@ from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from strutils import format
 from os import joinPath
-from ./ui/editor import nil
 
 type
   ComponentKind = enum
@@ -18,7 +17,6 @@ type
     of Post:
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
-      replyEditor*: editor.EditorSession
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -31,7 +29,6 @@ proc initPost*(c: client.Client, id: int): Component =
   result = Component(kind: Post)
   result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
   result.replies = client.queryPostChildren(c, dbFilename, id)
-  result.replyEditor = editor.init()
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -70,7 +67,10 @@ proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
           "children": strutils.splitLines(comp.post.value.valid.body)
         }
       ,
-      editor.toJson(comp.replyEditor),
+      {
+        "type": "button",
+        "text": "Write a post",
+      },
       "", # spacer
       if not comp.replies.ready:
         %"Loading replies"
@@ -98,8 +98,6 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
     result &= "</div>"
   of "button":
     result &= "<button>" & node["text"].str & "</button>"
-  of "form":
-    discard # TODO: support forms (for input) eventually
   else:
     discard
 
@@ -159,9 +157,6 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     render(tb, node["text"].str, xStart, y)
     iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
-  of "form":
-    for child in node["children"]:
-      render(tb, child, x, y, focusIndex, areas)
   of "cursor":
     if isFocused:
       let

@@ -126,12 +126,14 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
           session.goToPage(id)
         else:
           session.insertPage(ui.initPost(clnt, id), id)
+#[
   of "edit":
     let buffer = editor.getEditor(comp.replyEditor)
     if input.key == iw.Key.None:
       result = editor.onInput(comp.replyEditor, input.codepoint, buffer)
-    elif input.key notin {iw.Key.Up, iw.Key.Down, iw.Key.Escape}:
+    else:
       result = editor.onInput(comp.replyEditor, input.key, buffer) or editor.onInput(comp.replyEditor, input.key.ord.uint32, buffer)
+]#
   else:
     discard
 
