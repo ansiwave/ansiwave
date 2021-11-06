@@ -782,11 +782,7 @@ proc makePrefix(buffer: tuple): string =
 proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   if buffer.mode != 0 or code < 32:
     return false
-  let ch =
-    try:
-      char(code) # TODO: only ASCII input! we should support all unicode input
-    except:
-      return false
+  let ch = cast[Rune](code)
   if not buffer.editable:
     return false
   let
