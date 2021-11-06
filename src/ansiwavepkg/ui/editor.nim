@@ -977,7 +977,7 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.x >= x and
-          info.x <= result and
+          info.x < result and
           info.y == y:
         if shortcut.hint.len > 0:
           session.insert(Global, HintText, shortcut.hint)
