@@ -1081,6 +1081,36 @@ proc redo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
+when defined(emscripten):
+  from wavecorepkg/client/emscripten import nil
+  from base64 import nil
+  from ansiwavepkg/chafa import nil
+
+  var currentSession: EditorSession
+
+  proc browseImage(session: var EditorSession, buffer: tuple) =
+    currentSession = session
+    emscripten.browseFile("#file", "insertImage")
+
+  proc insertImage(image: cstring) {.exportc.} =
+    let
+      globals = currentSession.query(rules.getGlobals)
+      buffer = globals.buffers[Editor.ord]
+      img = base64.decode($image)
+      ansi = chafa.imageToAnsi(img, editorWidth)
+      lastLineBeforeImage =
+        if buffer.lines[][buffer.cursorY][].stripCodes == "":
+          buffer.cursorY - 1
+        else:
+          buffer.cursorY
+    var newLines: RefStrings
+    new newLines
+    newLines[] = buffer.lines[][0 .. lastLineBeforeImage]
+    newLines[] &= ansi.splitLines[]
+    newLines[] &= buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len]
+    currentSession.insert(buffer.id, Lines, newLines)
+    currentSession.fireRules
+
 proc init*(opts: Options, width: int, height: int): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
@@ -1153,7 +1183,11 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, width: int, he
         0
 
     if selectedBuffer.editable:
-      let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
+      let titleX =
+        when defined(emscripten):
+          renderButton(session, tb, "+ Image...", 1, 0, key, proc () = browseImage(sess, selectedBuffer))
+        else:
+          renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, key, proc () = discard)
       var x = max(titleX, playX)
 
       let undoX = renderButton(session, tb, "◄ Undo", x, 0, key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
