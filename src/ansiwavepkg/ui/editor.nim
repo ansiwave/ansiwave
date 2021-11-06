@@ -1081,7 +1081,7 @@ proc redo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex + 1 < buffer.undoHistory[].len:
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
-proc init*(opts: Options): EditorSession =
+proc init*(opts: Options, width: int, height: int): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
   var
@@ -1127,7 +1127,7 @@ proc init*(opts: Options): EditorSession =
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
 
-  onWindowResize(result, 80, 24)
+  onWindowResize(result, width, height)
 
   result.insert(Global, Opts, opts)
   result.fireRules

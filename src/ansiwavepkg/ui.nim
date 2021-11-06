@@ -35,9 +35,9 @@ proc initPost*(c: client.Client, id: int): Component =
   result.postId = id
   result.replies = client.queryPostChildren(c, dbFilename, id)
 
-proc initEditor*(id: int): Component =
+proc initEditor*(id: int, width: int, height: int): Component =
   result = Component(kind: Editor)
-  result.session = editor.init(editor.Options(bbsMode: true))
+  result.session = editor.init(editor.Options(bbsMode: true), width, height)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =

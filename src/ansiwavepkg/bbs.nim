@@ -111,7 +111,7 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initPost(c, 1), 1)
   result.fireRules
 
-proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
+proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-replies":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
@@ -138,7 +138,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component
         if globals.pages.hasKey(id):
           session.goToPage(id)
         else:
-          session.insertPage(ui.initEditor(id), id)
+          session.insertPage(ui.initEditor(id, width, height), id)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   else:
@@ -190,7 +190,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       let area = page.viewFocusAreas[page.focusIndex]
       action = (area.action, area.actionData)
   # handle the action
-  if not handleAction(session, clnt, page.data[], input, action.actionName, action.actionData):
+  if not handleAction(session, clnt, page.data[], width, height, input, action.actionName, action.actionData):
     case input.key:
     of iw.Key.Up:
       if page.focusIndex > 0:
