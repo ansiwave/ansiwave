@@ -1107,12 +1107,14 @@ when defined(emscripten):
           chafa.imageToAnsi(cast[string](img), editorWidth)
         except Exception as ex:
           "Error reading image"
+      ansiLines = ansi.splitLines[]
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines[] &= ansi.splitLines[]
+    newLines[] &= ansiLines
     newLines[] &= buffer.lines[][buffer.cursorY ..< buffer.lines[].len]
     currentSession.insert(buffer.id, Lines, newLines)
+    currentSession.insert(buffer.id, CursorY, buffer.cursorY + ansiLines.len)
     currentSession.fireRules
 
 proc init*(opts: Options, width: int, height: int): EditorSession =
