@@ -1091,6 +1091,8 @@ when defined(emscripten):
     currentSession = session
     emscripten.browseFile("#file", "insertImage")
 
+  proc free(p: pointer) {.importc.}
+
   proc insertImage(image: pointer, length: cint) {.exportc.} =
     let
       globals = currentSession.query(rules.getGlobals)
@@ -1098,6 +1100,7 @@ when defined(emscripten):
       img = block:
         var s = newSeq[uint8](length)
         copyMem(s[0].addr, image, length)
+        free(image)
         s
       ansi =
         try:
