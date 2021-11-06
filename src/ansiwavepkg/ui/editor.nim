@@ -1083,7 +1083,6 @@ proc redo(session: var EditorSession, buffer: tuple) =
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
-  from base64 import nil
   from ansiwavepkg/chafa import nil
 
   var currentSession: EditorSession
@@ -1092,22 +1091,24 @@ when defined(emscripten):
     currentSession = session
     emscripten.browseFile("#file", "insertImage")
 
-  proc insertImage(image: cstring) {.exportc.} =
+  proc insertImage(image: pointer, length: cint) {.exportc.} =
     let
       globals = currentSession.query(rules.getGlobals)
       buffer = globals.buffers[Editor.ord]
-      img = base64.decode($image)
-      ansi = chafa.imageToAnsi(img, editorWidth)
-      lastLineBeforeImage =
-        if buffer.lines[][buffer.cursorY][].stripCodes == "":
-          buffer.cursorY - 1
-        else:
-          buffer.cursorY
+      img = block:
+        var s = newSeq[uint8](length)
+        copyMem(s[0].addr, image, length)
+        s
+      ansi =
+        try:
+          chafa.imageToAnsi(cast[string](img), editorWidth)
+        except Exception as ex:
+          "Error reading image"
     var newLines: RefStrings
     new newLines
-    newLines[] = buffer.lines[][0 .. lastLineBeforeImage]
+    newLines[] = buffer.lines[][0 ..< buffer.cursorY]
     newLines[] &= ansi.splitLines[]
-    newLines[] &= buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len]
+    newLines[] &= buffer.lines[][buffer.cursorY ..< buffer.lines[].len]
     currentSession.insert(buffer.id, Lines, newLines)
     currentSession.fireRules
 
