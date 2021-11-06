@@ -861,6 +861,8 @@ proc getKey*(): Key =
         return Key.Mouse
 
 type
+  RGB = tuple[red: int, green: int, blue: int]
+
   TerminalChar* = object
     ## Represents a character in the terminal buffer, including color and
     ## style information.
@@ -874,6 +876,8 @@ type
     bg*: BackgroundColor
     style*: set[Style]
     forceWrite*: bool
+    fgTruecolor*: RGB
+    bgTruecolor*: RGB
 
   TerminalBuffer* = ref object
     ## A virtual terminal buffer of a fixed width and height. It remembers the
@@ -923,6 +927,8 @@ type
     currStyle: set[Style]
     currX: int
     currY: int
+    currFgTruecolor*: RGB
+    currBgTruecolor*: RGB
 
 proc `[]=`*(tb: var TerminalBuffer, x, y: int, ch: TerminalChar) =
   ## Index operator to write a character into the terminal buffer at the
@@ -1038,18 +1044,20 @@ proc setCursorYPos*(tb: var TerminalBuffer, y: int) =
   ## Sets the current y cursor position.
   tb.currY = y
 
-proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor) =
+proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor, bgTruecolor: RGB = (0, 0, 0)) =
   ## Sets the current background color.
   tb.currBg = bg
+  tb.currBgTruecolor = bgTruecolor
 
 proc setForegroundColor*(tb: var TerminalBuffer, fg: ForegroundColor,
-                         bright: bool = false) =
+                         bright: bool = false, fgTruecolor: RGB = (0, 0, 0)) =
   ## Sets the current foreground color and the bright style flag.
   if bright:
     incl(tb.currStyle, styleBright)
   else:
     excl(tb.currStyle, styleBright)
   tb.currFg = fg
+  tb.currFgTruecolor = fgTruecolor
 
 proc setStyle*(tb: var TerminalBuffer, style: set[Style]) =
   ## Sets the current style flags.

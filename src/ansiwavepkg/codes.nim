@@ -129,11 +129,15 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
         # convert truecolor to standard 8 terminal colors
         elif mode == 2:
           if i + 4 < params.len:
-            let (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(params[i + 2]), float(params[i + 3]), float(params[i + 4])])
+            let
+              r = params[i + 2]
+              g = params[i + 3]
+              b = params[i + 4]
+              (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if param == 38:
-              iw.setForegroundColor(tb, value[0])
+              iw.setForegroundColor(tb, value[0], false, (r, g, b))
             else:
-              iw.setBackgroundColor(tb, value[1])
+              iw.setBackgroundColor(tb, value[1], (r, g, b))
             i += 5
             continue
         # the values appear to be invalid so just stop trying to make sense of them
@@ -149,7 +153,8 @@ proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
     for code in codes:
       applyCode(tb, code)
     var c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
-                            style: iw.getStyle(tb))
+                            style: iw.getStyle(tb),
+                            fgTruecolor: tb.currFgTruecolor, bgTruecolor: tb.currBgTruecolor)
     tb[currX, y] = c
     inc(currX)
     codes = @[]
