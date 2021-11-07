@@ -251,14 +251,17 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     session.insert(page.id, FocusIndex, focusIndex)
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
-  # update the view height if it has increased
-  # don't do this after scrolling, or the values will be incorrect
-  if y > page.viewHeight and scrollY == 0:
-    session.insert(page.id, ViewHeight, y)
-    session.insert(page.id, ViewFocusAreas, areas)
-    # if the view height has changed, emscripten needs to render again
-    when defined(emscripten):
-      return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+  # we can't update view info after scrolling, or the y values will be incorrect
+  if scrollY == 0:
+    # update the focus areas if they've changed
+    if page.viewFocusAreas != areas:
+      session.insert(page.id, ViewFocusAreas, areas)
+    # update the view height if it has increased
+    if y > page.viewHeight:
+      session.insert(page.id, ViewHeight, y)
+      # if the view height has changed, emscripten needs to render again
+      when defined(emscripten):
+        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
