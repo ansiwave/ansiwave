@@ -252,15 +252,12 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
   # we can't update view info after scrolling, or the y values will be incorrect
-  if scrollY == 0:
-    # update the focus areas if they've changed
-    if page.viewFocusAreas != areas:
-      session.insert(page.id, ViewFocusAreas, areas)
-    # update the view height if it has increased
-    if y > page.viewHeight:
-      session.insert(page.id, ViewHeight, y)
-      # if the view height has changed, emscripten needs to render again
-      when defined(emscripten):
+  if scrollY == 0 and page.viewFocusAreas != areas:
+    session.insert(page.id, ViewFocusAreas, areas)
+    session.insert(page.id, ViewHeight, y)
+    # if the view height has changed, emscripten needs to render again
+    when defined(emscripten):
+      if y != page.viewHeight:
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc renderBBS*() =
