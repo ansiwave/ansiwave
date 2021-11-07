@@ -33,6 +33,7 @@
 ##
 
 import macros, os, terminal, unicode, bitops
+from colors import nil
 
 export terminal.terminalWidth
 export terminal.terminalHeight
@@ -1126,9 +1127,17 @@ proc setAttribs(c: TerminalChar) =
     gCurrFg = c.fg
     gCurrStyle = c.style
     if gCurrBg != bgNone:
-      setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
+      if isTruecolorSupported() and c.bgTruecolor != (0, 0, 0):
+        let rgb = 65536 * c.bgTruecolor.red + 256 * c.bgTruecolor.green + c.bgTruecolor.blue
+        setBackgroundColor(colors.Color(rgb))
+      else:
+        setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
     if gCurrFg != fgNone:
-      setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
+      if isTruecolorSupported() and c.fgTruecolor != (0, 0, 0):
+        let rgb = 65536 * c.fgTruecolor.red + 256 * c.fgTruecolor.green + c.fgTruecolor.blue
+        setForegroundColor(colors.Color(rgb))
+      else:
+        setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
     if gCurrStyle != {}:
       setStyle(gCurrStyle)
   else:

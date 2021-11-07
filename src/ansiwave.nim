@@ -21,6 +21,7 @@ from base64 import nil
 import streams
 from uri import nil
 from ./ansiwavepkg/ui/editor import nil
+from terminal import nil
 
 proc exitClean(ex: ref Exception) =
   iw.illwillDeinit()
@@ -243,6 +244,7 @@ proc renderHome(opts: var editor.Options) =
     os.sleep(sleepMsecs)
 
 proc main*() =
+  terminal.enableTrueColors()
   # parse options
   var opts = parseOptions()
   if opts.output != "":
