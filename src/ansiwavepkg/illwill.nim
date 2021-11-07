@@ -861,8 +861,10 @@ proc getKey*(): Key =
       if hasMouseInput():
         return Key.Mouse
 
+const rgbNone* = (0'u, 0'u, 0'u)
+
 type
-  RGB = tuple[red: int, green: int, blue: int]
+  RGB = tuple[red: uint, green: uint, blue: uint]
 
   TerminalChar* = object
     ## Represents a character in the terminal buffer, including color and
@@ -1045,13 +1047,13 @@ proc setCursorYPos*(tb: var TerminalBuffer, y: int) =
   ## Sets the current y cursor position.
   tb.currY = y
 
-proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor, bgTruecolor: RGB = (0, 0, 0)) =
+proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor, bgTruecolor: RGB = rgbNone) =
   ## Sets the current background color.
   tb.currBg = bg
   tb.currBgTruecolor = bgTruecolor
 
 proc setForegroundColor*(tb: var TerminalBuffer, fg: ForegroundColor,
-                         bright: bool = false, fgTruecolor: RGB = (0, 0, 0)) =
+                         bright: bool = false, fgTruecolor: RGB = rgbNone) =
   ## Sets the current foreground color and the bright style flag.
   if bright:
     incl(tb.currStyle, styleBright)
@@ -1127,14 +1129,20 @@ proc setAttribs(c: TerminalChar) =
     gCurrFg = c.fg
     gCurrStyle = c.style
     if gCurrBg != bgNone:
-      if isTruecolorSupported() and c.bgTruecolor != (0, 0, 0):
-        let rgb = 65536 * c.bgTruecolor.red + 256 * c.bgTruecolor.green + c.bgTruecolor.blue
+      if isTruecolorSupported() and c.bgTruecolor != rgbNone:
+        let rgb =
+          c.bgTruecolor.red.rotateLeftBits(16) +
+          c.bgTruecolor.green.rotateLeftBits(8) +
+          c.bgTruecolor.blue
         setBackgroundColor(colors.Color(rgb))
       else:
         setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
     if gCurrFg != fgNone:
-      if isTruecolorSupported() and c.fgTruecolor != (0, 0, 0):
-        let rgb = 65536 * c.fgTruecolor.red + 256 * c.fgTruecolor.green + c.fgTruecolor.blue
+      if isTruecolorSupported() and c.fgTruecolor != rgbNone:
+        let rgb =
+          c.fgTruecolor.red.rotateLeftBits(16) +
+          c.fgTruecolor.green.rotateLeftBits(8) +
+          c.fgTruecolor.blue
         setForegroundColor(colors.Color(rgb))
       else:
         setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))

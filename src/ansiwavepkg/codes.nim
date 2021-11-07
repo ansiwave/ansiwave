@@ -130,9 +130,9 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
         elif mode == 2:
           if i + 4 < params.len:
             let
-              r = params[i + 2]
-              g = params[i + 3]
-              b = params[i + 4]
+              r = params[i + 2].uint
+              g = params[i + 3].uint
+              b = params[i + 4].uint
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if param == 38:
               iw.setForegroundColor(tb, value[0], false, (r, g, b))
