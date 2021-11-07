@@ -1,5 +1,4 @@
 const
-  version* = "0.7.0"
   sleepMsecs* = 10
   hintSecs* = 5
   undoDelay* = 0.5

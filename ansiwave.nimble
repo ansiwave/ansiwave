@@ -14,7 +14,7 @@ task dev, "Run dev version":
   exec "nimble -d:release run ansiwave tests/variables.ansiwave"
 
 task bbs, "Run bbs test":
-  exec "nimble run ansiwave --bbstest"
+  exec "nimble run ansiwave"
 
 # Dependencies
 

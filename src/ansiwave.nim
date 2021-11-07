@@ -180,69 +180,6 @@ proc saveEditor(session: var auto, opts: editor.Options) =
     except Exception as ex:
       exitClean(ex)
 
-proc renderHome(opts: var editor.Options) =
-  var fname = ""
-  const
-    homeText = strutils.splitLines(staticRead("ansiwavepkg/assets/home.ansiwave"))
-    firstText = "Greetings, user. Give me a file name:"
-    ext = ".ansiwave"
-  while true:
-    let
-      width = iw.terminalWidth()
-      height = iw.terminalHeight()
-      x = max(0, int(width/2 - editorWidth/2))
-    var
-      tb = iw.newTerminalBuffer(width, height)
-      y = 0
-    for line in homeText:
-      iw.write(tb, x, y, line)
-      y.inc
-    codes.write(tb, max(0, int(width/2 - firstText.runeLen/2)), y-2, "\e[3m" & firstText & "\e[0m")
-    # process input
-    let key = iw.getKey()
-    if key != iw.Key.None:
-      if key == iw.Key.Backspace:
-        if fname != "":
-          let fnameRunes = fname.toRunes
-          fname = $fnameRunes[0 ..< fnameRunes.len - 1]
-      elif key == iw.Key.Enter:
-        if fname != "":
-          opts.input = fname & ext
-          break
-      else:
-        let code = key.ord
-        if code < 32:
-          continue
-        let ch =
-          try:
-            char(code)
-          except:
-            continue
-        fname &= $ch
-    # write file name and cursor
-    let cursorX = max(0, int(width/2))
-    if fname != "":
-      let
-        fnameRunes = fname.toRunes
-        fnameX = int(width/2) - fnameRunes.len
-        fnameTruncated = if fnameX < 0: $fnameRunes[abs(fnameX) ..< fnameRunes.len] else : fname
-      iw.write(tb, max(0, fnameX), y, fnameTruncated)
-      iw.write(tb, cursorX, y, ext)
-    editor.setCursor(tb, cursorX, y)
-    # write text indicating if file exists
-    let existsText =
-      if fname == "":
-        ""
-      elif os.fileExists(fname & ext):
-        "File exists. Press Enter to open it."
-      else:
-        "File doesn't exist. Press Enter to create it."
-    codes.write(tb, max(0, int(width/2 - existsText.runeLen/2)), y+2, "\e[3m" & existsText & "\e[0m")
-    iw.write(tb, 0, height-1, "Version " & version)
-    # display and sleep
-    iw.display(tb)
-    os.sleep(sleepMsecs)
-
 proc main*() =
   terminal.enableTrueColors()
   # parse options
@@ -256,13 +193,10 @@ proc main*() =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
-  if opts.args.hasKey("bbstest"):
-    bbs.renderBBS()
   # render home if no args are passed
   if opts.input == "":
-    renderHome(opts)
-  if opts.input == "":
-    exitClean("No file or link to open")
+    bbs.renderBBS()
+    return
   # enter the main render loop
   var session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight())
   var tickCount = 0
