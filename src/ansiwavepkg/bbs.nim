@@ -176,6 +176,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     searchAction = proc () {.closure.} =
       discard
+    copyAction = proc () {.closure.} =
+      discard
   if finishedLoading:
     session.insert(page.id, View, view)
   # if there is any input, find the associated action
@@ -258,7 +260,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
-    navbar.render(result, 0, 0, input, [(" ← ", backAction), (" ⟳ ", refreshAction), (" / Search ", searchAction)], when defined(emscripten): "" else: " Copy Link ", proc () = discard)
+    var buttons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" / Search ", searchAction)]
+    when not defined(emscripten):
+      buttons.add((" Copy Link ", copyAction))
+    navbar.render(result, 0, 0, input, buttons, "", nil)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
