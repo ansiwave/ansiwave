@@ -43,11 +43,16 @@ proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
   var x = pageX
   x = renderButton(tb, " ← ", x, pageY, input.key, proc () = discard)
-  x = renderButton(tb, " → ", x, pageY, input.key, proc () = discard)
-  discard renderButton(tb, rightButtonText, constants.editorWidth - rightButtonText.runeLen, pageY, input.key, rightButtonAction)
+  if rightButtonText != "":
+    discard renderButton(tb, rightButtonText, constants.editorWidth - rightButtonText.runeLen, pageY, input.key, rightButtonAction)
+  let rightButtonWidth =
+    if rightButtonText != "":
+      rightButtonText.runeLen + 2
+    else:
+      0
   if showSearch:
     let
-      searchWidth = constants.editorWidth - x - rightButtonText.runeLen - 1
+      searchWidth = constants.editorWidth - x - rightButtonWidth + 1
       searchText = " Press / to search "
     renderTextField(tb, searchText, x, pageY, searchWidth, input.key, proc () = discard)
 
