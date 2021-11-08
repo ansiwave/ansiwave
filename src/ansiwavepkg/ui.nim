@@ -14,7 +14,7 @@ from ./ui/navbar import nil
 type
   ComponentKind* = enum
     Post, Editor,
-  Component* = object
+  Component* = ref object
     case kind*: ComponentKind
     of Post:
       post: client.ChannelValue[client.Response]
@@ -22,6 +22,7 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
+    refresh*: proc ()
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -31,14 +32,19 @@ const
   ansiwavesDir = "ansiwaves"
 
 proc initPost*(c: client.Client, id: int): Component =
-  result = Component(kind: Post)
-  result.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
-  result.postId = id
-  result.replies = client.queryPostChildren(c, dbFilename, id)
+  var comp = Component(kind: Post)
+  comp.postId = id
+  comp.refresh = proc () =
+    comp.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
+    comp.replies = client.queryPostChildren(c, dbFilename, id)
+  comp.refresh()
+  comp
 
 proc initEditor*(id: int, width: int, height: int): Component =
   result = Component(kind: Editor)
   result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
+  result.refresh = proc () =
+    discard
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -60,7 +66,7 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
   for post in posts:
     result.elems.add(toJson(post))
 
-proc toJson*(comp: var Component, finishedLoading: var bool): JsonNode =
+proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
     client.get(comp.post)
@@ -134,7 +140,7 @@ proc toHtml(node: JsonNode): string =
   else:
     raise newException(Exception, "Unhandled JSON type")
 
-proc toHtml*(comp: var Component): string =
+proc toHtml*(comp: Component): string =
   var finishedLoading = false
   comp.toJson(finishedLoading).toHtml
 

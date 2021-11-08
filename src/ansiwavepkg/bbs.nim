@@ -22,11 +22,11 @@ type
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
-  ComponentRef = ref ui.Component
+  Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
     id: int
-    data: ComponentRef
+    data: Component
     focusIndex: int
     scrollY: int
     view: JsonNode
@@ -40,7 +40,7 @@ schema Fact(Id, Attr):
   AllPages: PageTable
   PageBreadcrumbs: PageBreadcrumbsType
   PageBreadcrumbsIndex: int
-  ComponentData: ComponentRef
+  ComponentData: Component
   FocusIndex: int
   ScrollY: int
   View: JsonNode
@@ -89,10 +89,7 @@ proc goToPage(session: var auto, id: int) =
   session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
 
 proc insertPage(session: var auto, comp: ui.Component, id: int) =
-  var compRef: ComponentRef
-  new compRef
-  compRef[] = comp
-  session.insert(id, ComponentData, compRef)
+  session.insert(id, ComponentData, comp)
   session.insert(id, FocusIndex, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, View, cast[JsonNode](nil))
@@ -112,7 +109,7 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initPost(c, 1), 1)
   result.fireRules
 
-proc handleAction(session: var auto, clnt: client.Client, comp: var ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
+proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-replies":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
@@ -149,10 +146,10 @@ proc renderHtml*(session: auto): string =
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
-  ui.toHtml(page.data[])
+  ui.toHtml(page.data)
 
 proc isEditor(page: Page): bool =
-  page.data[].kind == ui.Editor
+  page.data.kind == ui.Editor
 
 proc isEditor*(session: auto): bool =
   let
@@ -166,14 +163,14 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
     maxScroll = max(1, int(height / 5))
-    view = ui.toJson(page.data[], finishedLoading)
+    view = ui.toJson(page.data, finishedLoading)
   var sess = session
   let
     backAction = proc () {.closure.} =
       if globals.breadcrumbsIndex > 0:
         sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
     refreshAction = proc () {.closure.} =
-      discard
+        page.data.refresh()
     searchAction = proc () {.closure.} =
       discard
     copyAction = proc () {.closure.} =
@@ -202,7 +199,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       let area = page.viewFocusAreas[page.focusIndex]
       action = (area.action, area.actionData)
   # handle the action
-  if not handleAction(session, clnt, page.data[], width, height, input, action.actionName, action.actionData):
+  if not handleAction(session, clnt, page.data, width, height, input, action.actionName, action.actionData):
     case input.key:
     of iw.Key.Up:
       if page.focusIndex > 0:
@@ -253,10 +250,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
     result = iw.newTerminalBuffer(width, height)
-    editor.tick(page.data[].session,result,  0, navbar.height, width, height - navbar.height, input)
+    editor.tick(page.data.session,result,  0, navbar.height, width, height - navbar.height, input)
     ui.render(result, view, 0, y, focusIndex, areas)
     navbar.render(result, 0, 0, input, [(" ← ", backAction)], " Send ", proc () = discard)
-    page.data[].session.fireRules
+    page.data.session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
