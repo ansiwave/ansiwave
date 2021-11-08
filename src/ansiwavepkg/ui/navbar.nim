@@ -7,24 +7,47 @@ const height* = 3
 
 proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
   result = x + text.runeLen + 1
-  iw.drawRect(tb, x, y, result, y + height - 1, doubleStyle = false)
+  let endY = y + height - 1
+  iw.drawRect(tb, x, y, result, endY, doubleStyle = false)
   iw.write(tb, x + 1, y + 1, text)
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.x >= x and
           info.x < result and
-          info.y == y:
+          info.y >= y and
+          info.y < endY:
         cb()
   elif key in shortcut.key:
     cb()
   result += 1
 
-proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32]) =
+proc renderTextField(tb: var iw.TerminalBuffer, text: string, x: int, y: int, width: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")) =
+  let
+    endX = x + width
+    endY = y + height - 1
+  iw.drawRect(tb, x, y, endX, endY, doubleStyle = false)
+  iw.write(tb, x + 1, y + 1, text)
+  if key == iw.Key.Mouse:
+    let info = iw.getMouse()
+    if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+      if info.x >= x and
+          info.x < endX and
+          info.y >= y and
+          info.y < endY:
+        cb()
+  elif key in shortcut.key:
+    cb()
+
+proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], rightButtonText: string, rightButtonAction: proc (), showSearch: bool = true) =
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
   var x = pageX
   x = renderButton(tb, " ← ", x, pageY, input.key, proc () = discard)
   x = renderButton(tb, " → ", x, pageY, input.key, proc () = discard)
-  let sendStr = " Send "
-  discard renderButton(tb, sendStr, constants.editorWidth - sendStr.runeLen, pageY, input.key, proc () = discard)
+  discard renderButton(tb, rightButtonText, constants.editorWidth - rightButtonText.runeLen, pageY, input.key, rightButtonAction)
+  if showSearch:
+    let
+      searchWidth = constants.editorWidth - x - rightButtonText.runeLen - 1
+      searchText = " Press / to search "
+    renderTextField(tb, searchText, x, pageY, searchWidth, input.key, proc () = discard)
 

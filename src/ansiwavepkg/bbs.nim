@@ -244,11 +244,13 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   if page.isEditor:
     result = iw.newTerminalBuffer(width, height)
     editor.tick(page.data[].session,result,  0, navbar.height, width, height - navbar.height, input)
+    ui.render(result, view, 0, y, focusIndex, areas)
+    navbar.render(result, 0, 0, input, " Send ", proc () = discard, showSearch = false)
     page.data[].session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
-  ui.render(result, view, 0, y, focusIndex, areas)
-  navbar.render(result, 0, 0, input)
+    ui.render(result, view, 0, y, focusIndex, areas)
+    navbar.render(result, 0, 0, input, " Copy Link ", proc () = discard, showSearch = true)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
