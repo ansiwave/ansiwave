@@ -39,10 +39,10 @@ proc renderTextField(tb: var iw.TerminalBuffer, text: string, x: int, y: int, wi
   elif key in shortcut.key:
     cb()
 
-proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], rightButtonText: string, rightButtonAction: proc (), showSearch: bool = true) =
+proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], backAction: proc(), rightButtonText: string, rightButtonAction: proc (), showSearch: bool = true) =
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
   var x = pageX
-  x = renderButton(tb, " ← ", x, pageY, input.key, proc () = discard)
+  x = renderButton(tb, " ← ", x, pageY, input.key, backAction)
   if rightButtonText != "":
     discard renderButton(tb, rightButtonText, constants.editorWidth - rightButtonText.runeLen, pageY, input.key, rightButtonAction)
   let rightButtonWidth =

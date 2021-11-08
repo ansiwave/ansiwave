@@ -167,6 +167,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     page = globals.pages[globals.selectedPage]
     maxScroll = max(1, int(height / 5))
     view = ui.toJson(page.data[], finishedLoading)
+  var sess = session
+  let backAction = proc () =
+    if globals.breadcrumbsIndex > 0:
+      sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   if finishedLoading:
     session.insert(page.id, View, view)
   # if there is any input, find the associated action
@@ -199,10 +203,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     of iw.Key.Down:
       focusIndex = page.focusIndex + 1
     of iw.Key.Left, iw.Key.Escape:
-      if globals.breadcrumbsIndex > 0:
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
-        # since we have changed the page, we need to rerun this function from the beginning
-        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+      backAction()
+      # since we have changed the page, we need to rerun this function from the beginning
+      return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
     else:
       discard
     # adjust focusIndex and scrollY based on viewFocusAreas
@@ -245,12 +248,12 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     result = iw.newTerminalBuffer(width, height)
     editor.tick(page.data[].session,result,  0, navbar.height, width, height - navbar.height, input)
     ui.render(result, view, 0, y, focusIndex, areas)
-    navbar.render(result, 0, 0, input, " Send ", proc () = discard, showSearch = false)
+    navbar.render(result, 0, 0, input, backAction, " Send ", proc () = discard, showSearch = false)
     page.data[].session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
-    navbar.render(result, 0, 0, input, when defined(emscripten): "" else: " Copy Link ", proc () = discard, showSearch = true)
+    navbar.render(result, 0, 0, input, backAction, when defined(emscripten): "" else: " Copy Link ", proc () = discard, showSearch = true)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
