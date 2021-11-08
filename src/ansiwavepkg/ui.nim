@@ -9,6 +9,7 @@ from wavecorepkg/client import nil
 from strutils import format
 from os import joinPath
 from ./ui/editor import nil
+from ./ui/navbar import nil
 
 type
   ComponentKind* = enum
@@ -37,7 +38,7 @@ proc initPost*(c: client.Client, id: int): Component =
 
 proc initEditor*(id: int, width: int, height: int): Component =
   result = Component(kind: Editor)
-  result.session = editor.init(editor.Options(bbsMode: true), width, height)
+  result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =

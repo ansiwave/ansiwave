@@ -201,7 +201,7 @@ proc main*() =
   var session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight())
   var tickCount = 0
   while true:
-    var tb = editor.tick(session, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
+    var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
     # save if necessary
     # don't render every tick because it's wasteful
     if tickCount mod 5 == 0:

@@ -4,6 +4,7 @@ from wavecorepkg/client import nil
 from os import nil
 from ./ui import nil
 from ./ui/editor import nil
+from ./ui/navbar import nil
 from ./constants import nil
 import pararules
 from pararules/engine import Session, Vars
@@ -215,8 +216,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       # only scroll maxScroll rows and update the focusIndex.
       case input.key:
       of iw.Key.Up:
-        if page.viewFocusAreas[focusIndex].top < page.scrollY:
-          scrollY = page.viewFocusAreas[focusIndex].top
+        if page.viewFocusAreas[focusIndex].top < page.scrollY + navbar.height:
+          scrollY = page.viewFocusAreas[focusIndex].top - navbar.height
           let limit = page.scrollY - maxScroll
           if scrollY < limit:
             scrollY = limit
@@ -238,14 +239,16 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         discard
   # render
   var
-    y = - scrollY
+    y = - scrollY + navbar.height
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
-    result = editor.tick(page.data[].session, width, height, input)
+    result = iw.newTerminalBuffer(width, height)
+    editor.tick(page.data[].session,result,  0, navbar.height, width, height - navbar.height, input)
     page.data[].session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
   ui.render(result, view, 0, y, focusIndex, areas)
+  navbar.render(result, 0, 0, input)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
