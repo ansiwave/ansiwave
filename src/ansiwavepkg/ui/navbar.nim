@@ -22,12 +22,11 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
     cb()
   result += 1
 
-proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], backAction: proc(), rightButtonText: string, rightButtonAction: proc (), showSearch: bool = true) =
+proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], rightButtonText: string, rightButtonAction: proc ()) =
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
   var x = pageX
-  x = renderButton(tb, " ← ", x, pageY, input.key, backAction)
-  if showSearch:
-    x = renderButton(tb, " / Search ", x, pageY, input.key, proc () = discard)
+  for (text, cb) in leftButtons:
+    x = renderButton(tb, text, x, pageY, input.key, cb)
   if rightButtonText != "":
     discard renderButton(tb, rightButtonText, max(x, constants.editorWidth - rightButtonText.runeLen), pageY, input.key, rightButtonAction)
 
