@@ -257,7 +257,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
-    var buttons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" / Search ", searchAction)]
+    var buttons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
     when not defined(emscripten):
       buttons.add((" Copy Link ", copyAction))
     navbar.render(result, 0, 0, input, buttons, "", nil)
