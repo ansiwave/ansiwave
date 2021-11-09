@@ -175,6 +175,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     copyAction = proc () {.closure.} =
       discard
+    sendAction = proc () {.closure.} =
+      discard
+    logInAction = proc () {.closure.} =
+      discard
   if finishedLoading:
     session.insert(page.id, View, view)
   # if there is any input, find the associated action
@@ -252,7 +256,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     result = iw.newTerminalBuffer(width, height)
     editor.tick(page.data.session,result,  0, navbar.height, width, height - navbar.height, input)
     ui.render(result, view, 0, y, focusIndex, areas)
-    navbar.render(result, 0, 0, input, [(" ← ", backAction)], " Send ", proc () = discard)
+    navbar.render(result, 0, 0, input, [(" ← ", backAction)], [(" Send ", sendAction)])
     page.data.session.fireRules
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
@@ -260,7 +264,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var buttons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
     when not defined(emscripten):
       buttons.add((" Copy Link ", copyAction))
-    navbar.render(result, 0, 0, input, buttons, "", nil)
+    navbar.render(result, 0, 0, input, buttons, [(" Log in ", logInAction)])
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
