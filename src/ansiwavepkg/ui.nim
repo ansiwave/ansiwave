@@ -22,7 +22,6 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
-    refresh*: proc ()
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -31,20 +30,22 @@ const
   dbPath = staticFileDir.joinPath(dbFilename)
   ansiwavesDir = "ansiwaves"
 
-proc initPost*(c: client.Client, id: int): Component =
-  var comp = Component(kind: Post)
-  comp.postId = id
-  comp.refresh = proc () =
-    comp.post = client.query(c, ansiwavesDir.joinPath($id & ".ansiwavez"))
-    comp.replies = client.queryPostChildren(c, dbFilename, id)
-  comp.refresh()
-  comp
+proc refresh*(clnt: client.Client, comp: Component) =
+  case comp.kind:
+  of Post:
+    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postId & ".ansiwavez"))
+    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postId)
+  of Editor:
+    discard
+
+proc initPost*(clnt: client.Client, id: int): Component =
+  result = Component(kind: Post)
+  result.postId = id
+  refresh(clnt, result)
 
 proc initEditor*(id: int, width: int, height: int): Component =
   result = Component(kind: Editor)
   result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
-  result.refresh = proc () =
-    discard
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =

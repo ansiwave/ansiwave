@@ -170,7 +170,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if globals.breadcrumbsIndex > 0:
         sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
     refreshAction = proc () {.closure.} =
-        page.data.refresh()
+        ui.refresh(clnt, page.data)
     searchAction = proc () {.closure.} =
       discard
     copyAction = proc () {.closure.} =
