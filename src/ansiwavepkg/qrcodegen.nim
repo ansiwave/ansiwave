@@ -54,7 +54,7 @@ const qrcodegen_BUFFER_LEN_MAX* = 3918
 
 proc qrcodegen_encodeText*(text: cstring; tempBuffer: pointer;
                            qrcode: pointer; ecl: qrcodegen_Ecc; minVersion: cint;
-                           maxVersion: cint; mask: qrcodegen_Mask; boostEcl: cint): cint {.importc.}
+                           maxVersion: cint; mask: qrcodegen_Mask; boostEcl: bool): bool {.importc.}
 
 ##
 ##  Returns the side length of the given QR Code, assuming that encoding succeeded.

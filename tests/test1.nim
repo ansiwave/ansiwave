@@ -99,7 +99,7 @@ test "qrcode":
   const text = "Hello, world!"
   var qrcode: array[qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen_BUFFER_LEN_MAX, uint8]
-  check 1 == qrcodegen_encodeText(text, tempBuffer.addr, qrcode.addr, qrcodegen_Ecc_LOW,
-    qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, 1);
+  check qrcodegen_encodeText(text, tempBuffer.addr, qrcode.addr, qrcodegen_Ecc_LOW,
+                             qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
   printQr(qrcode.addr)
 
