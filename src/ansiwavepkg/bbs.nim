@@ -141,9 +141,11 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
-    crypto.createUser()
-    let globals = session.query(rules.getGlobals)
-    session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    if result:
+      crypto.createUser()
+      let globals = session.query(rules.getGlobals)
+      session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   else:
     discard
 

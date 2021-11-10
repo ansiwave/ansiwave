@@ -117,7 +117,8 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = true
     %*[
       "",
-      "If you don't have an account, create one:",
+      "If you don't have an account, create one by downloading your key.",
+      "You will need this to login later so keep it somewhere safe:",
       {
         "type": "button",
         "text":
@@ -131,7 +132,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       },
       "",
       when defined(emscripten):
-        [
+        %* [
           "If you already have an account, add your key:",
           {
             "type": "button",
@@ -141,7 +142,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           },
         ]
       else:
-        [
+        %* [
           "If you already have an account, exit this program",
           "and run the following in your terminal:",
           "",
