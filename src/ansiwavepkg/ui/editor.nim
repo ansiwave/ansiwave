@@ -869,8 +869,8 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
           info.y >= termY + buffer.y and
           info.y <= termY + buffer.y + buffer.height:
         if buffer.mode == 0:
-            session.insert(buffer.id, CursorX, info.x - (buffer.x + 1 - buffer.scrollX))
-            session.insert(buffer.id, CursorY, info.y - (buffer.y + 1 - buffer.scrollY))
+            session.insert(buffer.id, CursorX, info.x - (termX + buffer.x + 1 - buffer.scrollX))
+            session.insert(buffer.id, CursorY, info.y - (termY + buffer.y + 1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
             x = info.x - termX - buffer.x - 1 + buffer.scrollX
@@ -911,12 +911,12 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   if buffer.mode == 0 or buffer.prompt == StopPlaying:
     setCursor(tb, col, row)
   var
-    xBlock = tb[col, buffer.y]
-    yBlock = tb[buffer.x, row]
+    xBlock = tb[col, termY + buffer.y]
+    yBlock = tb[termX + buffer.x, row]
   xBlock.fg = iw.fgYellow
   yBlock.fg = iw.fgYellow
-  tb[col, buffer.y] = xBlock
-  tb[buffer.x, row] = yBlock
+  tb[col, termY + buffer.y] = xBlock
+  tb[termX + buffer.x, row] = yBlock
 
   var prompt = ""
   case buffer.prompt:
