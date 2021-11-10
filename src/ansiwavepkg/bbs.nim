@@ -10,6 +10,7 @@ import pararules
 from pararules/engine import Session, Vars
 from json import JsonNode
 import tables
+from ./crypto import nil
 
 const
   port = 3000
@@ -139,6 +140,10 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
           session.insertPage(ui.initEditor(id, width, height), id)
   of "edit":
     result = input.key notin {iw.Key.Escape}
+  of "create-user":
+    crypto.createUser()
+    let globals = session.query(rules.getGlobals)
+    session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   else:
     discard
 
@@ -177,7 +182,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       discard
-    logInAction = proc () {.closure.} =
+    loginAction = proc () {.closure.} =
+      sess.insertPage(ui.initLogin(), 0)
+    myAccountAction = proc () {.closure.} =
       discard
   if finishedLoading:
     session.insert(page.id, View, view)
@@ -261,10 +268,15 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
-    var buttons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
+    var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
     when not defined(emscripten):
-      buttons.add((" Copy Link ", copyAction))
-    navbar.render(result, 0, 0, input, buttons, [(" Log in ", logInAction)])
+      leftButtons.add((" Copy Link ", copyAction))
+    let loginButton =
+      if not os.fileExists(crypto.loginKeyPath):
+        (" Login ", loginAction)
+      else:
+        (" My Account ", myAccountAction)
+    navbar.render(result, 0, 0, input, leftButtons, [loginButton])
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)

@@ -13,7 +13,7 @@ from ./ui/navbar import nil
 
 type
   ComponentKind* = enum
-    Post, Editor,
+    Post, Editor, Login,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
@@ -22,6 +22,8 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
+    of Login:
+      discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -35,7 +37,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Post:
     comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postId & ".ansiwavez"))
     comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postId)
-  of Editor:
+  of Editor, Login:
     discard
 
 proc initPost*(clnt: client.Client, id: int): Component =
@@ -46,6 +48,9 @@ proc initPost*(clnt: client.Client, id: int): Component =
 proc initEditor*(id: int, width: int, height: int): Component =
   result = Component(kind: Editor)
   result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
+
+proc initLogin*(): Component =
+  Component(kind: Login)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -108,6 +113,44 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "action": "edit",
       "action-data": {},
     }
+  of Login:
+    finishedLoading = true
+    %*[
+      "",
+      "If you don't have an account, create one:",
+      {
+        "type": "button",
+        "text":
+          when defined(emscripten):
+            "Download login key"
+          else:
+            "Create account"
+        ,
+        "action": "create-user",
+        "action-data": {},
+      },
+      "",
+      when defined(emscripten):
+        [
+          "If you already have an account, add your key:",
+          {
+            "type": "button",
+            "text": "Add existing login key",
+            "action": "add-user",
+            "action-data": {},
+          },
+        ]
+      else:
+        [
+          "If you already have an account, exit this program",
+          "and run the following in your terminal:",
+          "",
+          "ansiwave path/to/login-key.png",
+          "",
+          "Then, launch ansiwave again and you will be logged in.",
+        ]
+      ,
+    ]
 
 proc toHtml(node: JsonNode): string
 
