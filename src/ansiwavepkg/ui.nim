@@ -60,7 +60,7 @@ proc toJson*(post: entities.Post): JsonNode =
       $post.reply_count & " replies"
   %*{
     "type": "rect",
-    "children": strutils.splitLines(post.body.uncompressed),
+    "children": strutils.splitLines(post.content.uncompressed),
     "top-right": replies,
     "action": "show-replies",
     "action-data": {"id": post.id},
