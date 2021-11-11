@@ -142,12 +142,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         ]
       else:
         %* [
-          "If you already have an account, exit this program",
-          "and run the following in your terminal:",
+          "If you already have an account, copy your login key",
+          "into the config directory:",
           "",
-          "ansiwave path/to/login-key.png",
+          "cp path/to/login-key.png ~/.config/ansiwave/.",
           "",
-          "Then, launch ansiwave again and you will be logged in.",
+          "Then, rerun ansiwave and you will be logged in.",
         ]
       ,
     ]
