@@ -21,26 +21,28 @@ type
     Global,
   Attr* = enum
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
-    ComponentData, FocusIndex, ScrollY,
+    Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewHeight, ViewFocusAreas,
   Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
     id: int
+    sig: string
     data: Component
     focusIndex: int
     scrollY: int
     view: JsonNode
     viewHeight: int
     viewFocusAreas: ViewFocusAreaSeq
-  PageTable = ref Table[int, Page]
-  PageBreadcrumbsType = seq[int]
+  PageTable = ref Table[string, Page]
+  PageBreadcrumbsType = seq[string]
 
 schema Fact(Id, Attr):
-  SelectedPage: int
+  SelectedPage: string
   AllPages: PageTable
   PageBreadcrumbs: PageBreadcrumbsType
   PageBreadcrumbsIndex: int
+  Signature: string
   ComponentData: Component
   FocusIndex: int
   ScrollY: int
@@ -67,6 +69,7 @@ let rules =
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
     rule getPage(Fact):
       what:
+        (id, Signature, sig)
         (id, ComponentData, data)
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
@@ -77,37 +80,41 @@ let rules =
         var t: PageTable
         new t
         for page in session.queryAll(this):
-          t[page.id] = page
+          t[page.sig] = page
         session.insert(Global, AllPages, t)
 
-proc goToPage(session: var auto, id: int) =
-  var globals = session.query(rules.getGlobals)
+proc goToPage(session: var auto, sig: string) =
+  let globals = session.query(rules.getGlobals)
   var breadcrumbs = globals.breadcrumbs
   if globals.breadcrumbsIndex < breadcrumbs.len - 1:
     breadcrumbs = breadcrumbs[0 .. globals.breadcrumbsIndex]
-  breadcrumbs.add(id)
+  breadcrumbs.add(sig)
   session.insert(Global, PageBreadcrumbs, breadcrumbs)
   session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
 
-proc insertPage(session: var auto, comp: ui.Component, id: int) =
-  session.insert(id, ComponentData, comp)
-  session.insert(id, FocusIndex, 0)
-  session.insert(id, ScrollY, 0)
-  session.insert(id, View, cast[JsonNode](nil))
-  session.insert(id, ViewHeight, 0)
-  session.insert(id, ViewFocusAreas, @[])
-  session.goToPage(id)
+var nextPageId = Id.high.ord + 1
+
+proc insertPage(session: var auto, comp: ui.Component, sig: string) =
+  session.insert(nextPageId, Signature, sig)
+  session.insert(nextPageId, ComponentData, comp)
+  session.insert(nextPageId, FocusIndex, 0)
+  session.insert(nextPageId, ScrollY, 0)
+  session.insert(nextPageId, View, cast[JsonNode](nil))
+  session.insert(nextPageId, ViewHeight, 0)
+  session.insert(nextPageId, ViewFocusAreas, @[])
+  nextPageId += 1
+  session.goToPage(sig)
 
 proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  result.insert(Global, SelectedPage, -1)
+  result.insert(Global, SelectedPage, "")
   result.insert(Global, AllPages, cast[PageTable](nil))
   let breadcrumbs: PageBreadcrumbsType = @[]
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
-  result.insertPage(ui.initPost(c, 1), 1)
+  result.insertPage(ui.initPost(c, "root"), "root")
   result.fireRules
 
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
@@ -116,28 +123,28 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
       let
-        id = actionData["id"].num.int
+        sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
-      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
+      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == sig:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
       else:
-        if globals.pages.hasKey(id):
-          session.goToPage(id)
+        if globals.pages.hasKey(sig):
+          session.goToPage(sig)
         else:
-          session.insertPage(ui.initPost(clnt, id), id)
+          session.insertPage(ui.initPost(clnt, sig), sig)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
       let
-        id = actionData["id"].num.int
+        sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
-      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == id:
+      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == sig:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
       else:
-        if globals.pages.hasKey(id):
-          session.goToPage(id)
+        if globals.pages.hasKey(sig):
+          session.goToPage(sig)
         else:
-          session.insertPage(ui.initEditor(id, width, height), id)
+          session.insertPage(ui.initEditor(width, height), sig)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
@@ -185,7 +192,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     sendAction = proc () {.closure.} =
       discard
     loginAction = proc () {.closure.} =
-      sess.insertPage(ui.initLogin(), 0)
+      sess.insertPage(ui.initLogin(), "login")
     myAccountAction = proc () {.closure.} =
       discard
   if finishedLoading:

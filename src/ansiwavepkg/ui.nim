@@ -18,7 +18,7 @@ type
     case kind*: ComponentKind
     of Post:
       post: client.ChannelValue[client.Response]
-      postId: int
+      postSig: string
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
@@ -35,17 +35,16 @@ const
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postId & ".ansiwavez"))
-    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postId)
+    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postSig & ".ansiwavez"))
+    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postSig)
   of Editor, Login:
     discard
 
-proc initPost*(clnt: client.Client, id: int): Component =
-  result = Component(kind: Post)
-  result.postId = id
+proc initPost*(clnt: client.Client, sig: string): Component =
+  result = Component(kind: Post, postSig: sig)
   refresh(clnt, result)
 
-proc initEditor*(id: int, width: int, height: int): Component =
+proc initEditor*(width: int, height: int): Component =
   result = Component(kind: Editor)
   result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
 
@@ -60,10 +59,10 @@ proc toJson*(post: entities.Post): JsonNode =
       $post.reply_count & " replies"
   %*{
     "type": "rect",
-    "children": strutils.splitLines(post.content.uncompressed),
+    "children": strutils.splitLines(post.content.value.uncompressed),
     "top-right": replies,
     "action": "show-replies",
-    "action-data": {"id": post.id},
+    "action-data": {"sig": post.content.sig.base58},
     "action-accessible-text": replies,
   }
 
@@ -93,7 +92,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text": "Write a post",
         "action": "show-editor",
-        "action-data": {"id": -comp.postId},
+        "action-data": {"sig": comp.postSig & "/edit"},
       },
       "", # spacer
       if not comp.replies.ready:
