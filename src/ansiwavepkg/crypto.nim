@@ -2,9 +2,12 @@ from stb_image/write as stbiw import nil
 from ./qrcodegen import nil
 from wavecorepkg/ed25519 import nil
 from wavecorepkg/base58 import nil
+from os import `/`
 
 const
-  loginKeyPath* = "login-key.png"
+  loginKeyDir = "~" / ".cache" / "ansiwave"
+  loginKeyName = "login-key.png"
+  loginKeyPath = loginKeyDir / loginKeyName
 
 proc createUser*() =
   let
@@ -37,4 +40,16 @@ proc createUser*() =
       data.add(if fill: 0 else: 255)
       data.add(255)
 
-  stbiw.writePNG(loginKeyPath, width, height, 4, data)
+  when defined(emscripten):
+    let png = stbiw.writePNG(width, height, 4, data)
+    echo png
+  else:
+    os.createDir(os.expandTilde(loginKeyDir))
+    stbiw.writePNG(os.expandTilde(loginKeyPath), width, height, 4, data)
+
+proc keyExists*(): bool =
+  when defined(emscripten):
+    false
+  else:
+    os.fileExists(os.expandTilde(loginKeyPath))
+
