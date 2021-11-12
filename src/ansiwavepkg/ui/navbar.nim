@@ -14,9 +14,9 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.x >= x and
-          info.x < result and
+          info.x <= result and
           info.y >= y and
-          info.y < endY:
+          info.y <= endY:
         cb()
   elif key in shortcut.key:
     cb()
