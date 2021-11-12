@@ -2,30 +2,21 @@ from stb_image/write as stbiw import nil
 from ./qrcodegen import nil
 from wavecorepkg/ed25519 import nil
 from wavecorepkg/base58 import nil
-from os import `/`
+from ./storage import nil
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
   from base64 import nil
 
-const
-  loginKeyDir = "~" / ".cache" / "ansiwave"
-  loginKeyName = "login-key.png"
-  loginKeyPath = loginKeyDir / loginKeyName
+const loginKeyName = "login-key.png"
 
 var
   keyPair: ed25519.KeyPair
   keyExists* = false
 
 proc loadKey*() =
-  when defined(emscripten):
-    # TODO: read file from localstorage / indexeddb
-    discard
-  else:
-    let path = os.expandTilde(loginKeyPath)
-    if os.fileExists(path):
-      # TODO: read file from path
-      discard
+  let val = storage.get(loginKeyName)
+  # TODO: parse image to get key
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
@@ -59,13 +50,10 @@ proc createUser*() =
       data.add(if fill: 0 else: 255)
       data.add(255)
 
+  let png = stbiw.writePNG(width, height, 4, data)
+  discard storage.set(loginKeyName, png, isBinary = true)
+
   when defined(emscripten):
-    let
-      png = stbiw.writePNG(width, height, 4, data)
-      b64 = base64.encode(png)
-    # TODO: save to localstorage / indexeddb
+    let b64 = base64.encode(png)
     emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
-  else:
-    os.createDir(os.expandTilde(loginKeyDir))
-    stbiw.writePNG(os.expandTilde(loginKeyPath), width, height, 4, data)
 
