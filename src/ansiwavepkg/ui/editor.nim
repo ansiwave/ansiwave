@@ -1091,7 +1091,7 @@ when defined(emscripten):
 
   proc browseImage(session: var EditorSession, buffer: tuple) =
     currentSession = session
-    emscripten.browseFile("#file", "insertImage")
+    emscripten.browseFile("insertImage")
 
   proc free(p: pointer) {.importc.}
 

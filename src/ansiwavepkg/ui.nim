@@ -172,7 +172,7 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
   of "button":
     result &= "<button>" & node["text"].str & "</button>"
   of "editor":
-    result &= "<div>Editor not supported in HTML version for now <input type='file' id='file' /></div>"
+    result &= "<div>Editor not supported in HTML version for now</div>"
   else:
     discard
 
