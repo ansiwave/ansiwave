@@ -281,7 +281,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     when not defined(emscripten):
       leftButtons.add((" Copy Link ", copyAction))
     let loginButton =
-      if not crypto.keyExists():
+      if not crypto.keyExists:
         (" Login ", loginAction)
       else:
         (" My Account ", myAccountAction)

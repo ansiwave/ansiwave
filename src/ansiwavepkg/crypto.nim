@@ -13,10 +13,25 @@ const
   loginKeyName = "login-key.png"
   loginKeyPath = loginKeyDir / loginKeyName
 
+var
+  keyPair: ed25519.KeyPair
+  keyExists* = false
+
+proc loadKey*() =
+  when defined(emscripten):
+    # TODO: read file from localstorage / indexeddb
+    discard
+  else:
+    let path = os.expandTilde(loginKeyPath)
+    if os.fileExists(path):
+      # TODO: read file from path
+      discard
+
 proc createUser*() =
-  let
-    pair = ed25519.initKeyPair()
-    text = base58.encode(pair.private)
+  keyPair = ed25519.initKeyPair()
+  keyExists = true
+
+  let text = base58.encode(keyPair.private)
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
@@ -48,14 +63,9 @@ proc createUser*() =
     let
       png = stbiw.writePNG(width, height, 4, data)
       b64 = base64.encode(png)
+    # TODO: save to localstorage / indexeddb
     emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
   else:
     os.createDir(os.expandTilde(loginKeyDir))
     stbiw.writePNG(os.expandTilde(loginKeyPath), width, height, 4, data)
-
-proc keyExists*(): bool =
-  when defined(emscripten):
-    false
-  else:
-    os.fileExists(os.expandTilde(loginKeyPath))
 
