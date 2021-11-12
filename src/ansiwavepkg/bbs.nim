@@ -301,6 +301,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc renderBBS*() =
+  crypto.loadKey()
+
   vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
   vfs.register()
   var clnt = client.initClient(address)

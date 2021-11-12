@@ -3,10 +3,69 @@ from ./qrcodegen import nil
 from wavecorepkg/ed25519 import nil
 from wavecorepkg/base58 import nil
 from ./storage import nil
+import json
+import stb_image/read as stbi
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
   from base64 import nil
+
+import bitops
+
+proc stego*(image: var seq[uint8], message: string) =
+  var bits: seq[bool]
+
+  # for now, we only store in the least significant bit
+  # but maybe later it would be nice to use more
+  const sigbits = 0'u8
+  for i in 0 ..< 8:
+    bits.add(sigbits.rotateRightBits(i).bitand(1) == 1)
+
+  let length = message.len.uint32
+  for i in 0 ..< 32:
+    bits.add(length.rotateRightBits(i).bitand(1) == 1)
+
+  for ch in message:
+    for i in 0 ..< 8:
+      bits.add(ch.uint8.rotateRightBits(i).bitand(1) == 1)
+
+  for i in 0 ..< bits.len:
+    if bits[i]:
+      image[i].setBit(0)
+    else:
+      image[i].clearBit(0)
+
+proc destego*(image: seq[uint8]): string =
+  var pos = 0
+
+  var sigbits: uint8
+  for i in 0 ..< 8:
+    if image[pos + i].bitand(1) == 1:
+      sigbits.setBit(i)
+    else:
+      sigbits.clearBit(i)
+  pos += 8
+
+  if sigbits != 0:
+    return ""
+
+  var length: uint32
+  for i in 0 ..< 32:
+    if image[pos + i].bitand(1) == 1:
+      length.setBit(i)
+    else:
+      length.clearBit(i)
+  pos += 32
+
+  for _ in 0 ..< length:
+    var ch: uint8
+    for i in 0 ..< 8:
+      if image[pos + i].bitand(1) == 1:
+        ch.setBit(i)
+      else:
+        ch.clearBit(i)
+    result &= ch.char
+    pos += 8
 
 const loginKeyName = "login-key.png"
 
@@ -15,18 +74,31 @@ var
   keyExists* = false
 
 proc loadKey*() =
-  let val = storage.get(loginKeyName)
-  # TODO: parse image to get key
+  let val = storage.get(loginKeyName, isBinary = true)
+  var width, height, channels: int
+  let
+    data = stbi.loadFromMemory(cast[seq[uint8]](val), width, height, channels, stbi.RGBA)
+    json = destego(data)
+  if json != "":
+    try:
+      let
+        obj = parseJson(json)
+        privkey = base58.decode(obj["private-key"].str)
+      doAssert privkey.len == keyPair.private.len
+      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privkey[0]))
+      keyExists = true
+    except Exception as ex:
+      discard
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
   keyExists = true
 
-  let text = base58.encode(keyPair.private)
+  let privateKey = base58.encode(keyPair.private)
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
-  if not qrcodegen.qrcodegen_encodeText(text, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
+  if not qrcodegen.qrcodegen_encodeText(privateKey, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
                                         qrcodegen.qrcodegen_VERSION_MIN, qrcodegen.qrcodegen_VERSION_MAX,
                                         qrcodegen.qrcodegen_Mask_AUTO, true):
     return
@@ -49,6 +121,8 @@ proc createUser*() =
       data.add(if fill: 0 else: 255)
       data.add(if fill: 0 else: 255)
       data.add(255)
+
+  stego(data, $ %* {"private-key": privateKey, "algo": "ed25519"})
 
   let png = stbiw.writePNG(width, height, 4, data)
   discard storage.set(loginKeyName, png, isBinary = true)

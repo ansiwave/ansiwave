@@ -86,8 +86,9 @@ test "remove pointless clears":
 
 from ./ansiwavepkg/chafa import nil
 
+const img = staticRead("aintgottaexplainshit.jpg")
+
 test "convert image to ansi art":
-  const img = staticRead("aintgottaexplainshit.jpg")
   try:
     echo chafa.imageToAnsi(img, 80)
   except:
@@ -102,4 +103,14 @@ test "qrcode":
   check qrcodegen_encodeText(text, tempBuffer.addr, qrcode.addr, qrcodegen_Ecc_LOW,
                              qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
   printQr(qrcode.addr)
+
+from ./ansiwavepkg/crypto import nil
+import stb_image/read as stbi
+
+test "stego":
+  var width, height, channels: int
+  var data = stbi.loadFromMemory(cast[seq[uint8]](img), width, height, channels, stbi.RGBA)
+  const message = "Hello, world!"
+  crypto.stego(data, message)
+  check message == crypto.destego(data)
 
