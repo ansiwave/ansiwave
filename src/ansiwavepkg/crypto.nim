@@ -4,6 +4,10 @@ from wavecorepkg/ed25519 import nil
 from wavecorepkg/base58 import nil
 from os import `/`
 
+when defined(emscripten):
+  from wavecorepkg/client/emscripten import nil
+  from base64 import nil
+
 const
   loginKeyDir = "~" / ".cache" / "ansiwave"
   loginKeyName = "login-key.png"
@@ -41,8 +45,10 @@ proc createUser*() =
       data.add(255)
 
   when defined(emscripten):
-    let png = stbiw.writePNG(width, height, 4, data)
-    echo png
+    let
+      png = stbiw.writePNG(width, height, 4, data)
+      b64 = base64.encode(png)
+    emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
   else:
     os.createDir(os.expandTilde(loginKeyDir))
     stbiw.writePNG(os.expandTilde(loginKeyPath), width, height, 4, data)
