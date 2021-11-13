@@ -11,6 +11,7 @@ from os import joinPath
 from ./ui/editor import nil
 from ./ui/navbar import nil
 from ./crypto import nil
+from ./storage import nil
 
 type
   ComponentKind* = enum
@@ -162,9 +163,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %* [
           "If you already have an account, copy your login key",
-          "into the config directory:",
+          "into the data directory:",
           "",
-          "cp path/to/login-key.png ~/.config/ansiwave/.",
+          "cp path/to/login-key.png " & storage.dataDir & "/.",
           "",
           "Then, rerun ansiwave and you will be logged in.",
         ]
@@ -193,9 +194,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       ]
     else:
       %* [
-        "To logout, just delete your login key from the config directory:",
+        "To logout, just delete your login key from the data directory:",
         "",
-        "rm ~/.config/ansiwave/login-key.png",
+        "rm " & storage.dataDir & "/login-key.png",
         "",
         "Then, rerun ansiwave and you will be logged out.",
         "",

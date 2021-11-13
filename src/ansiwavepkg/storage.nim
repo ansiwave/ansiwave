@@ -4,7 +4,7 @@ when defined(emscripten):
 else:
   from os import `/`
 
-  const dataDir* = "~" / ".config" / "ansiwave"
+  const dataDir* = "~" / ".ansiwave"
 
 proc set*(key: string, val: string | seq[uint8], isBinary: bool = false): bool =
   when defined(emscripten):
