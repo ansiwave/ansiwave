@@ -149,6 +149,15 @@ proc splitLines*(text: string): RefStrings =
       exitClean("Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
     row.inc
 
+proc joinLines(lines: RefStrings): string =
+  let lineCount = lines[].len
+  var i = 0
+  for line in lines[]:
+    result &= line[]
+    if i != lineCount - 1:
+      result &= "\n"
+    i.inc
+
 proc add(lines: var RefStrings, line: string) =
   var s: ref string
   new s
@@ -590,15 +599,6 @@ proc saveBuffer*(f: File | StringStream, lines: RefStrings) =
     # write newline char after every line except the last line
     if i != lineCount - 1:
       write(f, "\n")
-    i.inc
-
-proc joinLines(lines: RefStrings): string =
-  let lineCount = lines[].len
-  var i = 0
-  for line in lines[]:
-    result &= line[]
-    if i != lineCount - 1:
-      result &= "\n"
     i.inc
 
 proc saveToStorage*(session: var auto, sig: string) =
