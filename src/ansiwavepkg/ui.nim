@@ -66,7 +66,7 @@ proc toJson*(post: entities.Post): JsonNode =
     "children": strutils.splitLines(post.content.value.uncompressed),
     "top-right": replies,
     "action": "show-replies",
-    "action-data": {"sig": post.content.sig.base58},
+    "action-data": {"sig": post.content.sig.base64},
     "action-accessible-text": replies,
   }
 

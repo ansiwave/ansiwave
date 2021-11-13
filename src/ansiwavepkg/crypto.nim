@@ -1,7 +1,7 @@
 from stb_image/write as stbiw import nil
 from ./qrcodegen import nil
 from wavecorepkg/ed25519 import nil
-from wavecorepkg/base58 import nil
+from base64 import nil
 from ./storage import nil
 import json
 import stb_image/read as stbi
@@ -83,10 +83,10 @@ proc loadKey*() =
     try:
       let
         obj = parseJson(json)
-        privKey = base58.decode(obj["private-key"].str)
+        privKey = base64.decode(obj["private-key"].str)
       doAssert privKey.len == keyPair.private.len
       keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
-      pubKey = base58.encode(keyPair.public)
+      pubKey = base64.encode(keyPair.public, safe = true)
     except Exception as ex:
       discard
 
@@ -97,9 +97,9 @@ proc removeKey*() =
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
-  pubKey = base58.encode(keyPair.public)
+  pubKey = base64.encode(keyPair.public, safe = true)
 
-  let privateKey = base58.encode(keyPair.private)
+  let privateKey = base64.encode(keyPair.private, safe = true)
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
