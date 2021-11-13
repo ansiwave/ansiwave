@@ -98,7 +98,7 @@ proc createUser*() =
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
-  if not qrcodegen.qrcodegen_encodeText(privateKey, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
+  if not qrcodegen.qrcodegen_encodeText(privateKey.cstring, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
                                         qrcodegen.qrcodegen_VERSION_MIN, qrcodegen.qrcodegen_VERSION_MAX,
                                         qrcodegen.qrcodegen_Mask_AUTO, true):
     return
