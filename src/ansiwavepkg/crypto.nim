@@ -71,7 +71,7 @@ const loginKeyName = "login-key.png"
 
 var
   keyPair: ed25519.KeyPair
-  keyExists* = false
+  pubKey*: string
 
 proc loadKey*() =
   let val = storage.get(loginKeyName, isBinary = true)
@@ -83,16 +83,16 @@ proc loadKey*() =
     try:
       let
         obj = parseJson(json)
-        privkey = base58.decode(obj["private-key"].str)
-      doAssert privkey.len == keyPair.private.len
-      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privkey[0]))
-      keyExists = true
+        privKey = base58.decode(obj["private-key"].str)
+      doAssert privKey.len == keyPair.private.len
+      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
+      pubKey = base58.encode(keyPair.public)
     except Exception as ex:
       discard
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
-  keyExists = true
+  pubKey = base58.encode(keyPair.public)
 
   let privateKey = base58.encode(keyPair.private)
 

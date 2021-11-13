@@ -193,8 +193,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
-    myAccountAction = proc () {.closure.} =
-      discard
+    accountAction = proc () {.closure.} =
+      sess.insertPage(ui.initAccount(crypto.pubKey), crypto.pubKey)
   if finishedLoading:
     session.insert(page.id, View, view)
   # if there is any input, find the associated action
@@ -281,10 +281,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     when not defined(emscripten):
       leftButtons.add((" Copy Link ", copyAction))
     let loginButton =
-      if not crypto.keyExists:
+      if crypto.pubKey == "":
         (" Login ", loginAction)
       else:
-        (" My Account ", myAccountAction)
+        (" My Account ", accountAction)
     navbar.render(result, 0, 0, input, leftButtons, [loginButton])
   # update values if necessary
   if focusIndex != page.focusIndex:

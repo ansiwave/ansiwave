@@ -13,7 +13,7 @@ from ./ui/navbar import nil
 
 type
   ComponentKind* = enum
-    Post, Editor, Login,
+    Post, Editor, Login, Account,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
@@ -24,6 +24,8 @@ type
       session*: editor.EditorSession
     of Login:
       discard
+    of Account:
+      pubKey*: string
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -37,7 +39,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Post:
     comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postSig & ".ansiwavez"))
     comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postSig)
-  of Editor, Login:
+  of Editor, Login, Account:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -50,6 +52,9 @@ proc initEditor*(width: int, height: int): Component =
 
 proc initLogin*(): Component =
   Component(kind: Login)
+
+proc initAccount*(pubKey: string): Component =
+  Component(kind: Account, pubKey: pubKey)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -154,6 +159,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "Then, rerun ansiwave and you will be logged in.",
         ]
       ,
+    ]
+  of Account:
+    finishedLoading = true
+    %*[
+      "",
+      "Account page",
     ]
 
 proc toHtml(node: JsonNode): string
