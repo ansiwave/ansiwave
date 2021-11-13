@@ -92,7 +92,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text": "Write a post",
         "action": "show-editor",
-        "action-data": {"sig": comp.sig & "/edit"},
+        "action-data": {"sig": comp.sig & "/new"},
       },
       "", # spacer
       if not comp.replies.ready:
