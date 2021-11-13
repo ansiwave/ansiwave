@@ -1191,15 +1191,22 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, Opts, opts)
   result.fireRules
 
-proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]) =
+proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =
   let key = input.key
 
   let
     (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
+
   if width != windowWidth or height != windowHeight:
     onWindowResize(session, width, height)
+
+  # if the editor has unsaved changes, set finishedLoading to false to ensure the tick function
+  # will continue running, allowing the save to eventually take place
+  # (this only matters for the emscripten version)
+  if selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime:
+    finishedLoading = false
 
   # render top bar
   case Id(globals.selectedBuffer):
@@ -1304,9 +1311,9 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
 proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   result = iw.newTerminalBuffer(width, height)
-  tick(session, result, x, y, width, height, input)
+  var finishedLoading: bool
+  tick(session, result, x, y, width, height, input, finishedLoading)
 
 proc tick*(session: var EditorSession): iw.TerminalBuffer =
   let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
-  tick(session, 0, 0, windowWidth, windowHeight, (iw.Key.None, 0'u32))
 

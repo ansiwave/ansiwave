@@ -295,7 +295,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
     result = iw.newTerminalBuffer(width, height)
-    editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input)
+    editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input, finishedLoading)
     ui.render(result, view, 0, y, focusIndex, areas)
     navbar.render(result, 0, 0, input, [(" ← ", backAction)], [(" Send ", sendAction)])
     page.data.session.fireRules
