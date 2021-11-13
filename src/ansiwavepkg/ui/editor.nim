@@ -20,6 +20,7 @@ from base64 import nil
 import streams
 from uri import nil
 import json
+from ../storage import nil
 
 type
   Id* = enum
@@ -55,6 +56,7 @@ type
     output*: string
     args*: Table[string, string]
     bbsMode*: bool
+    sig*: string
   Buffer = tuple
     id: int
     cursorX: int
@@ -590,6 +592,27 @@ proc saveBuffer*(f: File | StringStream, lines: RefStrings) =
       write(f, "\n")
     i.inc
 
+proc joinLines(lines: RefStrings): string =
+  let lineCount = lines[].len
+  var i = 0
+  for line in lines[]:
+    result &= line[]
+    if i != lineCount - 1:
+      result &= "\n"
+    i.inc
+
+proc saveToStorage*(session: var auto, sig: string) =
+  let globals = session.query(rules.getGlobals)
+  let buffer = globals.buffers[Editor.ord]
+  if buffer.editable and
+      buffer.lastEditTime > buffer.lastSaveTime and
+      times.epochTime() - buffer.lastEditTime > saveDelay:
+    try:
+      if storage.set(sig & ".ansiwave", buffer.lines.joinLines):
+        insert(session, Editor, editor.LastSaveTime, times.epochTime())
+    except Exception as ex:
+      discard
+
 var clipboard = ""
 
 proc toClipboard*(s: string) =
@@ -611,11 +634,7 @@ proc pasteLine(session: var EditorSession, buffer: tuple) =
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
 proc initLink*(buffer: tuple): string =
-  var ss = newStringStream("")
-  saveBuffer(ss, buffer.lines)
-  ss.setPosition(0)
-  let s = ss.readAll
-  ss.close
+  let s = buffer.lines.joinLines
   let
     output = zippy.compress(s, dataFormat = zippy.dfZlib)
     pairs = {
@@ -1135,9 +1154,11 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
           os.splitFile(uri.decodeUrl(link["name"])).name
         else:
           ""
-    elif os.fileExists(opts.input):
+    elif opts.input != "" and os.fileExists(opts.input):
       editorText = readFile(opts.input)
       editorName = os.splitFile(opts.input).name
+    elif opts.sig != "":
+      editorText = storage.get(opts.sig & ".ansiwave")
     else:
       editorText = ""
       editorName = os.splitFile(opts.input).name

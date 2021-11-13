@@ -45,9 +45,9 @@ proc initPost*(clnt: client.Client, sig: string): Component =
   result = Component(kind: Post, sig: sig)
   refresh(clnt, result)
 
-proc initEditor*(width: int, height: int): Component =
+proc initEditor*(width: int, height: int, sig: string): Component =
   result = Component(kind: Editor)
-  result.session = editor.init(editor.Options(bbsMode: true), width, height - navbar.height)
+  result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
 
 proc initLogin*(): Component =
   Component(kind: Login)
