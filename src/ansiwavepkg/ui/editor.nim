@@ -608,8 +608,12 @@ proc saveToStorage*(session: var auto, sig: string) =
       buffer.lastEditTime > buffer.lastSaveTime and
       times.epochTime() - buffer.lastEditTime > saveDelay:
     try:
-      if storage.set(sig & ".ansiwave", buffer.lines.joinLines):
-        insert(session, Editor, editor.LastSaveTime, times.epochTime())
+      let body = buffer.lines.joinLines
+      if buffer.lines[].len == 1 and body.stripCodes == "":
+        storage.remove(sig & ".ansiwave")
+      else:
+        discard storage.set(sig & ".ansiwave", body)
+      insert(session, Editor, editor.LastSaveTime, times.epochTime())
     except Exception as ex:
       discard
 
