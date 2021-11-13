@@ -17,7 +17,7 @@ type
   Component* = ref object
     case kind*: ComponentKind
     of Post:
-      id: string
+      sig: string
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
@@ -35,13 +35,13 @@ const
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.id & ".ansiwavez"))
-    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.id)
+    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.sig & ".ansiwavez"))
+    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.sig)
   of Editor, Login:
     discard
 
-proc initPost*(clnt: client.Client, id: string): Component =
-  result = Component(kind: Post, id: id)
+proc initPost*(clnt: client.Client, sig: string): Component =
+  result = Component(kind: Post, sig: sig)
   refresh(clnt, result)
 
 proc initEditor*(width: int, height: int): Component =
@@ -92,7 +92,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text": "Write a post",
         "action": "show-editor",
-        "action-data": {"sig": comp.id & "/edit"},
+        "action-data": {"sig": comp.sig & "/edit"},
       },
       "", # spacer
       if not comp.replies.ready:
