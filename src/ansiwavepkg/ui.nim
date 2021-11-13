@@ -14,7 +14,7 @@ from ./crypto import nil
 
 type
   ComponentKind* = enum
-    Post, Editor, Login,
+    Post, Editor, Login, Logout,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
@@ -23,7 +23,7 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
-    of Login:
+    of Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
@@ -38,7 +38,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Post:
     comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.sig & ".ansiwavez"))
     comp.replies = client.queryPostChildren(clnt, dbFilename, comp.sig)
-  of Editor, Login:
+  of Editor, Login, Logout:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -51,6 +51,9 @@ proc initEditor*(width: int, height: int): Component =
 
 proc initLogin*(): Component =
   Component(kind: Login)
+
+proc initLogout*(): Component =
+  Component(kind: Logout)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -166,6 +169,27 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "Then, rerun ansiwave and you will be logged in.",
         ]
       ,
+    ]
+  of Logout:
+    finishedLoading = true
+    %*[
+      "",
+      "Are you sure you want to logout?",
+      "This will DELETE your login key.",
+      "If you don't have a copy somewhere else,",
+      "you will never be able to login again!",
+      {
+        "type": "button",
+        "text": "Cancel",
+        "action": "go-back",
+        "action-data": {},
+      },
+      {
+        "type": "button",
+        "text": "Continue logout",
+        "action": "logout",
+        "action-data": {},
+      },
     ]
 
 proc toHtml(node: JsonNode): string

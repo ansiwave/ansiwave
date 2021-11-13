@@ -153,6 +153,17 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       crypto.createUser()
       let globals = session.query(rules.getGlobals)
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+  of "go-back":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    if result:
+      let globals = session.query(rules.getGlobals)
+      if globals.breadcrumbsIndex > 0:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+  of "logout":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    if result:
+      crypto.removeKey()
+      session.insert(Global, PageBreadcrumbsIndex, 0)
   else:
     discard
 
@@ -193,6 +204,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
+    logoutAction = proc () {.closure.} =
+      sess.insertPage(ui.initLogout(), "logout")
     accountAction = proc () {.closure.} =
       sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
   if finishedLoading:
@@ -280,12 +293,16 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
     when not defined(emscripten):
       leftButtons.add((" Copy Link ", copyAction))
-    let loginButton =
-      if crypto.pubKey == "":
-        (" Login ", loginAction)
+    var rightButtons: seq[(string, proc ())] =
+      if page.sig == "login" or page.sig == "logout":
+        @[]
+      elif crypto.pubKey == "":
+        @[(" Login ", loginAction)]
+      elif page.sig == crypto.pubKey:
+        @[(" Logout ", logoutAction)]
       else:
-        (" My Account ", accountAction)
-    navbar.render(result, 0, 0, input, leftButtons, [loginButton])
+        @[(" My Account ", accountAction)]
+    navbar.render(result, 0, 0, input, leftButtons, rightButtons)
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)

@@ -90,6 +90,11 @@ proc loadKey*() =
     except Exception as ex:
       discard
 
+proc removeKey*() =
+  storage.remove(loginKeyName)
+  keyPair = ed25519.KeyPair()
+  pubKey = ""
+
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
   pubKey = base58.encode(keyPair.public)
