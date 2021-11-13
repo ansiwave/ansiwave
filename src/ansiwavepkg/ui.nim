@@ -111,7 +111,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       },
       "", # spacer
       if not comp.replies.ready:
-        %"Loading replies"
+        %"Loading posts"
       elif comp.replies.value.kind == client.Error:
         %"Failed to load replies!"
       else:
@@ -176,8 +176,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       %*[
         "",
         "Are you sure you want to logout?",
-        "This will DELETE your login key.",
-        "If you don't have a copy somewhere else,",
+        "If you don't have a copy of your login key somewhere,",
         "you will never be able to login again!",
         {
           "type": "button",
