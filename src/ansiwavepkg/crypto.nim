@@ -75,20 +75,21 @@ var
 
 proc loadKey*() =
   let val = storage.get(loginKeyName, isBinary = true)
-  var width, height, channels: int
-  let
-    data = stbi.loadFromMemory(cast[seq[uint8]](val), width, height, channels, stbi.RGBA)
-    json = destego(data)
-  if json != "":
-    try:
-      let
-        obj = parseJson(json)
-        privKey = base64.decode(obj["private-key"].str)
-      doAssert privKey.len == keyPair.private.len
-      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
-      pubKey = base64.encode(keyPair.public, safe = true)
-    except Exception as ex:
-      discard
+  if val != "":
+    var width, height, channels: int
+    let
+      data = stbi.loadFromMemory(cast[seq[uint8]](val), width, height, channels, stbi.RGBA)
+      json = destego(data)
+    if json != "":
+      try:
+        let
+          obj = parseJson(json)
+          privKey = base64.decode(obj["private-key"].str)
+        doAssert privKey.len == keyPair.private.len
+        keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
+        pubKey = base64.encode(keyPair.public, safe = true)
+      except Exception as ex:
+        discard
 
 proc removeKey*() =
   storage.remove(loginKeyName)
