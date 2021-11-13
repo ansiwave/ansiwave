@@ -12,6 +12,7 @@ from ../wavescript import CommandTree
 from ../midi import nil
 from ../sound import nil
 from ../codes import stripCodes
+from ../ansi import nil
 import ../constants
 from paramidi import Context
 from json import nil
@@ -1114,25 +1115,43 @@ when defined(emscripten):
 
   proc browseImage(session: var EditorSession, buffer: tuple) =
     currentSession = session
-    emscripten.browseFile("insertImage")
+    emscripten.browseFile("insertFile")
 
   proc free(p: pointer) {.importc.}
 
-  proc insertImage(image: pointer, length: cint) {.exportc.} =
+  proc insertFile(name: cstring, image: pointer, length: cint) {.exportc.} =
     let
+      (_, _, ext) = os.splitFile($name)
       globals = currentSession.query(rules.getGlobals)
       buffer = globals.buffers[Editor.ord]
-      img = block:
+      data = block:
         var s = newSeq[uint8](length)
         copyMem(s[0].addr, image, length)
         free(image)
-        s
-      ansi =
+        cast[string](s)
+    let content =
+      case strutils.toLowerAscii(ext):
+      of ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".psd":
         try:
-          chafa.imageToAnsi(cast[string](img), editorWidth)
+          chafa.imageToAnsi(data, editorWidth)
         except Exception as ex:
           "Error reading image"
-      ansiLines = ansi.splitLines[]
+      of ".ans":
+        try:
+          var ss = newStringStream("")
+          ansi.write(ss, ansi.ansiToUtf8(data, editorWidth), editorWidth)
+          ss.setPosition(0)
+          let s = ss.readAll()
+          ss.close()
+          s
+        except Exception as ex:
+          "Error reading file"
+      else:
+        if unicode.validateUtf8(data) != -1:
+          "Error reading file"
+        else:
+          data
+    let ansiLines = content.splitLines[]
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]

@@ -1,6 +1,7 @@
 from strutils import nil
 from math import `mod`
 import tables
+import streams
 
 const
   defaultLineWidth = 80
@@ -290,20 +291,20 @@ proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[
 
   result.sort(cmpPos)
 
-proc clear(file: File) =
+proc clear(file: File | StringStream) =
   file.write("\x1B[0m")
 
-proc newLine(file: File) =
+proc newLine(file: File | StringStream) =
   file.clear
   file.write('\n')
   file.clear
 
-proc fillRestOfLine(file: File, curCol: var int, lineWidth: int) =
+proc fillRestOfLine(file: File | StringStream, curCol: var int, lineWidth: int) =
   while curCol < lineWidth:
     file.write(' ')
     curCol = curCol + 1
 
-proc write*(file: File, grid: OrderedTable[Pos, Val], lineWidth: int = defaultLineWidth) =
+proc write*(file: File | StringStream, grid: OrderedTable[Pos, Val], lineWidth: int = defaultLineWidth) =
   var
     curRow = 0
     curCol = 0
