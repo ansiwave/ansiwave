@@ -194,7 +194,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     accountAction = proc () {.closure.} =
-      sess.insertPage(ui.initAccount(crypto.pubKey), crypto.pubKey)
+      sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
   if finishedLoading:
     session.insert(page.id, View, view)
   # if there is any input, find the associated action

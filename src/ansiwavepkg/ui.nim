@@ -13,19 +13,17 @@ from ./ui/navbar import nil
 
 type
   ComponentKind* = enum
-    Post, Editor, Login, Account,
+    Post, Editor, Login,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
+      id: string
       post: client.ChannelValue[client.Response]
-      postSig: string
       replies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
     of Login:
       discard
-    of Account:
-      pubKey*: string
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
 const
@@ -37,13 +35,13 @@ const
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.postSig & ".ansiwavez"))
-    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.postSig)
-  of Editor, Login, Account:
+    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.id & ".ansiwavez"))
+    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.id)
+  of Editor, Login:
     discard
 
-proc initPost*(clnt: client.Client, sig: string): Component =
-  result = Component(kind: Post, postSig: sig)
+proc initPost*(clnt: client.Client, id: string): Component =
+  result = Component(kind: Post, id: id)
   refresh(clnt, result)
 
 proc initEditor*(width: int, height: int): Component =
@@ -52,9 +50,6 @@ proc initEditor*(width: int, height: int): Component =
 
 proc initLogin*(): Component =
   Component(kind: Login)
-
-proc initAccount*(pubKey: string): Component =
-  Component(kind: Account, pubKey: pubKey)
 
 proc toJson*(post: entities.Post): JsonNode =
   let replies =
@@ -97,7 +92,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text": "Write a post",
         "action": "show-editor",
-        "action-data": {"sig": comp.postSig & "/edit"},
+        "action-data": {"sig": comp.id & "/edit"},
       },
       "", # spacer
       if not comp.replies.ready:
@@ -159,12 +154,6 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "Then, rerun ansiwave and you will be logged in.",
         ]
       ,
-    ]
-  of Account:
-    finishedLoading = true
-    %*[
-      "",
-      "Account page",
     ]
 
 proc toHtml(node: JsonNode): string
