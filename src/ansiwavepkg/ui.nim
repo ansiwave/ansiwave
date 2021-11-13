@@ -172,25 +172,37 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     ]
   of Logout:
     finishedLoading = true
-    %*[
-      "",
-      "Are you sure you want to logout?",
-      "This will DELETE your login key.",
-      "If you don't have a copy somewhere else,",
-      "you will never be able to login again!",
-      {
-        "type": "button",
-        "text": "Cancel",
-        "action": "go-back",
-        "action-data": {},
-      },
-      {
-        "type": "button",
-        "text": "Continue logout",
-        "action": "logout",
-        "action-data": {},
-      },
-    ]
+    when defined(emscripten):
+      %*[
+        "",
+        "Are you sure you want to logout?",
+        "This will DELETE your login key.",
+        "If you don't have a copy somewhere else,",
+        "you will never be able to login again!",
+        {
+          "type": "button",
+          "text": "Cancel",
+          "action": "go-back",
+          "action-data": {},
+        },
+        {
+          "type": "button",
+          "text": "Continue logout",
+          "action": "logout",
+          "action-data": {},
+        },
+      ]
+    else:
+      %* [
+        "To logout, just delete your login key from the config directory:",
+        "",
+        "rm ~/.config/ansiwave/login-key.png",
+        "",
+        "Then, rerun ansiwave and you will be logged out.",
+        "",
+        "Warning: If you don't keep a copy of the login key elsewhere,",
+        "you will never be able to log back in!",
+      ]
 
 proc toHtml(node: JsonNode): string
 
