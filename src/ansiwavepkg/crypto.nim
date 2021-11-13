@@ -5,11 +5,6 @@ from base64 import nil
 from ./storage import nil
 import json
 import stb_image/read as stbi
-
-when defined(emscripten):
-  from wavecorepkg/client/emscripten import nil
-  from base64 import nil
-
 import bitops
 
 proc stego*(image: var seq[uint8], message: string) =
@@ -73,28 +68,56 @@ var
   keyPair: ed25519.KeyPair
   pubKey*: string
 
+proc loadKey*(privateKey: seq[uint8]) =
+  try:
+    var width, height, channels: int
+    let
+      data = stbi.loadFromMemory(privateKey, width, height, channels, stbi.RGBA)
+      json = destego(data)
+    if json != "":
+      let
+        obj = parseJson(json)
+        privKey = base64.decode(obj["private-key"].str)
+      doAssert privKey.len == keyPair.private.len
+      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
+      pubKey = base64.encode(keyPair.public, safe = true)
+  except Exception as ex:
+    discard
+
 proc loadKey*() =
   let val = storage.get(loginKeyName, isBinary = true)
   if val != "":
-    var width, height, channels: int
-    let
-      data = stbi.loadFromMemory(cast[seq[uint8]](val), width, height, channels, stbi.RGBA)
-      json = destego(data)
-    if json != "":
-      try:
-        let
-          obj = parseJson(json)
-          privKey = base64.decode(obj["private-key"].str)
-        doAssert privKey.len == keyPair.private.len
-        keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
-        pubKey = base64.encode(keyPair.public, safe = true)
-      except Exception as ex:
-        discard
+    loadKey(cast[seq[uint8]](val))
 
 proc removeKey*() =
   storage.remove(loginKeyName)
   keyPair = ed25519.KeyPair()
   pubKey = ""
+
+when defined(emscripten):
+  from wavecorepkg/client/emscripten import nil
+  from base64 import nil
+
+  var callback: proc () = nil
+
+  proc browsePrivateKey*(cb: proc ()) =
+    callback = cb
+    emscripten.browseFile("insertPrivateKey")
+
+  proc free(p: pointer) {.importc.}
+
+  proc insertPrivateKey(image: pointer, length: cint) {.exportc.} =
+    let
+      img = block:
+        var s = newSeq[uint8](length)
+        copyMem(s[0].addr, image, length)
+        free(image)
+        s
+    loadKey(img)
+    discard storage.set(loginKeyName, img, isBinary = true)
+    if callback != nil:
+      callback()
+      callback = nil
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()

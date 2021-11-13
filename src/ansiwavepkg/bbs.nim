@@ -153,6 +153,16 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       crypto.createUser()
       let globals = session.query(rules.getGlobals)
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+  of "add-user":
+    when defined(emscripten):
+      result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+      if result:
+        var sess = session
+        crypto.browsePrivateKey(proc () =
+          let globals = sess.query(rules.getGlobals)
+          if globals.breadcrumbsIndex > 0:
+            sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+        )
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -163,7 +173,9 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       crypto.removeKey()
-      session.insert(Global, PageBreadcrumbsIndex, 0)
+      let globals = session.query(rules.getGlobals)
+      if globals.breadcrumbsIndex > 0:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   else:
     discard
 
