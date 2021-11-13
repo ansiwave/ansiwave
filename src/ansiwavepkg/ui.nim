@@ -10,6 +10,7 @@ from strutils import format
 from os import joinPath
 from ./ui/editor import nil
 from ./ui/navbar import nil
+from ./crypto import nil
 
 type
   ComponentKind* = enum
@@ -81,16 +82,27 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.post.ready:
         %"Loading..."
       elif comp.post.value.kind == client.Error:
-        %"Failed to load!"
+        if comp.sig == crypto.pubKey:
+          %* [
+            "Click Edit to create your banner.",
+            "This will always display at the top of your page.",
+          ]
+        else:
+          %"Failed to load!"
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.post.value.valid.body)
+          "children": strutils.splitLines(comp.post.value.valid.body),
         }
       ,
       {
         "type": "button",
-        "text": "Write a post",
+        "text":
+          if comp.sig == crypto.pubKey:
+            "Write a blog post"
+          else:
+            "Write a post"
+        ,
         "action": "show-editor",
         "action-data": {"sig": comp.sig & "/new"},
       },
@@ -101,7 +113,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %"Failed to load replies!"
       else:
         if comp.replies.value.valid.len == 0:
-          %"No replies"
+          %"No posts"
         else:
           toJson(comp.replies.value.valid)
     ]
