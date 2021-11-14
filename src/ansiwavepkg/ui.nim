@@ -92,7 +92,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "This will always display at the top of your page.",
           ]
         else:
-          %"Failed to load!"
+          %"Nothing to see here..."
       else:
         %*{
           "type": "rect",
@@ -114,7 +114,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.replies.ready:
         %"Loading posts"
       elif comp.replies.value.kind == client.Error:
-        %"Failed to load replies!"
+        %"Failed to load replies"
       else:
         if comp.replies.value.valid.len == 0:
           %"No posts"
