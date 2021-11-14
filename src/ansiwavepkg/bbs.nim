@@ -232,7 +232,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =
       sess.insertPage(ui.initLogout(), "logout")
-    accountAction = proc () {.closure.} =
+    myPageAction = proc () {.closure.} =
       sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
     downloadKeyAction = proc () {.closure.} =
       when defined(emscripten):
@@ -339,7 +339,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         else:
           @[(" logout ", logoutAction)]
       else:
-        @[(" my account ", accountAction)]
+        @[(" my page ", myPageAction)]
     navbar.render(result, 0, 0, input, leftButtons, rightButtons)
 
   # update values if necessary
