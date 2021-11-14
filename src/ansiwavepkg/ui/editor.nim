@@ -1180,8 +1180,6 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
     elif opts.input != "" and os.fileExists(opts.input):
       editorText = readFile(opts.input)
       editorName = os.splitFile(opts.input).name
-    elif opts.sig != "":
-      editorText = storage.get(opts.sig & ".ansiwave")
     else:
       editorText = ""
       editorName = os.splitFile(opts.input).name
@@ -1213,6 +1211,10 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
 
   result.insert(Global, Opts, opts)
   result.fireRules
+
+  if opts.sig != "":
+    result.insert(Editor, Lines, storage.get(opts.sig & ".ansiwave").splitLines)
+    result.fireRules
 
 proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =
   let key = input.key
