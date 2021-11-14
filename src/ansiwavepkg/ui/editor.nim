@@ -879,13 +879,13 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
               let hintText =
                 if buffer.links[i].error:
                   if buffer.id == Editor.ord:
-                    "Hint: see the error with Tab"
+                    "hint: see the error with Tab"
                   elif buffer.id == Errors.ord:
-                    "Hint: see where the error happened with Tab"
+                    "hint: see where the error happened with Tab"
                   else:
                     ""
                 else:
-                  "Hint: play the current line with Tab"
+                  "hint: play the current line with Tab"
               session.insert(Global, HintText, hintText)
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
               buffer.links[i].callback()
@@ -955,12 +955,12 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   case buffer.prompt:
   of None:
     if buffer.mode == 0 and buffer.insertMode:
-      prompt = "Press Insert or Ctrl T to turn off insert mode"
+      prompt = "press insert or ctrl t to turn off insert mode"
   of DeleteLine:
     if buffer.mode == 0:
-      prompt = "Press Tab to delete the current line"
+      prompt = "press tab to delete the current line"
   of StopPlaying:
-    prompt = "Press Tab to stop playing"
+    prompt = "press tab to stop playing"
   if prompt.len > 0:
     let x = termX + buffer.x + 1 + buffer.width - prompt.runeLen
     iw.write(tb, max(x, termX + buffer.x + 1), termY + buffer.y, prompt)
@@ -1052,14 +1052,14 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
           if index >= 0 and index < colorFgCodes.len:
             session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
             if buffer.mode == 1:
-              session.insert(Global, HintText, "Hint: press " & colorFgShortcuts[index] & " for " & colorNames[index] & " foreground")
+              session.insert(Global, HintText, "hint: press " & colorFgShortcuts[index] & " for " & colorNames[index] & " foreground")
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
         elif info.button == iw.MouseButton.mbRight:
           let index = int((info.x - colorX) / 3)
           if index >= 0 and index < colorBgCodes.len:
             session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
             if buffer.mode == 1:
-              session.insert(Global, HintText, "Hint: press " & colorBgShortcuts[index] & " for " & colorNames[index] & " background")
+              session.insert(Global, HintText, "hint: press " & colorBgShortcuts[index] & " for " & colorNames[index] & " background")
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
   elif buffer.mode == 1:
     try:
@@ -1097,7 +1097,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
           if buffer.mode == 1:
-            session.insert(Global, HintText, "Hint: press " & brushShortcuts[index] & " for that brush")
+            session.insert(Global, HintText, "hint: press " & brushShortcuts[index] & " for that brush")
             session.insert(Global, HintTime, times.epochTime() + hintSecs)
   elif buffer.mode == 1:
     try:
@@ -1208,10 +1208,10 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
     tutorialText = staticRead("../assets/tutorial.ansiwave")
     publishText = staticRead("../assets/publish.ansiwave")
   insertBuffer(result, Editor, editorName, 0, 2, not isUri, editorText)
-  insertBuffer(result, Errors, "Errors", 0, 1, false, "")
+  insertBuffer(result, Errors, "errors", 0, 1, false, "")
   if not opts.bbsMode:
-    insertBuffer(result, Tutorial, "Tutorial", 0, 1, false, tutorialText)
-    insertBuffer(result, Publish, "Publish", 0, 1, false, publishText)
+    insertBuffer(result, Tutorial, "tutorial", 0, 1, false, tutorialText)
+    insertBuffer(result, Publish, "publish", 0, 1, false, publishText)
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
@@ -1248,52 +1248,52 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     var sess = session
     let playX =
       if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(session, tb, "♫ Play", termX + 1, termY + 1, key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "Hint: play all lines with Ctrl P"))
+        renderButton(session, tb, "♫ play", termX + 1, termY + 1, key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "hint: play all lines with ctrl p"))
       else:
         0
 
     if selectedBuffer.editable:
       let titleX =
         when defined(emscripten):
-          renderButton(session, tb, "+ Image...", termX + 1, termY + 0, key, proc () = browseImage(sess, selectedBuffer))
+          renderButton(session, tb, "+ image", termX + 1, termY + 0, key, proc () = browseImage(sess, selectedBuffer))
         else:
           renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", termX + 1, termY + 0, key, proc () = discard)
       var x = max(titleX, playX)
 
-      let undoX = renderButton(session, tb, "◄ Undo", termX + x, termY + 0, key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "Hint: undo with Ctrl X"))
-      let redoX = renderButton(session, tb, "► Redo", termX + x, termY + 1, key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "Hint: redo with Ctrl R"))
+      let undoX = renderButton(session, tb, "◄ undo", termX + x, termY + 0, key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
+      let redoX = renderButton(session, tb, "► redo", termX + x, termY + 1, key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
       x = max(undoX, redoX)
 
       let
         choices = [
-          (id: 0, label: "Write Mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
-          (id: 1, label: "Draw Mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
+          (id: 0, label: "write mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
+          (id: 1, label: "draw mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
         ]
-        shortcut = (key: {iw.Key.CtrlE}, hint: "Hint: switch modes with Ctrl E")
+        shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
       x = renderRadioButtons(session, tb, termX + x, termY + 0, choices, selectedBuffer.mode, key, false, shortcut)
 
       x = renderColors(session, tb, selectedBuffer, key, termX + x + 1, termY)
 
       if selectedBuffer.mode == 0:
-        discard renderButton(session, tb, "↨ Copy Line", termX + x, termY + 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
-        discard renderButton(session, tb, "↨ Paste Line", termX + x, termY + 1, key, proc () = pasteLine(sess, selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
+        discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
+        discard renderButton(session, tb, "↨ paste line", termX + x, termY + 1, key, proc () = pasteLine(sess, selectedBuffer), (key: {}, hint: "hint: paste line with ctrl l"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, key, termX + x + 1, termY)
     elif not globals.options.bbsMode:
       let
-        topText = "Read-only mode! To edit this, convert it into an ansiwave:"
+        topText = "read-only mode! to edit this, convert it into an ansiwave:"
         bottomText = "ansiwave https://ansiwave.net/... $1.ansiwave".format(selectedBuffer.name)
       iw.write(tb, max(termX, int(editorWidth/2 - topText.runeLen/2)), termY, topText)
       iw.write(tb, max(playX, int(editorWidth/2 - bottomText.runeLen/2)), termY + 1, bottomText)
   of Errors:
-    discard renderButton(session, tb, "\e[3m≈ANSIWAVE≈ Errors\e[0m", termX + 1, termY, key, proc () = discard)
+    discard renderButton(session, tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", termX + 1, termY, key, proc () = discard)
   of Tutorial:
-    let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ Tutorial\e[0m", termX + 1, termY + 0, key, proc () = discard)
-    discard renderButton(session, tb, "↨ Copy Line", titleX, termY, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "Hint: copy line with Ctrl K"))
+    let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", termX + 1, termY + 0, key, proc () = discard)
+    discard renderButton(session, tb, "↨ copy line", titleX, termY, key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
   of Publish:
     var sess = session
-    let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ Publish\e[0m", termX + 1, termY, key, proc () = discard)
-    discard renderButton(session, tb, "↕ Copy Link", titleX, termY, key, proc () = copyLink(sess, sess.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "Hint: copy link with Ctrl H"))
+    let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", termX + 1, termY, key, proc () = discard)
+    discard renderButton(session, tb, "↕ copy link", titleX, termY, key, proc () = copyLink(sess, sess.query(rules.getBuffer, id = Editor)), (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
   else:
     discard
 
@@ -1307,12 +1307,12 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       editor = session.query(rules.getBuffer, id = Editor)
       errorCount = editor.errors[].len
       choices = [
-        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "Edit" else: "View"), editor.name), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
-        (id: Errors.ord, label: strutils.format("Errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
-        (id: Tutorial.ord, label: "Tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
-        (id: Publish.ord, label: "Publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
+        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "edit" else: "view"), editor.name), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
+        (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
+        (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
+        (id: Publish.ord, label: "publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
       ]
-      shortcut = (key: {iw.Key.CtrlN}, hint: "Hint: switch tabs with Ctrl N")
+      shortcut = (key: {iw.Key.CtrlN}, hint: "hint: switch tabs with ctrl n")
     var selectedChoices = @choices
     selectedChoices.setLen(0)
     for choice in choices:
@@ -1331,7 +1331,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         if showHint:
           globals.hintText
         else:
-          "‼ Exit"
+          "‼ exit"
       textX = max(termX + x + 2, termX + selectedBuffer.width + 1 - text.runeLen)
     if showHint:
       codes.write(tb, textX, termY + windowHeight - 1, "\e[3m" & text & "\e[0m")
@@ -1339,7 +1339,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       var sess = session
       let cb =
         proc () =
-          sess.insert(Global, HintText, "Press Ctrl C to exit")
+          sess.insert(Global, HintText, "press ctrl c to exit")
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(session, tb, text, textX, termY + windowHeight - 1, key, cb)
 

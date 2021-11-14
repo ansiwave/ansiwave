@@ -235,7 +235,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     accountAction = proc () {.closure.} =
       sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
     downloadKeyAction = proc () {.closure.} =
-      crypto.downloadKey()
+      when defined(emscripten):
+        crypto.downloadKey()
   if finishedLoading:
     session.insert(page.id, View, view)
 
@@ -314,28 +315,31 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     ui.render(result, view, 0, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
     if requests.hasKey(page.sig):
-      rightButtons.add((" Sending... ", proc () {.closure.} = discard))
+      rightButtons.add((" sending... ", proc () {.closure.} = discard))
       finishedLoading = false # when a request is being sent, make sure the view refreshes
     else:
-      rightButtons.add((" Send ", sendAction))
+      rightButtons.add((" send ", sendAction))
     navbar.render(result, 0, 0, input, [(" ← ", backAction)], rightButtons)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
-    var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" Search ", searchAction)]
+    var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
-      leftButtons.add((" Copy Link ", copyAction))
+      leftButtons.add((" copy link ", copyAction))
     var rightButtons: seq[(string, proc ())] =
       if page.sig == "login" or page.sig == "logout":
         @[]
       elif crypto.pubKey == "":
-        @[(" Login ", loginAction)]
+        @[(" login ", loginAction)]
       elif page.sig == crypto.pubKey:
-        @[(" Download login key ", downloadKeyAction), (" Logout ", logoutAction)]
+        when defined(emscripten):
+          @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
+        else:
+          @[(" logout ", logoutAction)]
       else:
-        @[(" My Account ", accountAction)]
+        @[(" my account ", accountAction)]
     navbar.render(result, 0, 0, input, leftButtons, rightButtons)
 
   # update values if necessary

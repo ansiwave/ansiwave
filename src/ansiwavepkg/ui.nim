@@ -69,7 +69,7 @@ proc toJson*(post: entities.Post): JsonNode =
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "top-right": replies,
-    "bottom-left": if lines.len > maxLines: "See more" else: "",
+    "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-replies",
     "action-data": {"sig": post.content.sig},
     "action-accessible-text": replies,
@@ -88,15 +88,15 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = comp.post.ready and comp.replies.ready
     %*[
       if not comp.post.ready:
-        %"Loading..."
+        %"loading..."
       elif comp.post.value.kind == client.Error:
         if comp.sig == crypto.pubKey:
           %* [
-            "Click Edit to create your banner.",
+            "Click edit to create your banner.",
             "This will always display at the top of your page.",
           ]
         else:
-          %"Nothing to see here..."
+          %"nothing to see here..."
       else:
         %*{
           "type": "rect",
@@ -107,21 +107,21 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text":
           if comp.sig == crypto.pubKey:
-            "Write a blog post"
+            "write a blog post"
           else:
-            "Write a post"
+            "write a post"
         ,
         "action": "show-editor",
         "action-data": {"sig": comp.sig & ".new"},
       },
       "", # spacer
       if not comp.replies.ready:
-        %"Loading posts"
+        %"loading posts"
       elif comp.replies.value.kind == client.Error:
-        %"Failed to load replies"
+        %"failed to load replies"
       else:
         if comp.replies.value.valid.len == 0:
-          %"No posts"
+          %"no posts"
         else:
           toJson(comp.replies.value.valid)
     ]
@@ -141,14 +141,14 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       when defined(emscripten):
         %* {
           "type": "button",
-          "text": "Download login key",
+          "text": "download login key",
           "action": "create-user",
           "action-data": {},
         }
       else:
         %* {
           "type": "button",
-          "text": "Create account",
+          "text": "create account",
           "action": "create-user",
           "action-data": {},
         }
@@ -159,7 +159,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "If you already have an account, add your key:",
           {
             "type": "button",
-            "text": "Add existing login key",
+            "text": "add existing login key",
             "action": "add-user",
             "action-data": {},
           },
@@ -185,13 +185,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "you will never be able to login again!",
         {
           "type": "button",
-          "text": "Cancel",
+          "text": "cancel",
           "action": "go-back",
           "action-data": {},
         },
         {
           "type": "button",
-          "text": "Continue logout",
+          "text": "continue logout",
           "action": "logout",
           "action-data": {},
         },
@@ -204,7 +204,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "",
         "Then, rerun ansiwave and you will be logged out.",
         "",
-        "Warning: If you don't keep a copy of the login key elsewhere,",
+        "Warning: if you don't keep a copy of the login key elsewhere,",
         "you will never be able to log back in!",
       ]
 
