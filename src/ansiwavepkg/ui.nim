@@ -57,15 +57,19 @@ proc initLogout*(): Component =
   Component(kind: Logout)
 
 proc toJson*(post: entities.Post): JsonNode =
-  let replies =
-    if post.reply_count == 1:
-      "1 reply"
-    else:
-      $post.reply_count & " replies"
+  const maxLines = int(editorWidth / 2f)
+  let
+    replies =
+      if post.reply_count == 1:
+        "1 reply"
+      else:
+        $post.reply_count & " replies"
+    lines = strutils.splitLines(post.content.value.uncompressed)
   %*{
     "type": "rect",
-    "children": strutils.splitLines(post.content.value.uncompressed),
+    "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "top-right": replies,
+    "bottom-left": if lines.len > maxLines: "See more" else: "",
     "action": "show-replies",
     "action-data": {"sig": post.content.sig},
     "action-accessible-text": replies,
@@ -265,14 +269,14 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       for child in node["children-after"]:
         var y = yStart + 1
         render(tb, child, x + 1, y, focusIndex, areas)
-    if node.hasKey("top-left-focused") and isFocused:
-      iw.write(tb, x + 1, yStart, node["top-left-focused"].str)
-    elif node.hasKey("top-left"):
-      iw.write(tb, x + 1, yStart, node["top-left"].str)
     if node.hasKey("top-right-focused") and isFocused:
       iw.write(tb, xEnd - node["top-right-focused"].str.runeLen, yStart, node["top-right-focused"].str)
     elif node.hasKey("top-right"):
       iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
+    if node.hasKey("bottom-left-focused") and isFocused:
+      iw.write(tb, x + 1, y, node["bottom-left-focused"].str)
+    elif node.hasKey("bottom-left"):
+      iw.write(tb, x + 1, y, node["bottom-left"].str)
     y += 1
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len + 1)
