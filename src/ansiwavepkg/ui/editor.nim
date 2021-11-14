@@ -618,6 +618,15 @@ proc saveToStorage*(session: var auto, sig: string) =
     except Exception as ex:
       discard
 
+proc getContent*(session: var auto): string =
+  let
+    globals = session.query(rules.getGlobals)
+    buffer = globals.buffers[Editor.ord]
+  buffer.lines.joinLines
+
+proc setEditable*(session: var auto, editable: bool) =
+  session.insert(Editor, Editable, editable)
+
 var clipboard = ""
 
 proc toClipboard*(s: string) =
@@ -1270,7 +1279,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         discard renderButton(session, tb, "↨ Paste Line", termX + x, termY + 1, key, proc () = pasteLine(sess, selectedBuffer), (key: {}, hint: "Hint: paste line with Ctrl L"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, key, termX + x + 1, termY)
-    else:
+    elif not globals.options.bbsMode:
       let
         topText = "Read-only mode! To edit this, convert it into an ansiwave:"
         bottomText = "ansiwave https://ansiwave.net/... $1.ansiwave".format(selectedBuffer.name)

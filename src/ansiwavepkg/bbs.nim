@@ -16,6 +16,8 @@ const
   port = 3000
   address = "http://localhost:" & $port
 
+var requests: Table[string, client.ChannelValue[client.Response]]
+
 type
   Id* = enum
     Global,
@@ -201,6 +203,17 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     page = globals.pages[globals.selectedPage]
     maxScroll = max(1, int(height / 5))
     view = ui.toJson(page.data, finishedLoading)
+
+  # check on the ongoing requests
+  var finishedRequests: seq[string]
+  for k, v in requests.mpairs:
+    client.get(v)
+    if v.ready:
+      finishedRequests.add(k)
+  for sig in finishedRequests:
+    requests.del(sig)
+    editor.setEditable(globals.pages[sig].data.session, true)
+
   var sess = session
   let
     backAction = proc () {.closure.} =
@@ -213,7 +226,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     copyAction = proc () {.closure.} =
       discard
     sendAction = proc () {.closure.} =
-      discard
+      editor.setEditable(page.data.session, false)
+      requests[page.sig] = client.submit(clnt, "ansiwave", editor.getContent(page.data.session))
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =
@@ -222,6 +236,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
   if finishedLoading:
     session.insert(page.id, View, view)
+
   # if there is any input, find the associated action
   var
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
@@ -243,6 +258,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     else:
       let area = page.viewFocusAreas[page.focusIndex]
       action = (area.action, area.actionData)
+
   # handle the action
   if not handleAction(session, clnt, page.data, width, height, input, action.actionName, action.actionData):
     case input.key:
@@ -289,6 +305,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
                 break
       else:
         discard
+
   # render
   var
     y = - scrollY + navbar.height
@@ -297,7 +314,13 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     result = iw.newTerminalBuffer(width, height)
     editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input, finishedLoading)
     ui.render(result, view, 0, y, focusIndex, areas)
-    navbar.render(result, 0, 0, input, [(" ← ", backAction)], [(" Send ", sendAction)])
+    var rightButtons: seq[(string, proc ())]
+    if requests.hasKey(page.sig):
+      rightButtons.add((" Sending... ", proc () {.closure.} = discard))
+      finishedLoading = false # when a request is being sent, make sure the view refreshes
+    else:
+      rightButtons.add((" Send ", sendAction))
+    navbar.render(result, 0, 0, input, [(" ← ", backAction)], rightButtons)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -316,6 +339,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       else:
         @[(" My Account ", accountAction)]
     navbar.render(result, 0, 0, input, leftButtons, rightButtons)
+
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
