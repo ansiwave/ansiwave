@@ -289,20 +289,16 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           let limit = page.scrollY - maxScroll
           if scrollY < limit:
             scrollY = limit
-            for i in 0 .. page.viewFocusAreas.len - 1:
-              if page.viewFocusAreas[i].bottom > limit:
-                focusIndex = i
-                break
+          if page.viewFocusAreas[focusIndex].bottom < scrollY:
+            focusIndex += 1
       of iw.Key.Down:
         if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
           scrollY = page.viewFocusAreas[focusIndex].bottom - height
           let limit = page.scrollY + maxScroll
           if scrollY > limit:
             scrollY = limit
-            for i in countdown(page.viewFocusAreas.len - 1, 0):
-              if page.viewFocusAreas[i].top < limit + height:
-                focusIndex = i
-                break
+          if page.viewFocusAreas[focusIndex].top > scrollY + height:
+            focusIndex -= 1
       else:
         discard
 
