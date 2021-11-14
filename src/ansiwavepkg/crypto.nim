@@ -67,6 +67,7 @@ const loginKeyName = "login-key.png"
 var
   keyPair: ed25519.KeyPair
   pubKey*: string
+  image: seq[uint8]
 
 proc loadKey*(privateKey: seq[uint8]) =
   try:
@@ -85,14 +86,15 @@ proc loadKey*(privateKey: seq[uint8]) =
     discard
 
 proc loadKey*() =
-  let val = storage.get(loginKeyName, isBinary = true)
-  if val != "":
-    loadKey(cast[seq[uint8]](val))
+  image = cast[seq[uint8]](storage.get(loginKeyName, isBinary = true))
+  if image.len > 0:
+    loadKey(image)
 
 proc removeKey*() =
   storage.remove(loginKeyName)
   keyPair = ed25519.KeyPair()
   pubKey = ""
+  image = @[]
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
@@ -118,6 +120,12 @@ when defined(emscripten):
     if callback != nil:
       callback()
       callback = nil
+
+when defined(emscripten):
+  proc downloadKey*() =
+    if image.len > 0:
+      let b64 = base64.encode(image)
+      emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
 
 proc createUser*() =
   keyPair = ed25519.initKeyPair()
@@ -153,10 +161,8 @@ proc createUser*() =
 
   stego(data, $ %* {"private-key": privateKey, "algo": "ed25519"})
 
-  let png = stbiw.writePNG(width, height, 4, data)
-  discard storage.set(loginKeyName, png, isBinary = true)
+  image = stbiw.writePNG(width, height, 4, data)
+  discard storage.set(loginKeyName, image, isBinary = true)
 
   when defined(emscripten):
-    let b64 = base64.encode(png)
-    emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
-
+    downloadKey()

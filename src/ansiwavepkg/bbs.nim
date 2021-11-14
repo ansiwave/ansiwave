@@ -234,6 +234,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       sess.insertPage(ui.initLogout(), "logout")
     accountAction = proc () {.closure.} =
       sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
+    downloadKeyAction = proc () {.closure.} =
+      crypto.downloadKey()
   if finishedLoading:
     session.insert(page.id, View, view)
 
@@ -331,7 +333,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       elif crypto.pubKey == "":
         @[(" Login ", loginAction)]
       elif page.sig == crypto.pubKey:
-        @[(" Logout ", logoutAction)]
+        @[(" Download login key ", downloadKeyAction), (" Logout ", logoutAction)]
       else:
         @[(" My Account ", accountAction)]
     navbar.render(result, 0, 0, input, leftButtons, rightButtons)
