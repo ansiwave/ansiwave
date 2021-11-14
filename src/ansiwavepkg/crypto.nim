@@ -82,13 +82,14 @@ proc loadKey*(privateKey: seq[uint8]) =
       doAssert privKey.len == keyPair.private.len
       keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
       pubKey = base64.encode(keyPair.public, safe = true)
+      image = privateKey
   except Exception as ex:
     discard
 
 proc loadKey*() =
-  image = cast[seq[uint8]](storage.get(loginKeyName, isBinary = true))
-  if image.len > 0:
-    loadKey(image)
+  let privateKey = cast[seq[uint8]](storage.get(loginKeyName, isBinary = true))
+  if privateKey.len > 0:
+    loadKey(privateKey)
 
 proc removeKey*() =
   storage.remove(loginKeyName)
