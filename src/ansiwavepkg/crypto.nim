@@ -106,7 +106,7 @@ when defined(emscripten):
 
   proc free(p: pointer) {.importc.}
 
-  proc insertPrivateKey(image: pointer, length: cint) {.exportc.} =
+  proc insertPrivateKey(name: cstring, image: pointer, length: cint) {.exportc.} =
     let
       img = block:
         var s = newSeq[uint8](length)
