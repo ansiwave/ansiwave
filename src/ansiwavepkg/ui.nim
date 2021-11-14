@@ -15,13 +15,16 @@ from ./storage import nil
 
 type
   ComponentKind* = enum
-    Post, Editor, Login, Logout,
+    Post, User, Editor, Login, Logout,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
       sig: string
       post: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
+    of User:
+      key: string
+      user: client.ChannelValue[client.Response]
     of Editor:
       session*: editor.EditorSession
     of Login, Logout:
@@ -39,11 +42,17 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Post:
     comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.sig & ".ansiwavez"))
     comp.replies = client.queryPostChildren(clnt, dbFilename, comp.sig)
+  of User:
+    comp.user = client.query(clnt, ansiwavesDir.joinPath($comp.key & ".ansiwavez"))
   of Editor, Login, Logout:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
   result = Component(kind: Post, sig: sig)
+  refresh(clnt, result)
+
+proc initUser*(clnt: client.Client, key: string): Component =
+  result = Component(kind: User, key: key)
   refresh(clnt, result)
 
 proc initEditor*(width: int, height: int, sig: string): Component =
@@ -90,13 +99,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.post.ready:
         %"loading..."
       elif comp.post.value.kind == client.Error:
-        if comp.sig == crypto.pubKey:
-          %* [
-            "Click edit to create your banner.",
-            "This will always display at the top of your page.",
-          ]
-        else:
-          %"nothing to see here..."
+        %"failed to load post"
       else:
         %*{
           "type": "rect",
@@ -105,12 +108,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       ,
       {
         "type": "button",
-        "text":
-          if comp.sig == crypto.pubKey:
-            "write a blog post"
-          else:
-            "write a post"
-        ,
+        "text": "write a post",
         "action": "show-editor",
         "action-data": {"sig": comp.sig & ".new"},
       },
@@ -124,6 +122,37 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           %"no posts"
         else:
           toJson(comp.replies.value.valid)
+    ]
+  of User:
+    client.get(comp.user)
+    finishedLoading = comp.user.ready
+    %*[
+      if not comp.user.ready:
+        %"loading..."
+      elif comp.user.value.kind == client.Error:
+        if comp.key == crypto.pubKey:
+          %* [
+            "Click edit to create your banner.",
+            "This will always display at the top of your page.",
+          ]
+        else:
+          %"nothing to see here..."
+      else:
+        %*{
+          "type": "rect",
+          "children": strutils.splitLines(comp.post.value.valid.body),
+        }
+      ,
+      if comp.key == crypto.pubKey:
+        %* {
+          "type": "button",
+          "text": "edit",
+          "action": "edit-user",
+          "action-data": {"key": comp.key & ".edit"},
+        }
+      else:
+        % ""
+      ,
     ]
   of Editor:
     finishedLoading = true

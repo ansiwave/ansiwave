@@ -233,7 +233,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     logoutAction = proc () {.closure.} =
       sess.insertPage(ui.initLogout(), "logout")
     myPageAction = proc () {.closure.} =
-      sess.insertPage(ui.initPost(clnt, crypto.pubKey), crypto.pubKey)
+      sess.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
     downloadKeyAction = proc () {.closure.} =
       when defined(emscripten):
         crypto.downloadKey()
