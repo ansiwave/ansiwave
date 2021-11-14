@@ -1350,4 +1350,4 @@ proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, 
 
 proc tick*(session: var EditorSession): iw.TerminalBuffer =
   let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
-
+  tick(session, 0, 0, windowWidth, windowHeight, (iw.Key.None, 0'u32))
