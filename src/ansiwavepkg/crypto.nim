@@ -13,7 +13,7 @@ proc stego*(image: var seq[uint8], message: string) =
   # for now, we only store in the least significant bit
   # but maybe later it would be nice to use more
   const sigbits = 0'u8
-  for i in 0 ..< 8:
+  for i in 0 ..< 3:
     bits.add(sigbits.rotateRightBits(i).bitand(1) == 1)
 
   let length = message.len.uint32
@@ -34,12 +34,12 @@ proc destego*(image: seq[uint8]): string =
   var pos = 0
 
   var sigbits: uint8
-  for i in 0 ..< 8:
+  for i in 0 ..< 3:
     if image[pos + i].bitand(1) == 1:
       sigbits.setBit(i)
     else:
       sigbits.clearBit(i)
-  pos += 8
+  pos += 3
 
   if sigbits != 0:
     return ""
