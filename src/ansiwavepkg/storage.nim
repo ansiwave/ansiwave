@@ -1,6 +1,6 @@
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
-  from wavecorepkg/utils import nil
+  from wavecorepkg/paths import nil
 else:
   from os import `/`
 
@@ -10,7 +10,7 @@ proc set*(key: string, val: string | seq[uint8], isBinary: bool = false): bool =
   when defined(emscripten):
     let v =
       if isBinary:
-        utils.encode(val)
+        paths.encode(val)
       else:
         cast[string](val)
     emscripten.localSet(key, v)
@@ -27,7 +27,7 @@ proc get*(key: string, isBinary: bool = false): string =
   when defined(emscripten):
     let val = emscripten.localGet(key)
     if isBinary:
-      utils.decode(val)
+      paths.decode(val)
     else:
       val
   else:
