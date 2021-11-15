@@ -135,7 +135,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "Click edit to create your page.",
           ]
         else:
-          %"nothing to see here..."
+          %""
       else:
         %*{
           "type": "rect",
@@ -150,7 +150,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action-data": {"key": comp.key & ".edit"},
         }
       else:
-        % ""
+        %""
       ,
     ]
   of Editor:
