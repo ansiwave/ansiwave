@@ -132,8 +132,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.user.value.kind == client.Error:
         if comp.key == crypto.pubKey:
           %* [
-            "Click edit to create your banner.",
-            "This will always display at the top of your page.",
+            "Click edit to create your page.",
           ]
         else:
           %"nothing to see here..."
