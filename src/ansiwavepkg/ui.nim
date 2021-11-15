@@ -12,7 +12,7 @@ from ./ui/editor import nil
 from ./ui/navbar import nil
 from ./crypto import nil
 from ./storage import nil
-from wavecorepkg/board import nil
+from wavecorepkg/paths import nil
 
 type
   ComponentKind* = enum
@@ -36,11 +36,11 @@ type
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, board.sysopPublicKey / board.ansiwavesDir / $comp.sig & ".ansiwavez")
-    comp.replies = client.queryPostChildren(clnt, board.sysopPublicKey / board.dbFilename, comp.sig)
+    comp.postContent = client.query(clnt, paths.boardsDir / paths.sysopPublicKey / paths.ansiwavesDir / $comp.sig & ".ansiwavez")
+    comp.replies = client.queryPostChildren(clnt, paths.boardsDir / paths.sysopPublicKey / paths.dbFilename, comp.sig)
   of User:
-    comp.userContent = client.query(clnt, board.sysopPublicKey / board.ansiwavesDir / $comp.key & ".ansiwavez")
-    comp.userReplies = client.queryPostChildren(clnt, board.sysopPublicKey / board.dbFilename, comp.key)
+    comp.userContent = client.query(clnt, paths.boardsDir / paths.sysopPublicKey / paths.ansiwavesDir / $comp.key & ".ansiwavez")
+    comp.userReplies = client.queryPostChildren(clnt, paths.boardsDir / paths.sysopPublicKey / paths.dbFilename, comp.key)
   of Editor, Login, Logout:
     discard
 

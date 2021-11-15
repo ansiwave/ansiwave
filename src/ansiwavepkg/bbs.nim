@@ -11,7 +11,7 @@ from pararules/engine import Session, Vars
 from json import JsonNode
 import tables
 from ./crypto import nil
-from wavecorepkg/board import nil
+from wavecorepkg/paths import nil
 
 var requests: Table[string, client.ChannelValue[client.Response]]
 
@@ -113,7 +113,7 @@ proc initSession*(c: client.Client): auto =
   let breadcrumbs: PageBreadcrumbsType = @[]
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
-  result.insertPage(ui.initUser(c, board.sysopPublicKey), board.sysopPublicKey)
+  result.insertPage(ui.initUser(c, paths.sysopPublicKey), paths.sysopPublicKey)
   result.fireRules
 
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
@@ -356,9 +356,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
 proc renderBBS*() =
   crypto.loadKey()
 
-  vfs.readUrl = "http://localhost:" & $board.port & "/" & board.sysopPublicKey & "/" & board.dbFilename
+  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbFilename
   vfs.register()
-  var clnt = client.initClient(board.address)
+  var clnt = client.initClient(paths.address)
   client.start(clnt)
 
   # create session
