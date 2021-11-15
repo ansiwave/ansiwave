@@ -11,10 +11,7 @@ from pararules/engine import Session, Vars
 from json import JsonNode
 import tables
 from ./crypto import nil
-
-const
-  port = 3000
-  address = "http://localhost:" & $port
+from wavecorepkg/board import nil
 
 var requests: Table[string, client.ChannelValue[client.Response]]
 
@@ -116,7 +113,7 @@ proc initSession*(c: client.Client): auto =
   let breadcrumbs: PageBreadcrumbsType = @[]
   result.insert(Global, PageBreadcrumbs, breadcrumbs)
   result.insert(Global, PageBreadcrumbsIndex, -1)
-  result.insertPage(ui.initPost(c, "root"), "root")
+  result.insertPage(ui.initUser(c, board.sysopPublicKey), board.sysopPublicKey)
   result.fireRules
 
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
@@ -348,7 +345,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
   # we can't update view info after scrolling, or the y values will be incorrect
-  if scrollY == 0 and page.viewFocusAreas != areas:
+  if scrollY == 0 and (page.viewFocusAreas != areas or page.viewHeight != y):
     session.insert(page.id, ViewFocusAreas, areas)
     session.insert(page.id, ViewHeight, y)
     # if the view height has changed, emscripten needs to render again
@@ -359,9 +356,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
 proc renderBBS*() =
   crypto.loadKey()
 
-  vfs.readUrl = "http://localhost:" & $port & "/" & ui.dbFilename
+  vfs.readUrl = "http://localhost:" & $board.port & "/" & board.sysopPublicKey & "/" & board.dbFilename
   vfs.register()
-  var clnt = client.initClient(address)
+  var clnt = client.initClient(board.address)
   client.start(clnt)
 
   # create session

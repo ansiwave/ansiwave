@@ -7,11 +7,12 @@ import tables, sets
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from strutils import format
-from os import joinPath
+from os import `/`
 from ./ui/editor import nil
 from ./ui/navbar import nil
 from ./crypto import nil
 from ./storage import nil
+from wavecorepkg/board import nil
 
 type
   ComponentKind* = enum
@@ -20,30 +21,26 @@ type
     case kind*: ComponentKind
     of Post:
       sig: string
-      post: client.ChannelValue[client.Response]
+      postContent: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
     of User:
       key: string
-      user: client.ChannelValue[client.Response]
+      userContent: client.ChannelValue[client.Response]
+      userReplies: client.ChannelValue[seq[entities.Post]]
     of Editor:
       session*: editor.EditorSession
     of Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
 
-const
-  dbFilename* = "board.db"
-  staticFileDir = "tests".joinPath("bbs")
-  dbPath = staticFileDir.joinPath(dbFilename)
-  ansiwavesDir = "ansiwaves"
-
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.post = client.query(clnt, ansiwavesDir.joinPath($comp.sig & ".ansiwavez"))
-    comp.replies = client.queryPostChildren(clnt, dbFilename, comp.sig)
+    comp.postContent = client.query(clnt, board.sysopPublicKey / board.ansiwavesDir / $comp.sig & ".ansiwavez")
+    comp.replies = client.queryPostChildren(clnt, board.sysopPublicKey / board.dbFilename, comp.sig)
   of User:
-    comp.user = client.query(clnt, ansiwavesDir.joinPath($comp.key & ".ansiwavez"))
+    comp.userContent = client.query(clnt, board.sysopPublicKey / board.ansiwavesDir / $comp.key & ".ansiwavez")
+    comp.userReplies = client.queryPostChildren(clnt, board.sysopPublicKey / board.dbFilename, comp.key)
   of Editor, Login, Logout:
     discard
 
@@ -92,18 +89,18 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
-    client.get(comp.post)
+    client.get(comp.postContent)
     client.get(comp.replies)
-    finishedLoading = comp.post.ready and comp.replies.ready
+    finishedLoading = comp.postContent.ready and comp.replies.ready
     %*[
-      if not comp.post.ready:
+      if not comp.postContent.ready:
         %"loading..."
-      elif comp.post.value.kind == client.Error:
+      elif comp.postContent.value.kind == client.Error:
         %"failed to load post"
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.post.value.valid.body),
+          "children": strutils.splitLines(comp.postContent.value.valid.body),
         }
       ,
       {
@@ -124,12 +121,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           toJson(comp.replies.value.valid)
     ]
   of User:
-    client.get(comp.user)
-    finishedLoading = comp.user.ready
+    client.get(comp.userContent)
+    client.get(comp.userReplies)
+    finishedLoading = comp.userContent.ready and comp.userReplies.ready
     %*[
-      if not comp.user.ready:
+      if not comp.userContent.ready:
         %"loading..."
-      elif comp.user.value.kind == client.Error:
+      elif comp.userContent.value.kind == client.Error:
         if comp.key == crypto.pubKey:
           %* [
             "Click edit to create your page.",
@@ -139,7 +137,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.post.value.valid.body),
+          "children": strutils.splitLines(comp.userContent.value.valid.body),
         }
       ,
       if comp.key == crypto.pubKey:
@@ -152,6 +150,16 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %""
       ,
+      "", # spacer
+      if not comp.userReplies.ready:
+        %"loading posts"
+      elif comp.userReplies.value.kind == client.Error:
+        %"failed to load posts"
+      else:
+        if comp.userReplies.value.valid.len == 0:
+          %"no posts"
+        else:
+          toJson(comp.userReplies.value.valid)
     ]
   of Editor:
     finishedLoading = true
