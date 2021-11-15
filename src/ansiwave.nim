@@ -17,7 +17,6 @@ from paramidi import Context
 from json import nil
 from parseopt import nil
 from zippy import nil
-from base64 import nil
 import streams
 from uri import nil
 from ./ansiwavepkg/ui/editor import nil

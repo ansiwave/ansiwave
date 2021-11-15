@@ -17,7 +17,7 @@ import ../constants
 from paramidi import Context
 from json import nil
 from zippy import nil
-from base64 import nil
+from wavecorepkg/utils import nil
 import streams
 from uri import nil
 import json
@@ -653,7 +653,7 @@ proc initLink*(buffer: tuple): string =
     output = zippy.compress(s, dataFormat = zippy.dfZlib)
     pairs = {
       "name": uri.encodeUrl(buffer.name),
-      "data": base64.encode(output, safe = true)
+      "data": utils.encode(output)
     }
   var fragments: seq[string]
   for pair in pairs:
@@ -672,7 +672,7 @@ proc parseLink*(link: string): Table[string, string] =
       if keyVal.len == 2:
         result[keyVal[0]] =
           if keyVal[0] == "data":
-            zippy.uncompress(base64.decode(keyVal[1]), dataFormat = zippy.dfZlib)
+            zippy.uncompress(utils.decode(keyVal[1]), dataFormat = zippy.dfZlib)
           else:
             keyVal[1]
 
