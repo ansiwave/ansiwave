@@ -62,7 +62,9 @@ proc destego*(image: seq[uint8]): string =
     result &= ch.char
     pos += 8
 
-const loginKeyName = "login-key.png"
+const
+  algorithm* = "ed25519"
+  loginKeyName = "login-key.png"
 
 var
   keyPair: ed25519.KeyPair

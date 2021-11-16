@@ -136,6 +136,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
     if result:
       let
         sig = actionData["sig"].str
+        headers = actionData["headers"]
         globals = session.query(rules.getGlobals)
       if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == sig:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
@@ -143,7 +144,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         if globals.pages.hasKey(sig):
           session.goToPage(sig)
         else:
-          session.insertPage(ui.initEditor(width, height, sig), sig)
+          session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
@@ -224,7 +225,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
-      requests[page.sig] = client.submit(clnt, "ansiwave", editor.getContent(page.data.session))
+      requests[page.sig] = client.submit(clnt, "ansiwave", page.data.headers & "\n" & editor.getContent(page.data.session))
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =

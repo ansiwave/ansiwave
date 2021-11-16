@@ -28,6 +28,7 @@ type
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
     of Editor:
+      headers*: string
       session*: editor.EditorSession
     of Login, Logout:
       discard
@@ -52,8 +53,10 @@ proc initUser*(clnt: client.Client, key: string): Component =
   result = Component(kind: User, key: key)
   refresh(clnt, result)
 
-proc initEditor*(width: int, height: int, sig: string): Component =
+proc initEditor*(width: int, height: int, sig: string, headers: JsonNode): Component =
   result = Component(kind: Editor)
+  for header in headers:
+    result.headers &= header.str & "\n"
   result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
 
 proc initLogin*(): Component =
@@ -107,7 +110,16 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "type": "button",
         "text": "write a post",
         "action": "show-editor",
-        "action-data": {"sig": comp.sig & ".new"},
+        "action-data": {
+          "sig": comp.sig & ".new",
+          "headers": [
+            "/head.public-key " & crypto.pubKey,
+            "/head.algorithm " & crypto.algorithm,
+            "/head.parent " & comp.sig,
+            "/head.last-sig ",
+            "/head.board " & paths.sysopPublicKey,
+          ],
+        },
       },
       "", # spacer
       if not comp.replies.ready:
