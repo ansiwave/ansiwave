@@ -383,7 +383,7 @@ let rules* =
       then:
         var scriptContext = waveScript.initContext()
         let
-          cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
+          cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
           treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
           trees = wavescript.parseOperatorCommands(treesTemp)
         var cmdsRef, errsRef: RefCommands

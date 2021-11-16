@@ -31,7 +31,7 @@ from ./wavecorepkg/wavescript import nil
 proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
   var scriptContext = waveScript.initContext()
   let
-    cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
+    cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 

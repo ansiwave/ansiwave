@@ -62,7 +62,7 @@ proc convertToWav(opts: editor.Options) =
   let lines = editor.splitLines(readFile(opts.input))
   var scriptContext = waveScript.initContext()
   let
-    cmds = wavescript.parse(sequtils.map(lines[], codes.stripCodesIfCommand))
+    cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
     trees = wavescript.parseOperatorCommands(treesTemp)
   # compile code into JSON representation
