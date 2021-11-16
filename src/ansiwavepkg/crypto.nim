@@ -80,9 +80,11 @@ proc loadKey*(privateKey: seq[uint8]) =
     if json != "":
       let
         obj = parseJson(json)
-        privKey = paths.decode(obj["private-key"].str)
-      doAssert privKey.len == keyPair.private.len
-      keyPair = ed25519.initKeyPair(cast[ed25519.PrivateKey](privKey[0]))
+        privKeyStr = paths.decode(obj["private-key"].str)
+      doAssert privKeyStr.len == keyPair.private.len
+      var privKey: ed25519.PrivateKey
+      copyMem(privKey.addr, privKeyStr[0].unsafeAddr, privKeyStr.len)
+      keyPair = ed25519.initKeyPair(privKey)
       pubKey = paths.encode(keyPair.public)
       image = privateKey
   except Exception as ex:
