@@ -8,7 +8,7 @@ from strutils import format
 from sequtils import nil
 from sugar import nil
 from times import nil
-from ../wavescript import CommandTree
+from wavecorepkg/wavescript import CommandTree
 from ../midi import nil
 from ../sound import nil
 from ../codes import stripCodes

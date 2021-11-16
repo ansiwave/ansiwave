@@ -7,7 +7,6 @@ from strutils import format
 from sequtils import nil
 from times import nil
 from ./ansiwavepkg/ansi import nil
-from ./ansiwavepkg/wavescript import CommandTree
 from ./ansiwavepkg/midi import nil
 from ./ansiwavepkg/codes import stripCodes
 from ./ansiwavepkg/chafa import nil
@@ -21,6 +20,7 @@ import streams
 from uri import nil
 from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
+from wavecorepkg/wavescript import CommandTree
 
 proc exitClean(ex: ref Exception) =
   iw.illwillDeinit()

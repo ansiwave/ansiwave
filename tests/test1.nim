@@ -26,7 +26,7 @@ test "Dedupe RGB codes correctly":
   let newText2 = codes.dedupeCodes(text2)
   check newText2.escape == "\e[0;48;2;114;129;163;38;2;114;129;163m".escape
 
-from ./ansiwavepkg/wavescript import nil
+from ./wavecorepkg/wavescript import nil
 
 proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
   var scriptContext = waveScript.initContext()
