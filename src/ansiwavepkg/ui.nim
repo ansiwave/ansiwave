@@ -155,6 +155,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if comp.key == crypto.pubKey:
         %* {
           "type": "button",
+          "align": "left",
           "text": "edit",
           "action": "edit-user",
           "action-data": {"key": comp.key & ".edit"},
@@ -304,9 +305,10 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   let
     isFocused = focusIndex == areas.len
     yStart = y
-    xEnd = x + editorWidth + 1
     nodeType = node["type"].str
-  var xStart = x
+  var
+    xStart = x
+    xEnd = x + editorWidth + 1
   case nodeType:
   of "rect":
     y += 1
@@ -327,10 +329,17 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.write(tb, x + 1, y, node["bottom-left"].str)
     y += 1
   of "button":
-    xStart = max(x, editorWidth - node["text"].str.len + 1)
-    y += 1
-    render(tb, node["text"].str, xStart, y)
-    iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
+    if node.hasKey("align") and node["align"].str == "left":
+      xStart += 1
+      xEnd = xStart + node["text"].str.len
+      y += 1
+      render(tb, node["text"].str, xStart, y)
+      iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
+    else:
+      xStart = max(x, editorWidth - node["text"].str.len + 1)
+      y += 1
+      render(tb, node["text"].str, xStart, y)
+      iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   of "cursor":
     if isFocused:
