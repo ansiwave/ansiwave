@@ -113,10 +113,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "action-data": {
           "sig": comp.sig & ".new",
           "headers": [
-            "/head.public-key " & crypto.pubKey,
-            "/head.algorithm " & crypto.algorithm,
+            "/head.key " & crypto.pubKey,
+            "/head.algo " & crypto.algorithm,
             "/head.parent " & comp.sig,
-            "/head.last-sig ",
+            "/head.last-sig",
             "/head.board " & paths.sysopPublicKey,
           ],
         },

@@ -169,3 +169,11 @@ proc createUser*() =
 
   when defined(emscripten):
     downloadKey()
+
+from times import nil
+
+proc sign*(content: string): string =
+  result = "/head.time " & $times.toUnix(times.getTime()) & "\n"
+  result &= content
+  result = "/head.sig " & paths.encode(ed25519.sign(keyPair, result)) & "\n" & result
+

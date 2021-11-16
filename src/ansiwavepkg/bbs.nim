@@ -225,7 +225,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
-      requests[page.sig] = client.submit(clnt, "ansiwave", page.data.headers & "\n" & editor.getContent(page.data.session))
+      requests[page.sig] = client.submit(clnt, "ansiwave", crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session)))
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =
