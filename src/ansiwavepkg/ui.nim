@@ -140,12 +140,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.userContent.ready:
         %"loading..."
       elif comp.userContent.value.kind == client.Error:
-        if comp.key == crypto.pubKey:
-          %* [
-            "Click edit to create your page.",
-          ]
-        else:
-          %""
+        %""
       else:
         %*{
           "type": "rect",
@@ -156,7 +151,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %* {
           "type": "button",
           "align": "left",
-          "text": "edit",
+          "text": "edit header",
           "action": "edit-user",
           "action-data": {"key": comp.key & ".edit"},
         }
