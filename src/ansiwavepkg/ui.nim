@@ -31,6 +31,8 @@ type
       headers*: string
       session*: editor.EditorSession
       request*: client.ChannelValue[client.Response]
+      requestBody*: string
+      requestSig*: string
     of Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]

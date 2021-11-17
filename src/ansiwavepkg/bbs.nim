@@ -217,7 +217,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
-      page.data.request = client.submit(clnt, "ansiwave", crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session)))
+      let (body, sig) = crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session))
+      page.data.requestBody = body
+      page.data.requestSig = sig
+      page.data.request = client.submit(clnt, "ansiwave", body)
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =
@@ -313,6 +316,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         session.retract(page.id, ComponentData)
         storage.remove(page.sig & ".ansiwave")
         backAction()
+        session.fireRules
+        if storage.set(page.data.requestSig & ".ansiwave", page.data.requestBody):
+          session.insertPage(ui.initPost(clnt, page.data.requestSig), page.data.requestSig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         editor.setEditable(page.data.session, true)

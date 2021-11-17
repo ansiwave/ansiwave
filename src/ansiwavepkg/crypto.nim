@@ -174,8 +174,9 @@ proc createUser*() =
 
 from times import nil
 
-proc sign*(content: string): string =
-  result = "/head.time " & $times.toUnix(times.getTime()) & "\n"
-  result &= content
-  result = "/head.sig " & paths.encode(ed25519.sign(keyPair, result)) & "\n" & result
+proc sign*(content: string): tuple[body: string, sig: string] =
+  result.body = "/head.time " & $times.toUnix(times.getTime()) & "\n"
+  result.body &= content
+  result.sig = paths.encode(ed25519.sign(keyPair, result.body))
+  result.body = "/head.sig " & result.sig & "\n" & result.body
 
