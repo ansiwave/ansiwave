@@ -40,11 +40,11 @@ type
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, paths.boardsDir / paths.sysopPublicKey / paths.ansiwavesDir / $comp.sig & ".ansiwavez")
-    comp.replies = client.queryPostChildren(clnt, paths.boardsDir / paths.sysopPublicKey / paths.dbFilename, comp.sig)
+    comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
+    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
   of User:
-    comp.userContent = client.query(clnt, paths.boardsDir / paths.sysopPublicKey / paths.ansiwavesDir / $comp.key & ".ansiwavez")
-    comp.userReplies = client.queryPostChildren(clnt, paths.boardsDir / paths.sysopPublicKey / paths.dbFilename, comp.key)
+    comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
+    comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
   of Editor, Login, Logout:
     discard
 
