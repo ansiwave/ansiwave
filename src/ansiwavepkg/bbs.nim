@@ -11,6 +11,7 @@ from pararules/engine import Session, Vars
 from json import JsonNode
 import tables
 from ./crypto import nil
+from ./storage import nil
 from wavecorepkg/paths import nil
 
 type
@@ -122,13 +123,10 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       let
         sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
-      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == sig:
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+      if globals.pages.hasKey(sig):
+        session.goToPage(sig)
       else:
-        if globals.pages.hasKey(sig):
-          session.goToPage(sig)
-        else:
-          session.insertPage(ui.initPost(clnt, sig), sig)
+        session.insertPage(ui.initPost(clnt, sig), sig)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
@@ -136,13 +134,10 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         sig = actionData["sig"].str
         headers = actionData["headers"]
         globals = session.query(rules.getGlobals)
-      if globals.breadcrumbsIndex < globals.breadcrumbs.len - 1 and globals.breadcrumbs[globals.breadcrumbsIndex + 1] == sig:
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+      if globals.pages.hasKey(sig):
+        session.goToPage(sig)
       else:
-        if globals.pages.hasKey(sig):
-          session.goToPage(sig)
-        else:
-          session.insertPage(ui.initEditor(width, height, sig, headers), sig)
+        session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
@@ -206,7 +201,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if globals.breadcrumbsIndex > 0:
         sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
     refreshAction = proc () {.closure.} =
-        ui.refresh(clnt, page.data)
+      ui.refresh(clnt, page.data)
     searchAction = proc () {.closure.} =
       discard
     copyAction = proc () {.closure.} =
@@ -305,6 +300,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if not page.data.request.ready:
         rightButtons.add((" sending... ", proc () {.closure.} = discard))
         finishedLoading = false # when a request is being sent, make sure the view refreshes
+      elif page.data.request.value.kind == client.Valid:
+        session.retract(page.id, ComponentData)
+        storage.remove(page.sig & ".ansiwave")
+        backAction()
+        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         editor.setEditable(page.data.session, true)
         page.data.request.chan = nil
