@@ -90,17 +90,26 @@ proc goToPage(session: var auto, sig: string) =
   session.insert(Global, PageBreadcrumbs, breadcrumbs)
   session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
 
-var nextPageId = Id.high.ord + 1
+var
+  nextPageId = Id.high.ord + 1
+  sigToPageId: Table[string, int]
 
 proc insertPage(session: var auto, comp: ui.Component, sig: string) =
-  session.insert(nextPageId, Signature, sig)
-  session.insert(nextPageId, ComponentData, comp)
-  session.insert(nextPageId, FocusIndex, 0)
-  session.insert(nextPageId, ScrollY, 0)
-  session.insert(nextPageId, View, cast[JsonNode](nil))
-  session.insert(nextPageId, ViewHeight, 0)
-  session.insert(nextPageId, ViewFocusAreas, @[])
-  nextPageId += 1
+  let id =
+    if sigToPageId.hasKey(sig):
+      sigToPageId[sig]
+    else:
+      let n = nextPageId
+      sigToPageId[sig] = n
+      nextPageId += 1
+      n
+  session.insert(id, Signature, sig)
+  session.insert(id, ComponentData, comp)
+  session.insert(id, FocusIndex, 0)
+  session.insert(id, ScrollY, 0)
+  session.insert(id, View, cast[JsonNode](nil))
+  session.insert(id, ViewHeight, 0)
+  session.insert(id, ViewFocusAreas, @[])
   session.goToPage(sig)
 
 proc initSession*(c: client.Client): auto =
