@@ -366,7 +366,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
 proc renderBBS*() =
   crypto.loadKey()
 
-  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.db(paths.sysopPublicKey)
+  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address)
   client.start(clnt)
