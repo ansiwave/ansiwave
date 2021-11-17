@@ -13,8 +13,6 @@ import tables
 from ./crypto import nil
 from wavecorepkg/paths import nil
 
-var requests: Table[string, client.ChannelValue[client.Response]]
-
 type
   Id* = enum
     Global,
@@ -202,16 +200,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     maxScroll = max(1, int(height / 5))
     view = ui.toJson(page.data, finishedLoading)
 
-  # check on the ongoing requests
-  var finishedRequests: seq[string]
-  for k, v in requests.mpairs:
-    client.get(v)
-    if v.ready:
-      finishedRequests.add(k)
-  for sig in finishedRequests:
-    requests.del(sig)
-    editor.setEditable(globals.pages[sig].data.session, true)
-
   var sess = session
   let
     backAction = proc () {.closure.} =
@@ -225,7 +213,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
-      requests[page.sig] = client.submit(clnt, "ansiwave", crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session)))
+      page.data.request = client.submit(clnt, "ansiwave", crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session)))
     loginAction = proc () {.closure.} =
       sess.insertPage(ui.initLogin(), "login")
     logoutAction = proc () {.closure.} =
@@ -312,9 +300,15 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input, finishedLoading)
     ui.render(result, view, 0, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
-    if requests.hasKey(page.sig):
-      rightButtons.add((" sending... ", proc () {.closure.} = discard))
-      finishedLoading = false # when a request is being sent, make sure the view refreshes
+    if page.data.request.chan != nil:
+      client.get(page.data.request)
+      if not page.data.request.ready:
+        rightButtons.add((" sending... ", proc () {.closure.} = discard))
+        finishedLoading = false # when a request is being sent, make sure the view refreshes
+      else:
+        editor.setEditable(page.data.session, true)
+        page.data.request.chan = nil
+        rightButtons.add((" send ", sendAction))
     else:
       rightButtons.add((" send ", sendAction))
     navbar.render(result, 0, 0, input, [(" ← ", backAction)], rightButtons)
