@@ -45,3 +45,10 @@ proc remove*(key: string) =
     if os.fileExists(path):
       os.removeFile(path)
 
+proc list*(): seq[string] =
+  when defined(emscripten):
+    emscripten.localList()
+  else:
+    for f in os.walkDir(os.expandTilde(dataDir)):
+      result.add(f.path)
+
