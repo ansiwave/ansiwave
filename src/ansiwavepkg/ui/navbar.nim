@@ -22,8 +22,13 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
     cb()
   result += 1
 
-proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], rightButtons: openArray[(string, proc())]) =
+proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())]) =
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
+  var lineY = pageY
+  for line in middleLines:
+    if unicode.validateUtf8(line) == -1:
+      iw.write(tb, max(pageX, int(constants.editorWidth.float / 2 - line.len / 2)), lineY, line)
+      lineY += 1
   var x = pageX
   for (text, cb) in leftButtons:
     x = renderButton(tb, text, x, pageY, input.key, cb)

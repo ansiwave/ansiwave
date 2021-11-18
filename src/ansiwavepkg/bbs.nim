@@ -307,6 +307,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input, finishedLoading)
     ui.render(result, view, 0, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
+    var errorLines: seq[string]
     if page.data.request.chan != nil:
       client.get(page.data.request)
       if not page.data.request.ready:
@@ -321,12 +322,14 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           session.insertPage(ui.initPost(clnt, page.data.requestSig), page.data.requestSig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
-        editor.setEditable(page.data.session, true)
-        page.data.request.chan = nil
-        rightButtons.add((" send ", sendAction))
+        let continueAction = proc () =
+          page.data.request.chan = nil
+          editor.setEditable(page.data.session, true)
+        rightButtons.add((" continue editing ", continueAction))
+        errorLines = @["Error", page.data.request.value.error]
     else:
       rightButtons.add((" send ", sendAction))
-    navbar.render(result, 0, 0, input, [(" ← ", backAction)], rightButtons)
+    navbar.render(result, 0, 0, input, [(" ← ", backAction)], errorLines, rightButtons)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -347,7 +350,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           @[(" logout ", logoutAction)]
       else:
         @[(" my page ", myPageAction)]
-    navbar.render(result, 0, 0, input, leftButtons, rightButtons)
+    navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
 
   # update values if necessary
   if focusIndex != page.focusIndex:
