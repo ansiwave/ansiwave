@@ -318,7 +318,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         storage.remove(page.sig & ".ansiwave")
         backAction()
         session.fireRules
-        if storage.set(page.data.requestSig & ".ansiwave", page.data.requestBody):
+        if storage.set(page.data.requestSig & ".post.ansiwave", page.data.requestBody):
           session.insertPage(ui.initPost(clnt, page.data.requestSig), page.data.requestSig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
