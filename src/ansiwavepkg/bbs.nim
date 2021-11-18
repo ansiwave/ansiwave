@@ -196,6 +196,12 @@ proc isEditor*(session: auto): bool =
     page = globals.pages[globals.selectedPage]
   page.isEditor
 
+proc init*() =
+  try:
+    crypto.loadKey()
+  except Exception as ex:
+    echo ex.msg
+
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
@@ -367,8 +373,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc renderBBS*() =
-  crypto.loadKey()
-
+  init()
   vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address)
