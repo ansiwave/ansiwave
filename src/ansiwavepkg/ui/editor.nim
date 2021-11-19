@@ -175,44 +175,47 @@ proc getCurrentLine(session: var EditorSession, bufferId: int): int
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
 
+# TODO: find a way to render progress bar in opengl/webgl
 proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, bufferWidth: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if events.len == 0:
     return
   var
     tb = tick(session)
     lineTimesIdx = -1
-  iw.display(tb) # render once to give quick feedback, since midi.play can time to run
+  when not defined(emscripten):
+    iw.display(tb) # render once to give quick feedback, since midi.play can time to run
   let
     (secs, playResult) = midi.play(events)
     startTime = times.epochTime()
-  # render again with double buffering disabled,
-  # because audio errors printed by midi.play to std out
-  # will cover up the UI if double buffering is enabled
-  iw.setDoubleBuffering(false)
-  iw.display(tb)
-  iw.setDoubleBuffering(true)
-  if playResult.kind == sound.Error:
-    exitClean(playResult.message)
-  while true:
-    let currTime = times.epochTime() - startTime
-    if currTime > secs:
-      break
-    # go to the right line
-    if lineTimesIdx + 1 < lineTimes.len:
-      let (line, time) = lineTimes[lineTimesIdx + 1]
-      if currTime >= time:
-        lineTimesIdx.inc
-        moveCursor(session, bufferId, 0, line)
-        tb = tick(session)
-    # draw progress bar
-    iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
-    iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
+  when not defined(emscripten):
+    # render again with double buffering disabled,
+    # because audio errors printed by midi.play to std out
+    # will cover up the UI if double buffering is enabled
+    iw.setDoubleBuffering(false)
     iw.display(tb)
-    let key = iw.getKey()
-    if key == iw.Key.Tab:
-      break
-    os.sleep(sleepMsecs)
-  midi.stop(playResult.addrs)
+    iw.setDoubleBuffering(true)
+    if playResult.kind == sound.Error:
+      exitClean(playResult.message)
+    while true:
+      let currTime = times.epochTime() - startTime
+      if currTime > secs:
+        break
+      # go to the right line
+      if lineTimesIdx + 1 < lineTimes.len:
+        let (line, time) = lineTimes[lineTimesIdx + 1]
+        if currTime >= time:
+          lineTimesIdx.inc
+          moveCursor(session, bufferId, 0, line)
+          tb = tick(session)
+      # draw progress bar
+      iw.fill(tb, 0, 0, bufferWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
+      iw.fill(tb, 0, 0, int((currTime / secs) * float(bufferWidth + 1)), 0, "▓")
+      iw.display(tb)
+      let key = iw.getKey()
+      if key == iw.Key.Tab:
+        break
+      os.sleep(sleepMsecs)
+    midi.stop(playResult.addrs)
 
 proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -397,37 +400,36 @@ let rules* =
         for tree in trees:
           case tree.kind:
           of wavescript.Valid:
-            if not options.bbsMode: # TODO: enable midi commands in BBS mode
-              # set the play button in the gutter to play the line
-              let treeLocal = tree
-              sugar.capture treeLocal, midiContext:
-                let cb =
-                  proc () =
-                    sess.insert(id, Prompt, StopPlaying)
-                    var ctx = midiContext
-                    ctx.time = 0
-                    new ctx.events
-                    let res =
-                      try:
-                        midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
-                      except Exception as e:
-                        midi.CompileResult(kind: midi.Error, message: e.msg)
-                    case res.kind:
-                    of midi.Valid:
-                      play(sess, res.events, id, width, @[])
-                    of midi.Error:
-                      if id == Editor.ord:
-                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
-                    sess.insert(id, Prompt, None)
-                linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
-              cmdsRef[].add(tree)
-              # compile the line so the context object updates
-              # this is important so attributes changed by previous lines
-              # affect the play button
-              try:
-                discard paramidi.compile(midiContext, wavescript.toJson(tree))
-              except:
-                discard
+            # set the play button in the gutter to play the line
+            let treeLocal = tree
+            sugar.capture treeLocal, midiContext:
+              let cb =
+                proc () =
+                  sess.insert(id, Prompt, StopPlaying)
+                  var ctx = midiContext
+                  ctx.time = 0
+                  new ctx.events
+                  let res =
+                    try:
+                      midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
+                    except Exception as e:
+                      midi.CompileResult(kind: midi.Error, message: e.msg)
+                  case res.kind:
+                  of midi.Valid:
+                    play(sess, res.events, id, width, @[])
+                  of midi.Error:
+                    if id == Editor.ord:
+                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
+                  sess.insert(id, Prompt, None)
+              linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
+            cmdsRef[].add(tree)
+            # compile the line so the context object updates
+            # this is important so attributes changed by previous lines
+            # affect the play button
+            try:
+              discard paramidi.compile(midiContext, wavescript.toJson(tree))
+            except:
+              discard
           of wavescript.Error, wavescript.Discard:
             if id == Editor.ord:
               discard setErrorLink(sess, linksRef, tree.line, errsRef[].len)

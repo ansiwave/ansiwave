@@ -5,6 +5,16 @@ import paramidi_soundfonts
 import json
 from os import nil
 
+when defined(emscripten):
+  from wavecorepkg/client import nil
+  from wavecorepkg/client/emscripten import nil
+  from base64 import nil
+
+  var response: client.ChannelValue[client.Response]
+
+  proc fetchSoundfont*(clnt: client.Client) =
+    response = client.query(clnt, "soundfont.sf2")
+
 type
   ResultKind* = enum
     Valid, Error,
@@ -33,8 +43,13 @@ proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, play
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(emscripten):
-    var sf = cast[ptr tsf](nil)
-    raise newException(Exception, "Not supported for now")
+    client.get(response)
+    if not response.ready:
+      return (0.0, sound.PlayResult(kind: sound.Error, message: "Still fetching soundfont! Try again soon."))
+    elif response.value.kind == client.Error:
+      return (0.0, sound.PlayResult(kind: sound.Error, message: response.value.error))
+    let soundfont = response.value.valid.body
+    var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   elif defined(release):
     # if there is a soundfont in the root of this repo, use it.
     # otherwise, use a soundfont from paramidi_soundfonts
@@ -57,7 +72,11 @@ proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, play
     (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Error, message: "Only writing to disk"))
   else:
     let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
-    (secs: res.seconds, playResult: sound.play(wav))
+    when defined(emscripten):
+      emscripten.playAudio("data:audio/wav;base64," & base64.encode(wav))
+      (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Valid))
+    else:
+      (secs: res.seconds, playResult: sound.play(wav))
 
 proc stop*(addrs: sound.Addrs) =
   sound.stop(addrs[0], addrs[1])
