@@ -180,6 +180,7 @@ proc set(lines: var RefStrings, i: int, line: string) =
 proc getCurrentLine(session: var EditorSession, bufferId: int): int
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
+proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int]
 
 proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if iw.gIllwillInitialised:
@@ -212,8 +213,9 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
             moveCursor(session, bufferId, 0, line)
             tb = tick(session)
         # draw progress bar
-        iw.fill(tb, 0, 0, editorWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
-        iw.fill(tb, 0, 0, int((currTime / secs) * float(editorWidth + 1)), 0, "▓")
+        let termWindow = getTerminalWindow(session)
+        iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + editorWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
+        iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(editorWidth + 1)), termWindow.y, "▓")
         iw.display(tb)
         let key = iw.getKey()
         if key == iw.Key.Tab:
@@ -576,6 +578,9 @@ proc onWindowResize(session: var EditorSession, x: int, y: int, width: int, heig
   session.insert(TerminalWindow, Y, y)
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
+
+proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int] =
+  session.query(rules.getTerminalWindow)
 
 proc insertBuffer(session: var EditorSession, id: Id, name: string, x: int, y: int, editable: bool, text: string) =
   session.insert(id, Name, name)
