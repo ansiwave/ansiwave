@@ -67,6 +67,13 @@ proc initLogin*(): Component =
 proc initLogout*(): Component =
   Component(kind: Logout)
 
+proc splitPost(content: string): seq[string] =
+  let idx = strutils.find(content, "\n\n")
+  if idx == -1: # this should never happen
+    @[""]
+  else:
+    strutils.splitLines(content[idx + 2 ..< content.len])
+
 proc toJson*(post: entities.Post): JsonNode =
   const maxLines = int(editorWidth / 2f)
   let
@@ -75,7 +82,7 @@ proc toJson*(post: entities.Post): JsonNode =
         "1 reply"
       else:
         $post.reply_count & " replies"
-    lines = strutils.splitLines(post.content.value.uncompressed)
+    lines = splitPost(post.content.value.uncompressed)
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
@@ -105,7 +112,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.postContent.value.valid.body),
+          "children": splitPost(comp.postContent.value.valid.body),
         }
       ,
       {
@@ -140,7 +147,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %*{
           "type": "rect",
-          "children": strutils.splitLines(comp.userContent.value.valid.body),
+          "children": splitPost(comp.userContent.value.valid.body),
         }
       ,
       if comp.key == crypto.pubKey:
