@@ -85,10 +85,7 @@ type
     lastSaveTime: float
     name: string
   BufferTable = ref Table[int, Buffer]
-  PlayStatus = enum
-    NotPlaying, Starting, Playing,
-  PlayInfo = object
-    status: PlayStatus
+  PlayInfo = ref object
     events: seq[paramidi.Event]
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
@@ -181,9 +178,56 @@ proc set(lines: var RefStrings, i: int, line: string) =
   lines[i] = s
 
 proc getCurrentLine(session: var EditorSession, bufferId: int): int
+proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
+proc tick*(session: var EditorSession): iw.TerminalBuffer
 
 proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
-  session.insert(Global, Play, PlayInfo(status: Starting, events: events, lineTimes: lineTimes))
+  if iw.gIllwillInitialised:
+    var
+      tb = tick(session)
+      lineTimesIdx = -1
+    when not defined(emscripten):
+      iw.display(tb) # render once to give quick feedback, since midi.play can time to run
+    let
+      (secs, playResult) = midi.play(events)
+      startTime = times.epochTime()
+    when not defined(emscripten):
+      # render again with double buffering disabled,
+      # because audio errors printed by midi.play to std out
+      # will cover up the UI if double buffering is enabled
+      iw.setDoubleBuffering(false)
+      iw.display(tb)
+      iw.setDoubleBuffering(true)
+      if playResult.kind == sound.Error:
+        exitClean(playResult.message)
+      while true:
+        let currTime = times.epochTime() - startTime
+        if currTime > secs:
+          break
+        # go to the right line
+        if lineTimesIdx + 1 < lineTimes.len:
+          let (line, time) = lineTimes[lineTimesIdx + 1]
+          if currTime >= time:
+            lineTimesIdx.inc
+            moveCursor(session, bufferId, 0, line)
+            tb = tick(session)
+        # draw progress bar
+        iw.fill(tb, 0, 0, editorWidth + 1, if bufferId == Editor.ord: 1 else: 0, " ")
+        iw.fill(tb, 0, 0, int((currTime / secs) * float(editorWidth + 1)), 0, "▓")
+        iw.display(tb)
+        let key = iw.getKey()
+        if key == iw.Key.Tab:
+          break
+        os.sleep(sleepMsecs)
+      midi.stop(playResult.addrs)
+  else:
+    let currentTime = times.epochTime()
+    let (secs, playResult) = midi.play(events)
+    if playResult.kind == sound.Error:
+      session.insert(Global, Play, cast[PlayInfo](nil))
+    else:
+      session.insert(Global, Play, PlayInfo(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
+      session.insert(bufferId, Prompt, StopPlaying)
 
 proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -1177,7 +1221,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
-  result.insert(Global, Play, PlayInfo(status: NotPlaying))
+  result.insert(Global, Play, cast[PlayInfo](nil))
 
   onWindowResize(result, width, height)
 
@@ -1190,24 +1234,23 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
 
 proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =
   let
-    (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
+    termWindow = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
     currentTime = times.epochTime()
-    isPlaying = globals.play.status == Playing
     input: tuple[key: iw.Key, codepoint: uint32] =
-      if isPlaying:
+      if globals.play != nil:
         (iw.Key.None, 0'u32) # ignore input while playing
       else:
         rawInput
 
-  if width != windowWidth or height != windowHeight:
+  if termWindow != (width, height):
     onWindowResize(session, width, height)
 
   # if we're playing music or the editor has unsaved changes, set finishedLoading to false to ensure the tick function
   # will continue running, allowing the save to eventually take place
   # (this only matters for the emscripten version)
-  if globals.play.status != NotPlaying or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
+  if globals.play != nil or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
     finishedLoading = false
 
   # render top bar
@@ -1296,7 +1339,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     for choice in choices:
       if globals.buffers.hasKey(choice.id):
         selectedChoices.add(choice)
-    x = renderRadioButtons(session, tb, termX, termY + windowHeight - 1, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
+    x = renderRadioButtons(session, tb, termX, termY + termWindow.windowHeight - 1, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
 
   # render hints
   if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
@@ -1312,72 +1355,20 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           "‼ exit"
       textX = max(termX + x + 2, termX + selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      codes.write(tb, textX, termY + windowHeight - 1, "\e[3m" & text & "\e[0m")
+      codes.write(tb, textX, termY + termWindow.windowHeight - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
       var sess = session
       let cb =
         proc () =
           sess.insert(Global, HintText, "press ctrl c to exit")
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
-      discard renderButton(session, tb, text, textX, termY + windowHeight - 1, input.key, cb)
+      discard renderButton(session, tb, text, textX, termY + termWindow.windowHeight - 1, input.key, cb)
 
-  if globals.play.status == Starting:
-    if iw.gIllwillInitialised:
-      session.insert(Global, Play, PlayInfo(status: NotPlaying))
-      var lineTimesIdx = -1
-      iw.display(tb) # render once to give quick feedback, since midi.play can time to run
-      let
-        (secs, playResult) = midi.play(globals.play.events)
-        startTime = times.epochTime()
-      # render again with double buffering disabled,
-      # because audio errors printed by midi.play to std out
-      # will cover up the UI if double buffering is enabled
-      iw.setDoubleBuffering(false)
-      iw.display(tb)
-      iw.setDoubleBuffering(true)
-      if playResult.kind == sound.Error:
-        exitClean(playResult.message)
-      session.insert(selectedBuffer.id, Prompt, StopPlaying)
-      while true:
-        let progress = times.epochTime() - startTime
-        if progress > secs:
-          break
-        # go to the right line
-        var tb = iw.newTerminalBuffer(width, height)
-        tick(session, tb, termX, termY, width, height, (iw.Key.None, 0'u32), finishedLoading)
-        if lineTimesIdx + 1 < globals.play.lineTimes.len:
-          let (line, time) = globals.play.lineTimes[lineTimesIdx + 1]
-          if progress >= time:
-            lineTimesIdx.inc
-            moveCursor(session, selectedBuffer.id, 0, line)
-            tick(session, tb, termX, termY, width, height, (iw.Key.None, 0'u32), finishedLoading)
-        # draw progress bar
-        iw.fill(tb, termX, termY, termX + editorWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
-        iw.fill(tb, termX, termY, termX + int((progress / secs) * float(editorWidth + 1)), termY, "▓")
-        iw.display(tb)
-        let key = iw.getKey()
-        if key == iw.Key.Tab:
-          break
-        os.sleep(sleepMsecs)
-      midi.stop(playResult.addrs)
-      session.insert(selectedBuffer.id, Prompt, None)
-    else:
-      let currentTime = times.epochTime()
-      let (secs, playResult) = midi.play(globals.play.events)
-      if playResult.kind == sound.Error:
-        session.insert(Global, Play, PlayInfo(status: NotPlaying))
-      else:
-        var play = globals.play
-        play.status = Playing
-        play.time = (currentTime, currentTime + secs)
-        play.addrs = playResult.addrs
-        session.insert(Global, Play, play)
-        session.insert(selectedBuffer.id, Prompt, StopPlaying)
-  elif isPlaying:
+  if globals.play != nil:
     if currentTime > globals.play.time.stop or rawInput.key == iw.Key.Tab:
       if globals.play.addrs != (nil, nil):
         midi.stop(globals.play.addrs)
-      session.insert(Global, Play, PlayInfo(status: NotPlaying))
+      session.insert(Global, Play, cast[PlayInfo](nil))
       session.insert(selectedBuffer.id, Prompt, None)
     else:
       let
@@ -1400,4 +1391,8 @@ proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, 
   result = iw.newTerminalBuffer(width, height)
   var finishedLoading: bool
   tick(session, result, x, y, width, height, input, finishedLoading)
+
+proc tick*(session: var EditorSession): iw.TerminalBuffer =
+  let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
+  tick(session, 0, 0, windowWidth, windowHeight, (iw.Key.None, 0'u32))
 
