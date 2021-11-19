@@ -141,7 +141,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
     if result:
       let
         sig = actionData["sig"].str
-        headers = actionData["headers"]
+        headers = actionData["headers"].str
         globals = session.query(rules.getGlobals)
       if globals.pages.hasKey(sig):
         session.goToPage(sig)
@@ -228,7 +228,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
-      let (body, sig) = crypto.sign(page.data.headers & "\n" & editor.getContent(page.data.session))
+      let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
       page.data.requestBody = body
       page.data.requestSig = sig
       page.data.request = client.submit(clnt, "ansiwave", body)

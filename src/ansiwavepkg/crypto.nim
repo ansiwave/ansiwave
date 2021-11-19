@@ -173,10 +173,23 @@ proc createUser*() =
     downloadKey()
 
 from times import nil
+from strutils import nil
 
-proc sign*(content: string): tuple[body: string, sig: string] =
+proc headers*(parent: string): string =
+  strutils.join(
+    [
+      "/head.key " & pubKey,
+      "/head.algo " & algorithm,
+      "/head.parent " & parent,
+      "/head.last-sig",
+      "/head.board " & paths.sysopPublicKey,
+    ],
+    "\n",
+  )
+
+proc sign*(headers: string, content: string): tuple[body: string, sig: string] =
   result.body = "/head.time " & $times.toUnix(times.getTime()) & "\n"
-  result.body &= content
+  result.body &= headers & "\n\n" & content
   result.sig = paths.encode(ed25519.sign(keyPair, result.body))
   result.body = "/head.sig " & result.sig & "\n" & result.body
 

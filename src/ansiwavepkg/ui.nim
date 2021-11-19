@@ -56,10 +56,9 @@ proc initUser*(clnt: client.Client, key: string): Component =
   result = Component(kind: User, key: key)
   refresh(clnt, result)
 
-proc initEditor*(width: int, height: int, sig: string, headers: JsonNode): Component =
+proc initEditor*(width: int, height: int, sig: string, headers: string): Component =
   result = Component(kind: Editor)
-  for header in headers:
-    result.headers &= header.str & "\n"
+  result.headers = headers
   result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
 
 proc initLogin*(): Component =
@@ -115,13 +114,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "action": "show-editor",
         "action-data": {
           "sig": comp.sig & ".new",
-          "headers": [
-            "/head.key " & crypto.pubKey,
-            "/head.algo " & crypto.algorithm,
-            "/head.parent " & comp.sig,
-            "/head.last-sig",
-            "/head.board " & paths.sysopPublicKey,
-          ],
+          "headers": crypto.headers(comp.sig),
         },
       },
       "", # spacer
