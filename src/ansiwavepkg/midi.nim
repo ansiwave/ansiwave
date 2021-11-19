@@ -12,7 +12,9 @@ when defined(emscripten):
 
   var response: client.ChannelValue[client.Response]
 
-  proc fetchSoundfont*(clnt: client.Client) =
+  proc fetchSoundfont*() =
+    var clnt = client.initClient("")
+    client.start(clnt)
     response = client.query(clnt, "soundfont.sf2")
 
 type

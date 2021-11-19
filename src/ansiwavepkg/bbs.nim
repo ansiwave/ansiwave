@@ -199,13 +199,13 @@ proc isEditor*(session: auto): bool =
 when defined(emscripten):
   from ./ansiwavepkg/midi import nil
 
-proc init*(clnt: client.Client) =
+proc init*() =
   try:
     crypto.loadKey()
   except Exception as ex:
     echo ex.msg
   when defined(emscripten):
-    midi.fetchSoundfont(clnt)
+    midi.fetchSoundfont()
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
@@ -382,7 +382,7 @@ proc renderBBS*() =
   vfs.register()
   var clnt = client.initClient(paths.address)
   client.start(clnt)
-  init(clnt)
+  init()
 
   # create session
   var session = initSession(clnt)
