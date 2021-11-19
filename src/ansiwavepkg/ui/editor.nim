@@ -201,6 +201,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
       iw.setDoubleBuffering(true)
       if playResult.kind == sound.Error:
         exitClean(playResult.message)
+      session.insert(bufferId, Prompt, StopPlaying)
       while true:
         let currTime = times.epochTime() - startTime
         if currTime > secs:
@@ -222,6 +223,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
           break
         os.sleep(sleepMsecs)
       midi.stop(playResult.addrs)
+      session.insert(bufferId, Prompt, None)
   else:
     let currentTime = times.epochTime()
     let (secs, playResult) = midi.play(events)
@@ -229,7 +231,6 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
       session.insert(Global, Play, cast[PlayInfo](nil))
     else:
       session.insert(Global, Play, PlayInfo(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
-      session.insert(bufferId, Prompt, StopPlaying)
 
 proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -1396,6 +1397,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       # draw progress bar
       iw.fill(tb, termX, termY, termX + editorWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
       iw.fill(tb, termX, termY, termX + int((progress / secs) * float(editorWidth + 1)), termY, "▓")
+      session.insert(selectedBuffer.id, Prompt, StopPlaying)
 
 proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   result = iw.newTerminalBuffer(width, height)
