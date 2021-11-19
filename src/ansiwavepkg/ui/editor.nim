@@ -318,13 +318,17 @@ let rules* =
         (Global, Play, play)
     rule getTerminalWindow(Fact):
       what:
-        (TerminalWindow, Width, windowWidth)
-        (TerminalWindow, Height, windowHeight)
+        (TerminalWindow, X, x)
+        (TerminalWindow, Y, y)
+        (TerminalWindow, Width, width)
+        (TerminalWindow, Height, height)
     rule updateBufferSize(Fact):
       what:
         (TerminalWindow, Width, width)
         (TerminalWindow, Height, height)
         (id, Y, bufferY, then = false)
+      cond:
+        id != TerminalWindow.ord
       then:
         session.insert(id, Width, min(width - 2, editorWidth))
         session.insert(id, Height, height - 3 - bufferY)
@@ -567,7 +571,9 @@ proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
   session.insert(bufferId, CursorY, y)
 
-proc onWindowResize(session: var EditorSession, width: int, height: int) =
+proc onWindowResize(session: var EditorSession, x: int, y: int, width: int, height: int) =
+  session.insert(TerminalWindow, X, x)
+  session.insert(TerminalWindow, Y, y)
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
 
@@ -1223,7 +1229,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, HintTime, 0.0)
   result.insert(Global, Play, cast[PlayInfo](nil))
 
-  onWindowResize(result, width, height)
+  onWindowResize(result, 0, 0, width, height)
 
   result.insert(Global, Opts, opts)
   result.fireRules
@@ -1244,8 +1250,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       else:
         rawInput
 
-  if termWindow != (width, height):
-    onWindowResize(session, width, height)
+  if termWindow != (termX, termY, width, height):
+    onWindowResize(session, termX, termY, width, height)
 
   # if we're playing music or the editor has unsaved changes, set finishedLoading to false to ensure the tick function
   # will continue running, allowing the save to eventually take place
@@ -1339,7 +1345,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     for choice in choices:
       if globals.buffers.hasKey(choice.id):
         selectedChoices.add(choice)
-    x = renderRadioButtons(session, tb, termX, termY + termWindow.windowHeight - 1, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
+    x = renderRadioButtons(session, tb, termX, termY + termWindow.height - 1, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
 
   # render hints
   if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
@@ -1355,14 +1361,14 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           "‼ exit"
       textX = max(termX + x + 2, termX + selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      codes.write(tb, textX, termY + termWindow.windowHeight - 1, "\e[3m" & text & "\e[0m")
+      codes.write(tb, textX, termY + termWindow.height - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
       var sess = session
       let cb =
         proc () =
           sess.insert(Global, HintText, "press ctrl c to exit")
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
-      discard renderButton(session, tb, text, textX, termY + termWindow.windowHeight - 1, input.key, cb)
+      discard renderButton(session, tb, text, textX, termY + termWindow.height - 1, input.key, cb)
 
   if globals.play != nil:
     if currentTime > globals.play.time.stop or rawInput.key == iw.Key.Tab:
@@ -1393,6 +1399,6 @@ proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, 
   tick(session, result, x, y, width, height, input, finishedLoading)
 
 proc tick*(session: var EditorSession): iw.TerminalBuffer =
-  let (windowWidth, windowHeight) = session.query(rules.getTerminalWindow)
-  tick(session, 0, 0, windowWidth, windowHeight, (iw.Key.None, 0'u32))
+  let (x, y, width, height) = session.query(rules.getTerminalWindow)
+  tick(session, x, y, width, height, (iw.Key.None, 0'u32))
 
