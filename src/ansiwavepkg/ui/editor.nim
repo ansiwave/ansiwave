@@ -10,7 +10,7 @@ from sugar import nil
 from times import nil
 from wavecorepkg/wavescript import CommandTree
 from ../midi import nil
-from ../sound import Addrs
+from ../sound import nil
 from ../codes import stripCodes
 from ../ansi import nil
 import ../constants
@@ -36,8 +36,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime, Name, AllBuffers, Opts,
-    PlayTime, PlayLineTimes, PlayAddrs,
+    LastEditTime, LastSaveTime, Name, AllBuffers, Opts, Play,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   RefStrings = ref seq[ref string]
@@ -86,8 +85,14 @@ type
     lastSaveTime: float
     name: string
   BufferTable = ref Table[int, Buffer]
-  TimeType = tuple[start: float, stop: float]
-  LineTimesType = seq[tuple[line: int, time: float]]
+  PlayStatus = enum
+    NotPlaying, Starting, Playing,
+  PlayInfo = object
+    status: PlayStatus
+    events: seq[paramidi.Event]
+    lineTimes: seq[tuple[line: int, time: float]]
+    time: tuple[start: float, stop: float]
+    addrs: sound.Addrs
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -119,9 +124,7 @@ schema Fact(Id, Attr):
   Name: string
   AllBuffers: BufferTable
   Opts: Options
-  PlayTime: TimeType
-  PlayLineTimes: LineTimesType
-  PlayAddrs: Addrs
+  Play: PlayInfo
 
 type
   EditorSession* = Session[Fact, Vars[Fact]]
@@ -179,17 +182,8 @@ proc set(lines: var RefStrings, i: int, line: string) =
 
 proc getCurrentLine(session: var EditorSession, bufferId: int): int
 
-proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, lineTimes: LineTimesType) =
-  if events.len == 0:
-    return
-  let (secs, playResult) = midi.play(events)
-  if playResult.kind == sound.Error:
-    return
-  let currentTime = times.epochTime()
-  session.insert(bufferId, Prompt, StopPlaying)
-  session.insert(Global, PlayTime, (currentTime, currentTime + secs))
-  session.insert(Global, PlayLineTimes, lineTimes)
-  session.insert(Global, PlayAddrs, playResult.addrs)
+proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
+  session.insert(Global, Play, PlayInfo(status: Starting, events: events, lineTimes: lineTimes))
 
 proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -277,9 +271,7 @@ let rules* =
         (Global, HintTime, hintTime)
         (Global, AllBuffers, buffers)
         (Global, Opts, options)
-        (Global, PlayTime, playTime)
-        (Global, PlayLineTimes, playLineTimes)
-        (Global, PlayAddrs, playAddrs)
+        (Global, Play, play)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, Width, windowWidth)
@@ -1185,9 +1177,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
-  result.insert(Global, PlayTime, (0.0, 0.0))
-  result.insert(Global, PlayLineTimes, cast[LineTimesType](@[]))
-  result.insert(Global, PlayAddrs, (nil, nil))
+  result.insert(Global, Play, PlayInfo(status: NotPlaying))
 
   onWindowResize(result, width, height)
 
@@ -1204,7 +1194,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     globals = session.query(rules.getGlobals)
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
     currentTime = times.epochTime()
-    isPlaying = globals.playTime != (0.0, 0.0)
+    isPlaying = globals.play.status == Playing
     input: tuple[key: iw.Key, codepoint: uint32] =
       if isPlaying:
         (iw.Key.None, 0'u32) # ignore input while playing
@@ -1217,7 +1207,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
   # if we're playing music or the editor has unsaved changes, set finishedLoading to false to ensure the tick function
   # will continue running, allowing the save to eventually take place
   # (this only matters for the emscripten version)
-  if isPlaying or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
+  if globals.play.status != NotPlaying or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
     finishedLoading = false
 
   # render top bar
@@ -1331,22 +1321,72 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(session, tb, text, textX, termY + windowHeight - 1, input.key, cb)
 
-  if isPlaying:
-    if currentTime > globals.playTime.stop or rawInput.key == iw.Key.Tab:
-      if globals.playAddrs != (nil, nil):
-        midi.stop(globals.playAddrs)
+  if globals.play.status == Starting:
+    if iw.gIllwillInitialised:
+      session.insert(Global, Play, PlayInfo(status: NotPlaying))
+      var lineTimesIdx = -1
+      iw.display(tb) # render once to give quick feedback, since midi.play can time to run
+      let
+        (secs, playResult) = midi.play(globals.play.events)
+        startTime = times.epochTime()
+      # render again with double buffering disabled,
+      # because audio errors printed by midi.play to std out
+      # will cover up the UI if double buffering is enabled
+      iw.setDoubleBuffering(false)
+      iw.display(tb)
+      iw.setDoubleBuffering(true)
+      if playResult.kind == sound.Error:
+        exitClean(playResult.message)
+      session.insert(selectedBuffer.id, Prompt, StopPlaying)
+      while true:
+        let progress = times.epochTime() - startTime
+        if progress > secs:
+          break
+        # go to the right line
+        var tb = iw.newTerminalBuffer(width, height)
+        tick(session, tb, termX, termY, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        if lineTimesIdx + 1 < globals.play.lineTimes.len:
+          let (line, time) = globals.play.lineTimes[lineTimesIdx + 1]
+          if progress >= time:
+            lineTimesIdx.inc
+            moveCursor(session, selectedBuffer.id, 0, line)
+            tick(session, tb, termX, termY, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        # draw progress bar
+        iw.fill(tb, termX, termY, termX + editorWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
+        iw.fill(tb, termX, termY, termX + int((progress / secs) * float(editorWidth + 1)), termY, "▓")
+        iw.display(tb)
+        let key = iw.getKey()
+        if key == iw.Key.Tab:
+          break
+        os.sleep(sleepMsecs)
+      midi.stop(playResult.addrs)
       session.insert(selectedBuffer.id, Prompt, None)
-      session.insert(Global, PlayTime, (0.0, 0.0))
-      session.insert(Global, PlayLineTimes, cast[LineTimesType](@[]))
-      session.insert(Global, PlayAddrs, (nil, nil))
+    else:
+      let currentTime = times.epochTime()
+      let (secs, playResult) = midi.play(globals.play.events)
+      if playResult.kind == sound.Error:
+        session.insert(Global, Play, PlayInfo(status: NotPlaying))
+      else:
+        var play = globals.play
+        play.status = Playing
+        play.time = (currentTime, currentTime + secs)
+        play.addrs = playResult.addrs
+        session.insert(Global, Play, play)
+        session.insert(selectedBuffer.id, Prompt, StopPlaying)
+  elif isPlaying:
+    if currentTime > globals.play.time.stop or rawInput.key == iw.Key.Tab:
+      if globals.play.addrs != (nil, nil):
+        midi.stop(globals.play.addrs)
+      session.insert(Global, Play, PlayInfo(status: NotPlaying))
+      session.insert(selectedBuffer.id, Prompt, None)
     else:
       let
-        secs = globals.playTime.stop - globals.playTime.start
-        progress = currentTime - globals.playTime.start
+        secs = globals.play.time.stop - globals.play.time.start
+        progress = currentTime - globals.play.time.start
       # go to the right line
-      var lineTimesIdx = globals.playLineTimes.len - 1
+      var lineTimesIdx = globals.play.lineTimes.len - 1
       while lineTimesIdx >= 0:
-        let (line, time) = globals.playLineTimes[lineTimesIdx]
+        let (line, time) = globals.play.lineTimes[lineTimesIdx]
         if progress >= time:
           moveCursor(session, selectedBuffer.id, 0, line)
           break

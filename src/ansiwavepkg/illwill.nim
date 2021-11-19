@@ -289,7 +289,7 @@ func toKey(c: int): Key =
   except RangeError:  # ignore unknown keycodes
     result = Key.None
 
-var gIllwillInitialised = false
+var gIllwillInitialised* = false
 var gFullScreen = false
 var gFullRedrawNextFrame = false
 
