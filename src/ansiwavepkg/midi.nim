@@ -81,4 +81,8 @@ proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, play
       (secs: res.seconds, playResult: sound.play(wav))
 
 proc stop*(addrs: sound.Addrs) =
-  sound.stop(addrs[0], addrs[1])
+  when defined(emscripten):
+    emscripten.stopAudio()
+  else:
+    if addrs != (nil, nil):
+      sound.stop(addrs[0], addrs[1])

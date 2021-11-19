@@ -1377,8 +1377,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
   if globals.play != nil:
     if currentTime > globals.play.time.stop or rawInput.key == iw.Key.Tab:
-      if globals.play.addrs != (nil, nil):
-        midi.stop(globals.play.addrs)
+      midi.stop(globals.play.addrs)
       session.insert(Global, Play, cast[PlayInfo](nil))
       session.insert(selectedBuffer.id, Prompt, None)
     else:
