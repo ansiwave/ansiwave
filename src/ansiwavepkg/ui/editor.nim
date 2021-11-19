@@ -1211,8 +1211,8 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
     publishText = staticRead("../assets/publish.ansiwave")
   insertBuffer(result, Editor, editorName, 0, 2, not isUri, editorText)
   insertBuffer(result, Errors, "errors", 0, 1, false, "")
+  insertBuffer(result, Tutorial, "tutorial", 0, 1, false, tutorialText)
   if not opts.bbsMode:
-    insertBuffer(result, Tutorial, "tutorial", 0, 1, false, tutorialText)
     insertBuffer(result, Publish, "publish", 0, 1, false, publishText)
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
