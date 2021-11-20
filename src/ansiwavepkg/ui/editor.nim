@@ -348,7 +348,7 @@ let rules* =
       cond:
         id != Errors.ord
       then:
-        let trees = post.linesToTrees(lines)
+        let trees = post.linesToTrees(lines[])
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef

@@ -255,6 +255,25 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "you will never be able to log back in!",
       ]
 
+proc getContent*(comp: Component): seq[string] =
+  case comp.kind:
+  of Post:
+    if not comp.postContent.ready:
+      @[]
+    elif comp.postContent.value.kind == client.Error:
+      @[]
+    else:
+      splitPost(comp.postContent.value.valid.body)
+  of User:
+    if not comp.userContent.ready:
+      @[]
+    elif comp.userContent.value.kind == client.Error:
+      @[]
+    else:
+      splitPost(comp.userContent.value.valid.body)
+  else:
+    @[]
+
 proc toHtml(node: JsonNode): string
 
 proc toHtml(node: OrderedTable[string, JsonNode]): string =

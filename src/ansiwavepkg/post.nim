@@ -50,10 +50,13 @@ proc set*(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc linesToTrees*(lines: RefStrings): seq[wavescript.CommandTree] =
+type
+  CommandTreesRef* = ref seq[wavescript.CommandTree]
+
+proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.CommandTree] =
   var scriptContext = waveScript.initContext()
   let
-    cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
+    cmds = wavescript.extract(sequtils.map(lines, codes.stripCodesIfCommand))
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 

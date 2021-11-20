@@ -173,11 +173,11 @@ proc stripCodes*(line: seq[Rune]): seq[Rune] =
 proc stripCodes*(line: string): string =
   $stripCodes(line.toRunes)
 
-proc stripCodesIfCommand*(line: ref string): string =
+proc stripCodesIfCommand*(line: string): string =
   var
     codes: seq[string]
     foundFirstValidChar = false
-  for ch in runes(line[]):
+  for ch in runes(line):
     if parseCode(codes, ch):
       continue
     if not foundFirstValidChar and ch.toUTF8[0] != '/':
@@ -185,6 +185,9 @@ proc stripCodesIfCommand*(line: ref string): string =
     else:
       foundFirstValidChar = true
       result &= $ch
+
+proc stripCodesIfCommand*(line: ref string): string =
+  stripCodesIfCommand(line[])
 
 proc dedupeCodes*(line: seq[Rune]): string =
   var

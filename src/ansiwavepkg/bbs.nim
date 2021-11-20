@@ -13,6 +13,7 @@ import tables
 from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
+from ./post import CommandTreesRef
 
 type
   Id* = enum
@@ -20,7 +21,7 @@ type
   Attr* = enum
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
-    View, ViewHeight, ViewFocusAreas,
+    View, ViewCommands, ViewHeight, ViewFocusAreas,
   Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
@@ -30,6 +31,7 @@ type
     focusIndex: int
     scrollY: int
     view: JsonNode
+    viewCommands: CommandTreesRef
     viewHeight: int
     viewFocusAreas: ViewFocusAreaSeq
   PageTable = ref Table[string, Page]
@@ -45,6 +47,7 @@ schema Fact(Id, Attr):
   FocusIndex: int
   ScrollY: int
   View: JsonNode
+  ViewCommands: CommandTreesRef
   ViewHeight: int
   ViewFocusAreas: ViewFocusAreaSeq
 
@@ -72,6 +75,7 @@ let rules =
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
         (id, View, view)
+        (id, ViewCommands, viewCommands)
         (id, ViewHeight, viewHeight)
         (id, ViewFocusAreas, viewFocusAreas)
       thenFinally:
@@ -108,6 +112,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, FocusIndex, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, View, cast[JsonNode](nil))
+  session.insert(id, ViewCommands, cast[CommandTreesRef](nil))
   session.insert(id, ViewHeight, 0)
   session.insert(id, ViewFocusAreas, @[])
   session.goToPage(sig)
@@ -218,6 +223,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         let v = ui.toJson(page.data, finishedLoading)
         if finishedLoading:
           session.insert(page.id, View, v)
+          var cmds: CommandTreesRef
+          new cmds
+          cmds[] = post.linesToTrees(ui.getContent(page.data))
+          session.insert(page.id, ViewCommands, cmds)
         v
       else:
         page.view
@@ -236,6 +245,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     copyAction = proc () {.closure.} =
       discard
+    playAction = proc () {.closure.} =
+      try:
+        post.compileAndPlayAll(page.viewCommands[])
+      except Exception as ex:
+        discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
       let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
@@ -357,6 +371,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
       leftButtons.add((" copy link ", copyAction))
+    if page.viewCommands != nil and page.viewCommands[].len > 0:
+      leftButtons.add((" ♫ play ", playAction))
     var rightButtons: seq[(string, proc ())] =
       if page.sig == "login" or page.sig == "logout":
         @[]
