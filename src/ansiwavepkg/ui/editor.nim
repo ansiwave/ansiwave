@@ -22,6 +22,7 @@ import streams
 from uri import nil
 import json
 from ../storage import nil
+from ../post import RefStrings
 
 type
   Id* = enum
@@ -39,7 +40,6 @@ type
     LastEditTime, LastSaveTime, Name, AllBuffers, Opts, Play,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
-  RefStrings = ref seq[ref string]
   Snapshot = object
     lines: seq[ref string]
     cursorX: int
@@ -126,57 +126,6 @@ schema Fact(Id, Attr):
 type
   EditorSession* = Session[Fact, Vars[Fact]]
 
-proc exitClean(ex: ref Exception) =
-  iw.illwillDeinit()
-  iw.showCursor()
-  raise ex
-
-proc exitClean(message: string) =
-  iw.illwillDeinit()
-  iw.showCursor()
-  if message.len > 0:
-    quit(message)
-  else:
-    quit(0)
-
-proc exitClean() {.noconv.} =
-  exitClean("")
-
-proc splitLines*(text: string): RefStrings =
-  new result
-  var row = 0
-  for line in strutils.splitLines(text):
-    var s: ref string
-    new s
-    s[] = codes.dedupeCodes(line)
-    result[].add(s)
-    # make sure the line is UTF-8
-    let col = unicode.validateUtf8(line)
-    if col != -1:
-      exitClean("Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
-    row.inc
-
-proc joinLines(lines: RefStrings): string =
-  let lineCount = lines[].len
-  var i = 0
-  for line in lines[]:
-    result &= line[]
-    if i != lineCount - 1:
-      result &= "\n"
-    i.inc
-
-proc add(lines: var RefStrings, line: string) =
-  var s: ref string
-  new s
-  s[] = line
-  lines[].add(s)
-
-proc set(lines: var RefStrings, i: int, line: string) =
-  var s: ref string
-  new s
-  s[] = line
-  lines[i] = s
-
 proc getCurrentLine(session: var EditorSession, bufferId: int): int
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
@@ -187,43 +136,41 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
     var
       tb = tick(session)
       lineTimesIdx = -1
-    when not defined(emscripten):
-      iw.display(tb) # render once to give quick feedback, since midi.play can time to run
+    iw.display(tb) # render once to give quick feedback, since midi.play can time to run
     let
       (secs, playResult) = midi.play(events)
       startTime = times.epochTime()
-    when not defined(emscripten):
-      # render again with double buffering disabled,
-      # because audio errors printed by midi.play to std out
-      # will cover up the UI if double buffering is enabled
-      iw.setDoubleBuffering(false)
+    # render again with double buffering disabled,
+    # because audio errors printed by midi.play to std out
+    # will cover up the UI if double buffering is enabled
+    iw.setDoubleBuffering(false)
+    iw.display(tb)
+    iw.setDoubleBuffering(true)
+    if playResult.kind == sound.Error:
+      raise newException(Exception, playResult.message)
+    session.insert(bufferId, Prompt, StopPlaying)
+    while true:
+      let currTime = times.epochTime() - startTime
+      if currTime > secs:
+        break
+      # go to the right line
+      if lineTimesIdx + 1 < lineTimes.len:
+        let (line, time) = lineTimes[lineTimesIdx + 1]
+        if currTime >= time:
+          lineTimesIdx.inc
+          moveCursor(session, bufferId, 0, line)
+          tb = tick(session)
+      # draw progress bar
+      let termWindow = getTerminalWindow(session)
+      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + editorWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
+      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(editorWidth + 1)), termWindow.y, "▓")
       iw.display(tb)
-      iw.setDoubleBuffering(true)
-      if playResult.kind == sound.Error:
-        exitClean(playResult.message)
-      session.insert(bufferId, Prompt, StopPlaying)
-      while true:
-        let currTime = times.epochTime() - startTime
-        if currTime > secs:
-          break
-        # go to the right line
-        if lineTimesIdx + 1 < lineTimes.len:
-          let (line, time) = lineTimes[lineTimesIdx + 1]
-          if currTime >= time:
-            lineTimesIdx.inc
-            moveCursor(session, bufferId, 0, line)
-            tb = tick(session)
-        # draw progress bar
-        let termWindow = getTerminalWindow(session)
-        iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + editorWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
-        iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(editorWidth + 1)), termWindow.y, "▓")
-        iw.display(tb)
-        let key = iw.getKey()
-        if key == iw.Key.Tab:
-          break
-        os.sleep(sleepMsecs)
-      midi.stop(playResult.addrs)
-      session.insert(bufferId, Prompt, None)
+      let key = iw.getKey()
+      if key == iw.Key.Tab:
+        break
+      os.sleep(sleepMsecs)
+    midi.stop(playResult.addrs)
+    session.insert(bufferId, Prompt, None)
   else:
     let currentTime = times.epochTime()
     let (secs, playResult) = midi.play(events)
@@ -401,11 +348,7 @@ let rules* =
       cond:
         id != Errors.ord
       then:
-        var scriptContext = waveScript.initContext()
-        let
-          cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
-          treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-          trees = wavescript.parseOperatorCommands(treesTemp)
+        let trees = post.linesToTrees(lines)
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
@@ -472,7 +415,7 @@ let rules* =
                   sess.insert(Editor, CursorX, 0)
                   sess.insert(Editor, CursorY, line)
             linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
-          newLines.add(error.message)
+          post.add(newLines, error.message)
         session.insert(Errors, Lines, newLines)
         session.insert(Errors, CursorX, 0)
         session.insert(Errors, CursorY, 0)
@@ -589,7 +532,7 @@ proc insertBuffer(session: var EditorSession, id: Id, name: string, x: int, y: i
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
-  session.insert(id, Lines, text.splitLines)
+  session.insert(id, Lines, post.splitLines(text))
   session.insert(id, X, x)
   session.insert(id, Y, y)
   session.insert(id, Width, 0)
@@ -631,7 +574,7 @@ proc saveToStorage*(session: var auto, sig: string) =
       buffer.lastEditTime > buffer.lastSaveTime and
       times.epochTime() - buffer.lastEditTime > saveDelay:
     try:
-      let body = buffer.lines.joinLines
+      let body = post.joinLines(buffer.lines)
       if buffer.lines[].len == 1 and body.stripCodes == "":
         storage.remove(sig & ".ansiwave")
       else:
@@ -644,7 +587,7 @@ proc getContent*(session: var auto): string =
   let
     globals = session.query(rules.getGlobals)
     buffer = globals.buffers[Editor.ord]
-  buffer.lines.joinLines
+  post.joinLines(buffer.lines)
 
 proc setEditable*(session: var auto, editable: bool) =
   session.insert(Editor, Editable, editable)
@@ -664,13 +607,13 @@ proc copyLine(buffer: tuple) =
 proc pasteLine(session: var EditorSession, buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
     var lines = buffer.lines
-    lines.set(buffer.cursorY, strutils.splitLines(fromClipboard())[0])
+    post.set(lines, buffer.cursorY, strutils.splitLines(fromClipboard())[0])
     session.insert(buffer.id, Lines, lines)
     # force cursor to refresh in case it is out of bounds
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
 proc initLink*(buffer: tuple): string =
-  let s = buffer.lines.joinLines
+  let s = post.joinLines(buffer.lines)
   let
     output = zippy.compress(s, dataFormat = zippy.dfZlib)
     pairs = {
@@ -742,7 +685,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
         after = @[" ".runeAt(0)] & after
       let newLine = codes.dedupeCodes($before & $after)
       var newLines = buffer.lines
-      newLines.set(buffer.cursorY, newLine)
+      post.set(newLines, buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
       session.insert(buffer.id, CursorX, buffer.cursorX - 1)
   of iw.Key.Delete:
@@ -751,7 +694,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     let charCount = buffer.lines[buffer.cursorY][].stripCodes.runeLen
     if buffer.cursorX == charCount and buffer.cursorY < buffer.lines[].len - 1:
       var newLines = buffer.lines
-      newLines.set(buffer.cursorY, codes.dedupeCodes(newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][]))
+      post.set(newLines, buffer.cursorY, codes.dedupeCodes(newLines[buffer.cursorY][] & newLines[buffer.cursorY + 1][]))
       newLines[].delete(buffer.cursorY + 1)
       session.insert(buffer.id, Lines, newLines)
     elif buffer.cursorX < charCount:
@@ -760,7 +703,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
         realX = codes.getRealX(line, buffer.cursorX)
         newLine = codes.dedupeCodes($line[0 ..< realX] & $line[realX + 1 ..< line.len])
       var newLines = buffer.lines
-      newLines.set(buffer.cursorY, newLine)
+      post.set(newLines, buffer.cursorY, newLine)
       session.insert(buffer.id, Lines, newLines)
   of iw.Key.Enter:
     if not editable:
@@ -774,8 +717,8 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines.add(codes.dedupeCodes($before))
-    newLines.add(codes.dedupeCodes(prefix & $after))
+    post.add(newLines, codes.dedupeCodes($before))
+    post.add(newLines, codes.dedupeCodes(prefix & $after))
     newLines[] &= buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len]
     session.insert(buffer.id, Lines, newLines)
     session.insert(buffer.id, CursorX, 0)
@@ -801,7 +744,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     of DeleteLine:
       var newLines = buffer.lines
       if newLines[].len == 1:
-        newLines.set(0, "")
+        post.set(newLines, 0, "")
       else:
         newLines[].delete(buffer.cursorY)
       session.insert(buffer.id, Lines, newLines)
@@ -858,7 +801,7 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
       else:
         codes.dedupeCodes($before & chColored & $after)
   var newLines = buffer.lines
-  newLines.set(buffer.cursorY, newLine)
+  post.set(newLines, buffer.cursorY, newLine)
   session.insert(buffer.id, Lines, newLines)
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   true
@@ -929,7 +872,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
           if x >= 0 and y >= 0:
             var lines = buffer.lines
             while y > lines[].len - 1:
-              lines.add("")
+              post.add(lines, "")
             var line = lines[y][].toRunes
             while x > line.stripCodes.len - 1:
               line.add(" ".runeAt(0))
@@ -939,7 +882,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
               suffix = "\e[" & strutils.join(@[0] & codes.getParamsBeforeRealX(line, realX), ";") & "m"
               oldChar = line[realX].toUTF8
               newChar = if oldChar in wavescript.whitespaceChars: buffer.selectedChar else: oldChar
-            lines.set(y, codes.dedupeCodes($line[0 ..< realX] & prefix & newChar & suffix & $line[realX + 1 ..< line.len]))
+            post.set(lines, y, codes.dedupeCodes($line[0 ..< realX] & prefix & newChar & suffix & $line[realX + 1 ..< line.len]))
             session.insert(buffer.id, Lines, lines)
     elif info.scroll:
       case info.scrollDir:
@@ -1178,7 +1121,7 @@ when defined(emscripten):
           "Error reading file"
         else:
           data
-    let ansiLines = content.splitLines[]
+    let ansiLines = post.splitLines(content)[]
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
@@ -1195,23 +1138,20 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
     editorText: string
     editorName: string
 
-  try:
-    if isUri:
-      let link = parseLink(opts.input)
-      editorText = link["data"]
-      editorName =
-        if "name" in link:
-          os.splitFile(uri.decodeUrl(link["name"])).name
-        else:
-          ""
-    elif opts.input != "" and os.fileExists(opts.input):
-      editorText = readFile(opts.input)
-      editorName = os.splitFile(opts.input).name
-    else:
-      editorText = ""
-      editorName = os.splitFile(opts.input).name
-  except Exception as ex:
-    exitClean(ex)
+  if isUri:
+    let link = parseLink(opts.input)
+    editorText = link["data"]
+    editorName =
+      if "name" in link:
+        os.splitFile(uri.decodeUrl(link["name"])).name
+      else:
+        ""
+  elif opts.input != "" and os.fileExists(opts.input):
+    editorText = readFile(opts.input)
+    editorName = os.splitFile(opts.input).name
+  else:
+    editorText = ""
+    editorName = os.splitFile(opts.input).name
 
   if opts.bbsMode:
     editorName = "post"
@@ -1241,7 +1181,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.fireRules
 
   if opts.sig != "":
-    result.insert(Editor, Lines, storage.get(opts.sig & ".ansiwave").splitLines)
+    result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig & ".ansiwave")))
     result.fireRules
 
 proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =

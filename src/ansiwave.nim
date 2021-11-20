@@ -11,6 +11,7 @@ from ./ansiwavepkg/midi import nil
 from ./ansiwavepkg/codes import stripCodes
 from ./ansiwavepkg/chafa import nil
 from ./ansiwavepkg/bbs import nil
+from ./ansiwavepkg/post import nil
 import ./ansiwavepkg/constants
 from paramidi import Context
 from json import nil
@@ -59,7 +60,7 @@ proc parseOptions(): editor.Options =
 
 proc convertToWav(opts: editor.Options) =
   # parse code
-  let lines = editor.splitLines(readFile(opts.input))
+  let lines = post.splitLines(readFile(opts.input))
   var scriptContext = waveScript.initContext()
   let
     cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
@@ -116,7 +117,7 @@ proc convert(opts: editor.Options) =
       let link = editor.parseLink(opts.input)
       var f: File
       if open(f, opts.output, fmWrite):
-        editor.saveBuffer(f, editor.splitLines(link["data"]))
+        editor.saveBuffer(f, post.splitLines(link["data"]))
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
@@ -148,7 +149,7 @@ proc convert(opts: editor.Options) =
         raise newException(Exception, "Cannot open: " & opts.output)
     elif inputExt == ".ansiwave" and outputExt == ".url":
       let
-        lines = editor.splitLines(readFile(opts.input))
+        lines = post.splitLines(readFile(opts.input))
         link = editor.initLink((lines: lines, name: os.splitFile(opts.input).name))
       var f: File
       if open(f, opts.output, fmWrite):
@@ -197,7 +198,11 @@ proc main*() =
     bbs.renderBBS()
     return
   # enter the main render loop
-  var session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight())
+  var session: editor.EditorSession
+  try:
+    session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight())
+  except Exception as ex:
+    exitClean(ex.msg)
   var tickCount = 0
   while true:
     var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
