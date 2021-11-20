@@ -14,6 +14,8 @@ from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
 from ./post import CommandTreesRef
+from times import nil
+from ./midi import nil
 
 type
   Id* = enum
@@ -21,7 +23,7 @@ type
   Attr* = enum
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
-    View, ViewCommands, ViewHeight, ViewFocusAreas,
+    View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
   Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
@@ -34,8 +36,12 @@ type
     viewCommands: CommandTreesRef
     viewHeight: int
     viewFocusAreas: ViewFocusAreaSeq
+    midiProgress: MidiProgressType
   PageTable = ref Table[string, Page]
   PageBreadcrumbsType = seq[string]
+  MidiProgressType = ref object
+    midiResult: midi.PlayResult
+    time: tuple[start: float, stop: float]
 
 schema Fact(Id, Attr):
   SelectedPage: string
@@ -50,6 +56,7 @@ schema Fact(Id, Attr):
   ViewCommands: CommandTreesRef
   ViewHeight: int
   ViewFocusAreas: ViewFocusAreaSeq
+  MidiProgress: MidiProgressType
 
 type
   BbsSession* = Session[Fact, Vars[Fact]]
@@ -78,6 +85,7 @@ let rules =
         (id, ViewCommands, viewCommands)
         (id, ViewHeight, viewHeight)
         (id, ViewFocusAreas, viewFocusAreas)
+        (id, MidiProgress, midiProgress)
       thenFinally:
         var t: PageTable
         new t
@@ -115,6 +123,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, ViewCommands, cast[CommandTreesRef](nil))
   session.insert(id, ViewHeight, 0)
   session.insert(id, ViewFocusAreas, @[])
+  session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
 
 proc initSession*(c: client.Client): auto =
@@ -201,9 +210,6 @@ proc isEditor*(session: auto): bool =
     page = globals.pages[globals.selectedPage]
   page.isEditor
 
-when defined(emscripten):
-  from ./ansiwavepkg/midi import nil
-
 proc init*() =
   try:
     crypto.loadKey()
@@ -245,11 +251,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       discard
     copyAction = proc () {.closure.} =
       discard
-    playAction = proc () {.closure.} =
-      try:
-        post.compileAndPlayAll(page.viewCommands[])
-      except Exception as ex:
-        discard
     sendAction = proc () {.closure.} =
       editor.setEditable(page.data.session, false)
       let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
@@ -371,7 +372,34 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
       leftButtons.add((" copy link ", copyAction))
-    if page.viewCommands != nil and page.viewCommands[].len > 0:
+    # play progress
+    var tb = result
+    let
+      renderMidiProgress =
+        proc (progress: float) =
+          iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
+          iw.fill(tb, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
+          iw.write(tb, 0, 1, "press tab to stop playing")
+          if iw.gIllwillInitialised:
+            iw.display(tb)
+      startRenderingMidiProgress =
+        proc (midiResult: midi.PlayResult) =
+          let currTime = times.epochTime()
+          var progress: MidiProgressType
+          new progress
+          progress.midiResult = midiResult
+          progress.time = (currTime, currTime + midiResult.secs)
+          sess.insert(page.id, MidiProgress, progress)
+    if page.viewCommands != nil and page.viewCommands[].len > 0 and page.midiProgress == nil:
+      let
+        playAction = proc () {.closure.} =
+          try:
+            if iw.gIllwillInitialised:
+              post.compileAndPlayAll(page.viewCommands[], renderMidiProgress)
+            else:
+              post.compileAndPlayAll(page.viewCommands[], startRenderingMidiProgress)
+          except Exception as ex:
+            discard
       leftButtons.add((" ♫ play ", playAction))
     var rightButtons: seq[(string, proc ())] =
       if page.sig == "login" or page.sig == "logout":
@@ -386,6 +414,13 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       else:
         @[(" my page ", myPageAction)]
     navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
+    if page.midiProgress != nil:
+      let currTime = times.epochTime()
+      if currTime > page.midiProgress[].time.stop or input.key == iw.Key.Tab:
+        midi.stop(page.midiProgress[].midiResult.playResult.addrs)
+        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+      else:
+        renderMidiProgress((currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start))
 
   # update values if necessary
   if focusIndex != page.focusIndex:

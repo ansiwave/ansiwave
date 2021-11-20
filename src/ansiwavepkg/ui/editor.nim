@@ -147,7 +147,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
     iw.display(tb)
     iw.setDoubleBuffering(true)
     if playResult.kind == sound.Error:
-      raise newException(Exception, playResult.message)
+      return
     session.insert(bufferId, Prompt, StopPlaying)
     while true:
       let currTime = times.epochTime() - startTime

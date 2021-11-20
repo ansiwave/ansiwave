@@ -60,17 +60,19 @@ proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.Command
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 
-proc play*(events: seq[paramidi.Event]) =
-  if iw.gIllwillInitialised:
+proc play*[T](events: seq[paramidi.Event], renderProc: proc (input: T)) =
+  when T is float:
     let
       (secs, playResult) = midi.play(events)
       startTime = times.epochTime()
     if playResult.kind == sound.Error:
-      raise newException(Exception, playResult.message)
+      return
     while true:
       let currTime = times.epochTime() - startTime
       if currTime > secs:
         break
+      if renderProc != nil:
+        renderProc(currTime / secs)
       let key = iw.getKey()
       if key == iw.Key.Tab:
         break
@@ -78,9 +80,13 @@ proc play*(events: seq[paramidi.Event]) =
     midi.stop(playResult.addrs)
   else:
     let currentTime = times.epochTime()
-    let (secs, playResult) = midi.play(events)
+    let res = midi.play(events)
+    if res.playResult.kind == sound.Error:
+      return
+    if renderProc != nil:
+      renderProc(res)
 
-proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]) =
+proc compileAndPlayAll*[T](trees: seq[wavescript.CommandTree], renderProc: proc (input: T)) =
   var
     noErrors = true
     nodes = json.JsonNode(kind: json.JArray)
@@ -111,7 +117,7 @@ proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]) =
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      play(res.events)
+      play(res.events, renderProc)
     of midi.Error:
       discard
 

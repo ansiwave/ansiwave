@@ -26,6 +26,7 @@ type
       events*: seq[Event]
     of Error:
       message*: string
+  PlayResult* = tuple[secs: float, playResult: sound.PlayResult]
 
 proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileResult =
   # add a quarter note rest to prevent it from ending abruptly
@@ -41,7 +42,7 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
       return CompileResult(kind: Error, message: e.msg)
   CompileResult(kind: Valid, events: compiledScore)
 
-proc play*(events: seq[Event], outputFile: string = ""): tuple[secs: float, playResult: sound.PlayResult] =
+proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(emscripten):
