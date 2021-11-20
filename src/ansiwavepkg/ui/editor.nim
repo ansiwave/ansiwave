@@ -225,7 +225,7 @@ proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
     midiContext = paramidi.initContext()
     lastTime = 0.0
   for cmd in buffer.commands[]:
-    if cmd.skip:
+    if cmd.kind != wavescript.Valid or cmd.skip:
       continue
     let
       res =
@@ -252,7 +252,8 @@ proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      play(session, res.events, buffer.id, lineTimes)
+      if res.events.len > 0:
+        play(session, res.events, buffer.id, lineTimes)
     of midi.Error:
       discard
 

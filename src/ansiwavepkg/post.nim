@@ -92,7 +92,7 @@ proc compileAndPlayAll*[T](trees: seq[wavescript.CommandTree], renderProc: proc 
     nodes = json.JsonNode(kind: json.JArray)
     midiContext = paramidi.initContext()
   for cmd in trees:
-    if cmd.skip:
+    if cmd.kind != wavescript.Valid or cmd.skip:
       continue
     let
       res =
@@ -117,7 +117,8 @@ proc compileAndPlayAll*[T](trees: seq[wavescript.CommandTree], renderProc: proc 
         midi.CompileResult(kind: midi.Error, message: e.msg)
     case res.kind:
     of midi.Valid:
-      play(res.events, renderProc)
+      if res.events.len > 0:
+        play(res.events, renderProc)
     of midi.Error:
       discard
 
