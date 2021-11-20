@@ -213,7 +213,14 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
     maxScroll = max(1, int(height / 5))
-    view = ui.toJson(page.data, finishedLoading)
+    view =
+      if page.view == nil:
+        let v = ui.toJson(page.data, finishedLoading)
+        if finishedLoading:
+          session.insert(page.id, View, v)
+        v
+      else:
+        page.view
 
   var sess = session
   let
@@ -221,6 +228,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if globals.breadcrumbsIndex > 0:
         sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
     refreshAction = proc () {.closure.} =
+      sess.insert(page.id, View, cast[JsonNode](nil))
+      sess.insert(page.id, ViewFocusAreas, @[])
+      sess.insert(page.id, ViewHeight, 0)
       ui.refresh(clnt, page.data)
     searchAction = proc () {.closure.} =
       discard
@@ -241,8 +251,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     downloadKeyAction = proc () {.closure.} =
       when defined(emscripten):
         crypto.downloadKey()
-  if finishedLoading:
-    session.insert(page.id, View, view)
 
   # if there is any input, find the associated action
   var
