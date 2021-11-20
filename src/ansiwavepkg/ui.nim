@@ -75,7 +75,7 @@ proc splitPost(content: string): seq[string] =
     strutils.splitLines(content[idx + 2 ..< content.len])
 
 proc toJson*(post: entities.Post): JsonNode =
-  const maxLines = int(editorWidth / 2f)
+  const maxLines = int(editorWidth / 4f)
   let
     replies =
       if post.reply_count == 1:
