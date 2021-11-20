@@ -379,39 +379,22 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
       leftButtons.add((" copy link ", copyAction))
-    var tb = result
-    let
-      renderMidiProgress =
-        proc (progress: float) =
-          iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
-          iw.fill(tb, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
-          iw.write(tb, 0, 1, "press tab to stop playing")
-          if iw.gIllwillInitialised:
-            iw.display(tb)
-      startRenderingMidiProgress =
-        proc (midiResult: midi.PlayResult) =
-          let currTime = times.epochTime()
-          var progress: MidiProgressType
-          new progress
-          progress.midiResult = midiResult
-          progress.time = (currTime, currTime + midiResult.secs)
-          sess.insert(page.id, MidiProgress, progress)
-    if page.midiProgress != nil:
-      let currTime = times.epochTime()
-      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
-        midi.stop(page.midiProgress[].midiResult.playResult.addrs)
-        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
-      else:
-        renderMidiProgress((currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start))
-    else:
-      if page.viewCommands != nil and page.viewCommands[].len > 0 and page.midiProgress == nil:
+    if page.midiProgress == nil:
+      if page.viewCommands != nil and page.viewCommands[].len > 0:
         let
           playAction = proc () {.closure.} =
             try:
               if iw.gIllwillInitialised:
-                post.compileAndPlayAll(page.viewCommands[], renderMidiProgress)
+                discard post.compileAndPlayAll(page.viewCommands[])
               else:
-                post.compileAndPlayAll(page.viewCommands[], startRenderingMidiProgress)
+                let midiResult = post.compileAndPlayAll(page.viewCommands[])
+                if midiResult.secs > 0:
+                  let currTime = times.epochTime()
+                  var progress: MidiProgressType
+                  new progress
+                  progress.midiResult = midiResult
+                  progress.time = (currTime, currTime + midiResult.secs)
+                  sess.insert(page.id, MidiProgress, progress)
             except Exception as ex:
               discard
         leftButtons.add((" ♫ play ", playAction))
@@ -428,6 +411,16 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         else:
           @[(" my page ", myPageAction)]
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
+    else:
+      let currTime = times.epochTime()
+      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
+        midi.stop(page.midiProgress[].midiResult.playResult.addrs)
+        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+      else:
+        let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
+        iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
+        iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
+        iw.write(result, 0, 1, "press tab to stop playing")
 
   # update values if necessary
   if focusIndex != page.focusIndex:

@@ -60,19 +60,22 @@ proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.Command
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 
-proc play*[T](events: seq[paramidi.Event], renderProc: proc (input: T)) =
-  when T is float:
+proc play*(events: seq[paramidi.Event]): midi.PlayResult =
+  if iw.gIllwillInitialised:
     let
       (secs, playResult) = midi.play(events)
       startTime = times.epochTime()
     if playResult.kind == sound.Error:
       return
+    var tb = iw.newTerminalBuffer(iw.terminalWidth(), iw.terminalHeight())
     while true:
       let currTime = times.epochTime() - startTime
       if currTime > secs:
         break
-      if renderProc != nil:
-        renderProc(currTime / secs)
+      iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
+      iw.fill(tb, 0, 0, int((currTime / secs) * float(constants.editorWidth + 1)), 0, "▓")
+      iw.write(tb, 0, 1, "press tab to stop playing")
+      iw.display(tb)
       let key = iw.getKey()
       if key in {iw.Key.Tab, iw.Key.Escape}:
         break
@@ -81,12 +84,10 @@ proc play*[T](events: seq[paramidi.Event], renderProc: proc (input: T)) =
   else:
     let currentTime = times.epochTime()
     let res = midi.play(events)
-    if res.playResult.kind == sound.Error:
-      return
-    if renderProc != nil:
-      renderProc(res)
+    if res.playResult.kind == sound.Valid:
+      return res
 
-proc compileAndPlayAll*[T](trees: seq[wavescript.CommandTree], renderProc: proc (input: T)) =
+proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]): midi.PlayResult =
   var
     noErrors = true
     nodes = json.JsonNode(kind: json.JArray)
@@ -118,7 +119,7 @@ proc compileAndPlayAll*[T](trees: seq[wavescript.CommandTree], renderProc: proc 
     case res.kind:
     of midi.Valid:
       if res.events.len > 0:
-        play(res.events, renderProc)
+        return play(res.events)
     of midi.Error:
       discard
 
