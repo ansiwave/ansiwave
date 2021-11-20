@@ -74,7 +74,7 @@ proc play*[T](events: seq[paramidi.Event], renderProc: proc (input: T)) =
       if renderProc != nil:
         renderProc(currTime / secs)
       let key = iw.getKey()
-      if key == iw.Key.Tab:
+      if key in {iw.Key.Tab, iw.Key.Escape}:
         break
       os.sleep(constants.sleepMsecs)
     midi.stop(playResult.addrs)

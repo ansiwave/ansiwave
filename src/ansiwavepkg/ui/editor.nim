@@ -166,7 +166,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
       iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(editorWidth + 1)), termWindow.y, "▓")
       iw.display(tb)
       let key = iw.getKey()
-      if key == iw.Key.Tab:
+      if key in {iw.Key.Tab, iw.Key.Escape}:
         break
       os.sleep(sleepMsecs)
     midi.stop(playResult.addrs)
@@ -1322,7 +1322,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       discard renderButton(session, tb, text, textX, termY + termWindow.height - 1, input.key, cb)
 
   if globals.play != nil:
-    if currentTime > globals.play.time.stop or rawInput.key == iw.Key.Tab:
+    if currentTime > globals.play.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
       midi.stop(globals.play.addrs)
       session.insert(Global, Play, cast[PlayInfo](nil))
       session.insert(selectedBuffer.id, Prompt, None)

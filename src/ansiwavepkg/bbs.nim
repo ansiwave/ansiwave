@@ -398,7 +398,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           sess.insert(page.id, MidiProgress, progress)
     if page.midiProgress != nil:
       let currTime = times.epochTime()
-      if currTime > page.midiProgress[].time.stop or input.key == iw.Key.Tab:
+      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
         midi.stop(page.midiProgress[].midiResult.playResult.addrs)
         session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
       else:
