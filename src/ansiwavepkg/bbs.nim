@@ -236,6 +236,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         v
       else:
         page.view
+    isPlaying =
+      if page.isEditor:
+        editor.isPlaying(page.data.session)
+      else:
+        page.midiProgress != nil
 
   var sess = session
   let
@@ -298,9 +303,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     of iw.Key.Down:
       focusIndex = page.focusIndex + 1
     of iw.Key.Left, iw.Key.Escape:
-      backAction()
-      # since we have changed the page, we need to rerun this function from the beginning
-      return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+      if not isPlaying:
+        backAction()
+        # since we have changed the page, we need to rerun this function from the beginning
+        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
     else:
       discard
     # adjust focusIndex and scrollY based on viewFocusAreas
@@ -363,7 +369,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         errorLines = @["Error", page.data.request.value.error]
     else:
       rightButtons.add((" send ", sendAction))
-    navbar.render(result, 0, 0, input, [(" ← ", backAction)], errorLines, rightButtons)
+    if not isPlaying:
+      navbar.render(result, 0, 0, input, [(" ← ", backAction)], errorLines, rightButtons)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -372,7 +379,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
       leftButtons.add((" copy link ", copyAction))
-    # play progress
     var tb = result
     let
       renderMidiProgress =
@@ -390,30 +396,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           progress.midiResult = midiResult
           progress.time = (currTime, currTime + midiResult.secs)
           sess.insert(page.id, MidiProgress, progress)
-    if page.viewCommands != nil and page.viewCommands[].len > 0 and page.midiProgress == nil:
-      let
-        playAction = proc () {.closure.} =
-          try:
-            if iw.gIllwillInitialised:
-              post.compileAndPlayAll(page.viewCommands[], renderMidiProgress)
-            else:
-              post.compileAndPlayAll(page.viewCommands[], startRenderingMidiProgress)
-          except Exception as ex:
-            discard
-      leftButtons.add((" ♫ play ", playAction))
-    var rightButtons: seq[(string, proc ())] =
-      if page.sig == "login" or page.sig == "logout":
-        @[]
-      elif crypto.pubKey == "":
-        @[(" login ", loginAction)]
-      elif page.sig == crypto.pubKey:
-        when defined(emscripten):
-          @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
-        else:
-          @[(" logout ", logoutAction)]
-      else:
-        @[(" my page ", myPageAction)]
-    navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
     if page.midiProgress != nil:
       let currTime = times.epochTime()
       if currTime > page.midiProgress[].time.stop or input.key == iw.Key.Tab:
@@ -421,6 +403,31 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
       else:
         renderMidiProgress((currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start))
+    else:
+      if page.viewCommands != nil and page.viewCommands[].len > 0 and page.midiProgress == nil:
+        let
+          playAction = proc () {.closure.} =
+            try:
+              if iw.gIllwillInitialised:
+                post.compileAndPlayAll(page.viewCommands[], renderMidiProgress)
+              else:
+                post.compileAndPlayAll(page.viewCommands[], startRenderingMidiProgress)
+            except Exception as ex:
+              discard
+        leftButtons.add((" ♫ play ", playAction))
+      var rightButtons: seq[(string, proc ())] =
+        if page.sig == "login" or page.sig == "logout":
+          @[]
+        elif crypto.pubKey == "":
+          @[(" login ", loginAction)]
+        elif page.sig == crypto.pubKey:
+          when defined(emscripten):
+            @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
+          else:
+            @[(" logout ", logoutAction)]
+        else:
+          @[(" my page ", myPageAction)]
+      navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
 
   # update values if necessary
   if focusIndex != page.focusIndex:

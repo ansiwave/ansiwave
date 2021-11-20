@@ -589,6 +589,10 @@ proc getContent*(session: var auto): string =
     buffer = globals.buffers[Editor.ord]
   post.joinLines(buffer.lines)
 
+proc isPlaying*(session: var auto): bool =
+  let globals = session.query(rules.getGlobals)
+  globals.play != nil
+
 proc setEditable*(session: var auto, editable: bool) =
   session.insert(Editor, Editable, editable)
 
