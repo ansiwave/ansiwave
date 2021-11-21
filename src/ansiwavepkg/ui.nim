@@ -160,7 +160,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action-data": {"sig": comp.sig & ".edit"},
         }
       else:
-        % []
+        %* {
+          "type": "button",
+          "text": "see user",
+          "action": "show-user",
+          "action-data": {"key": userKey},
+        }
       ,
       {
         "type": "button",
