@@ -79,7 +79,7 @@ let rules =
         (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
-        session.insert(Global, Drafts, ui.drafts().len > 0)
+        session.insert(Global, Drafts, post.drafts().len > 0)
     rule getPage(Fact):
       what:
         (id, Signature, sig)

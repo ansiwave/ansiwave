@@ -13,6 +13,7 @@ from ./ui/navbar import nil
 from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
+from ./post import nil
 
 type
   ComponentKind* = enum
@@ -43,11 +44,6 @@ type
     parent: string
     sig: string
 
-proc drafts*(): seq[string] =
-  for filename in storage.list():
-    if strutils.endsWith(filename, ".new") or strutils.endsWith(filename, ".edit"):
-      result.add(filename)
-
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
@@ -57,7 +53,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
     comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
   of Drafts:
-    comp.filenames = drafts()
+    comp.filenames = post.drafts()
   of Editor, Login, Logout:
     discard
 
@@ -84,29 +80,22 @@ proc initLogin*(): Component =
 proc initLogout*(): Component =
   Component(kind: Logout)
 
-proc splitPost(content: string): seq[string] =
-  let idx = strutils.find(content, "\n\n")
-  if idx == -1: # this should never happen
-    @[""]
-  else:
-    strutils.splitLines(content[idx + 2 ..< content.len])
-
-proc toJson*(post: entities.Post): JsonNode =
+proc toJson*(entity: entities.Post): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies =
-      if post.reply_count == 1:
+      if entity.reply_count == 1:
         "1 reply"
       else:
-        $post.reply_count & " replies"
-    lines = splitPost(post.content.value.uncompressed)
+        $entity.reply_count & " replies"
+    lines = post.split(entity.content.value.uncompressed)
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "top-right": replies,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-replies",
-    "action-data": {"sig": post.content.sig},
+    "action-data": {"sig": entity.content.sig},
     "action-accessible-text": replies,
   }
 
@@ -117,7 +106,7 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
 
 proc toJson*(draft: Draft): JsonNode =
   const maxLines = int(editorWidth / 4f)
-  let lines = splitPost("\n\n" & draft.content) # must add two newlines to simulate where the headers would normally be
+  let lines = post.split("\n\n" & draft.content) # must add two newlines to simulate where the headers would normally be
   %*[
     {
       "type": "rect",
@@ -152,7 +141,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %*{
           "type": "rect",
-          "children": splitPost(comp.postContent.value.valid.body),
+          "children": post.split(comp.postContent.value.valid.body),
         }
       ,
       {
@@ -187,7 +176,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %*{
           "type": "rect",
-          "children": splitPost(comp.userContent.value.valid.body),
+          "children": post.split(comp.userContent.value.valid.body),
         }
       ,
       if comp.key == crypto.pubKey:
@@ -315,14 +304,14 @@ proc getContent*(comp: Component): seq[string] =
     elif comp.postContent.value.kind == client.Error:
       @[]
     else:
-      splitPost(comp.postContent.value.valid.body)
+      post.split(comp.postContent.value.valid.body)
   of User:
     if not comp.userContent.ready:
       @[]
     elif comp.userContent.value.kind == client.Error:
       @[]
     else:
-      splitPost(comp.userContent.value.valid.body)
+      post.split(comp.userContent.value.valid.body)
   else:
     @[]
 

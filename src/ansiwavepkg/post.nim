@@ -11,6 +11,7 @@ from ./sound import nil
 from os import nil
 from ./constants import nil
 from json import nil
+from ./storage import nil
 
 type
   RefStrings* = ref seq[ref string]
@@ -49,6 +50,18 @@ proc set*(lines: var RefStrings, i: int, line: string) =
   new s
   s[] = line
   lines[i] = s
+
+proc split*(content: string): seq[string] =
+  let idx = strutils.find(content, "\n\n")
+  if idx == -1: # this should never happen
+    @[""]
+  else:
+    strutils.splitLines(content[idx + 2 ..< content.len])
+
+proc drafts*(): seq[string] =
+  for filename in storage.list():
+    if strutils.endsWith(filename, ".new") or strutils.endsWith(filename, ".edit"):
+      result.add(filename)
 
 type
   CommandTreesRef* = ref seq[wavescript.CommandTree]
