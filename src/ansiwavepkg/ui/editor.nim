@@ -1017,7 +1017,7 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
   var colorChars = ""
   for code in colorFgCodes:
     if code == "":
-      colorChars &= "╳╳"
+      colorChars &= "⎕⎕"
     else:
       colorChars &= code & "██\e[0m"
     colorChars &= " "
