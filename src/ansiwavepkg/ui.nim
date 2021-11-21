@@ -6,6 +6,7 @@ import json
 import tables, sets
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
+from wavecorepkg/common import nil
 from strutils import format
 from os import `/`
 from ./ui/editor import nil
@@ -133,16 +134,33 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     client.get(comp.postContent)
     client.get(comp.replies)
     finishedLoading = comp.postContent.ready and comp.replies.ready
+    var userKey: string
     %*[
       if not comp.postContent.ready:
         %"loading..."
       elif comp.postContent.value.kind == client.Error:
         %"failed to load post"
       else:
+        let body = comp.postContent.value.valid.body
+        try:
+          let (commands, content) = common.parseAnsiwave(body)
+          userKey = commands["/head.key"].args[0].name
+        except Exception as ex:
+          discard
         %*{
           "type": "rect",
-          "children": post.split(comp.postContent.value.valid.body),
+          "children": post.split(body),
         }
+      ,
+      if userKey == crypto.pubKey:
+        %* {
+          "type": "button",
+          "text": "edit post",
+          "action": "edit-post",
+          "action-data": {"sig": comp.sig & ".edit"},
+        }
+      else:
+        % []
       ,
       {
         "type": "button",
