@@ -33,7 +33,7 @@ type
     ScrollX, ScrollY,
     X, Y, Width, Height,
     SelectedBuffer, Lines,
-    Editable, SelectedMode,
+    Editable, SelectedMode, SelectedBrightness,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
@@ -71,6 +71,7 @@ type
     height: int
     editable: bool
     mode: int
+    brightness: int
     selectedChar: string
     selectedFgColor: string
     selectedBgColor: string
@@ -104,6 +105,7 @@ schema Fact(Id, Attr):
   Lines: RefStrings
   Editable: bool
   SelectedMode: int
+  SelectedBrightness: int
   SelectedChar: string
   SelectedFgColor: string
   SelectedBgColor: string
@@ -491,6 +493,7 @@ let rules* =
         (id, Height, height)
         (id, Editable, editable)
         (id, SelectedMode, mode)
+        (id, SelectedBrightness, brightness)
         (id, SelectedChar, selectedChar)
         (id, SelectedFgColor, selectedFgColor)
         (id, SelectedBgColor, selectedBgColor)
@@ -540,6 +543,7 @@ proc insertBuffer(session: var EditorSession, id: Id, name: string, x: int, y: i
   session.insert(id, Height, 0)
   session.insert(id, Editable, editable)
   session.insert(id, SelectedMode, 0)
+  session.insert(id, SelectedBrightness, 0)
   session.insert(id, SelectedChar, "█")
   session.insert(id, SelectedFgColor, "")
   session.insert(id, SelectedBgColor, "")
@@ -989,13 +993,26 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
 
 proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int, colorY: int): int =
   const
-    colorFgCodes = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
-    colorBgCodes = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
+    colorFgDarkCodes    = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
+    colorFgBrightCodes  = ["", "\e[30m", "\e[1;31m", "\e[1;32m", "\e[1;33m", "\e[1;34m", "\e[1;35m", "\e[1;36m", "\e[37m"]
+    colorBgDarkCodes    = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
+    colorBgBrightCodes  = ["", "\e[40m", "\e[1;41m", "\e[1;42m", "\e[1;43m", "\e[1;44m", "\e[1;45m", "\e[1;46m", "\e[47m"]
     colorFgShortcuts    = ['x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w']
     colorFgShortcutsSet = {'x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w'}
     colorBgShortcuts    = ['X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W']
     colorBgShortcutsSet = {'X', 'K', 'R', 'G', 'Y', 'B', 'M', 'C', 'W'}
-    colorNames = ["default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    colorNames          = ["default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+  let
+    colorFgCodes =
+      if buffer.brightness == 0:
+        colorFgDarkCodes
+      else:
+        colorFgBrightCodes
+    colorBgCodes =
+      if buffer.brightness == 0:
+        colorBgDarkCodes
+      else:
+        colorBgBrightCodes
   result = colorX + colorFgCodes.len * 3 + 1
   var colorChars = ""
   for code in colorFgCodes:
@@ -1038,12 +1055,28 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
         session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
     except:
       discard
+  var sess = session
+  let
+    darkCallback = proc () =
+      sess.insert(buffer.id, SelectedBrightness, 0)
+      sess.insert(buffer.id, SelectedFgColor, colorFgDarkCodes[fgIndex])
+      sess.insert(buffer.id, SelectedBgColor, colorBgDarkCodes[bgIndex])
+    brightCallback = proc () =
+      sess.insert(buffer.id, SelectedBrightness, 1)
+      sess.insert(buffer.id, SelectedFgColor, colorFgBrightCodes[fgIndex])
+      sess.insert(buffer.id, SelectedBgColor, colorBgBrightCodes[bgIndex])
+    choices = [
+      (id: 0, label: "•", callback: darkCallback),
+      (id: 1, label: "☼", callback: brightCallback),
+    ]
+    shortcut = (key: {iw.Key.CtrlB}, hint: "hint: change brightness with ctrl b")
+  result = renderRadioButtons(session, tb, result, colorY, choices, buffer.brightness, key, false, shortcut)
 
 proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int, brushY: int): int =
   const
-    brushChars        = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
-    brushShortcuts    = ['1', '2', '3', '4', '5', '6', '7', '8']
-    brushShortcutsSet = {'1', '2', '3', '4', '5', '6', '7', '8'}
+    brushChars        = ["█", "▓", "▒", "░", "▀", "▌",]
+    brushShortcuts    = ['1', '2', '3', '4', '5', '6',]
+    brushShortcutsSet = {'1', '2', '3', '4', '5', '6',}
   # make sure that all brush chars are treated as whitespace by wavescript
   static: assert brushChars.toHashSet < wavescript.whitespaceChars
   var brushCharsColored = ""
