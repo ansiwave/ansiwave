@@ -50,5 +50,6 @@ proc list*(): seq[string] =
     emscripten.localList()
   else:
     for f in os.walkDir(os.expandTilde(dataDir)):
-      result.add(f.path)
+      let (_, tail) = os.splitPath(f.path)
+      result.add(tail)
 

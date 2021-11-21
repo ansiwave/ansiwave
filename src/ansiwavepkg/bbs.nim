@@ -16,6 +16,7 @@ from wavecorepkg/paths import nil
 from ./post import CommandTreesRef
 from times import nil
 from ./midi import nil
+from strutils import nil
 
 type
   Id* = enum
@@ -24,6 +25,7 @@ type
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
+    Drafts,
   Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
@@ -38,7 +40,7 @@ type
     viewFocusAreas: ViewFocusAreaSeq
     midiProgress: MidiProgressType
   PageTable = ref Table[string, Page]
-  PageBreadcrumbsType = seq[string]
+  StringSeq = seq[string]
   MidiProgressType = ref object
     midiResult: midi.PlayResult
     time: tuple[start: float, stop: float]
@@ -46,8 +48,9 @@ type
 schema Fact(Id, Attr):
   SelectedPage: string
   AllPages: PageTable
-  PageBreadcrumbs: PageBreadcrumbsType
+  PageBreadcrumbs: StringSeq
   PageBreadcrumbsIndex: int
+  Drafts: bool
   Signature: string
   ComponentData: Component
   FocusIndex: int
@@ -69,12 +72,14 @@ let rules =
         (Global, AllPages, pages)
         (Global, PageBreadcrumbs, breadcrumbs)
         (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
+        (Global, Drafts, drafts)
     rule changeSelectedPage(Fact):
       what:
         (Global, PageBreadcrumbs, breadcrumbs)
         (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
+        session.insert(Global, Drafts, ui.drafts().len > 0)
     rule getPage(Fact):
       what:
         (id, Signature, sig)
@@ -132,9 +137,10 @@ proc initSession*(c: client.Client): auto =
     result.add(r)
   result.insert(Global, SelectedPage, "")
   result.insert(Global, AllPages, cast[PageTable](nil))
-  let breadcrumbs: PageBreadcrumbsType = @[]
-  result.insert(Global, PageBreadcrumbs, breadcrumbs)
+  let empty: StringSeq = @[]
+  result.insert(Global, PageBreadcrumbs, empty)
   result.insert(Global, PageBreadcrumbsIndex, -1)
+  result.insert(Global, Drafts, false)
   result.insertPage(ui.initUser(c, paths.sysopPublicKey), paths.sysopPublicKey)
   result.fireRules
 
@@ -247,30 +253,6 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     backAction = proc () {.closure.} =
       if globals.breadcrumbsIndex > 0:
         sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
-    refreshAction = proc () {.closure.} =
-      sess.insert(page.id, View, cast[JsonNode](nil))
-      sess.insert(page.id, ViewFocusAreas, @[])
-      sess.insert(page.id, ViewHeight, 0)
-      ui.refresh(clnt, page.data)
-    searchAction = proc () {.closure.} =
-      discard
-    copyAction = proc () {.closure.} =
-      discard
-    sendAction = proc () {.closure.} =
-      editor.setEditable(page.data.session, false)
-      let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
-      page.data.requestBody = body
-      page.data.requestSig = sig
-      page.data.request = client.submit(clnt, "ansiwave", body)
-    loginAction = proc () {.closure.} =
-      sess.insertPage(ui.initLogin(), "login")
-    logoutAction = proc () {.closure.} =
-      sess.insertPage(ui.initLogout(), "logout")
-    myPageAction = proc () {.closure.} =
-      sess.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
-    downloadKeyAction = proc () {.closure.} =
-      when defined(emscripten):
-        crypto.downloadKey()
 
   # if there is any input, find the associated action
   var
@@ -355,10 +337,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         finishedLoading = false # when a request is being sent, make sure the view refreshes
       elif page.data.request.value.kind == client.Valid:
         session.retract(page.id, ComponentData)
-        storage.remove(page.sig & ".ansiwave")
+        storage.remove(page.sig)
         backAction()
         session.fireRules
-        if storage.set(page.data.requestSig & ".post.ansiwave", page.data.requestBody):
+        if storage.set(page.data.requestSig & ".ansiwave", page.data.requestBody):
           session.insertPage(ui.initPost(clnt, page.data.requestSig), page.data.requestSig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
@@ -368,6 +350,13 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         rightButtons.add((" continue editing ", continueAction))
         errorLines = @["Error", page.data.request.value.error]
     else:
+      let
+        sendAction = proc () {.closure.} =
+          editor.setEditable(page.data.session, false)
+          let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
+          page.data.requestBody = body
+          page.data.requestSig = sig
+          page.data.request = client.submit(clnt, "ansiwave", body)
       rightButtons.add((" send ", sendAction))
     if not isPlaying:
       navbar.render(result, 0, 0, input, [(" ← ", backAction)], errorLines, rightButtons)
@@ -376,8 +365,18 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
+    let
+      refreshAction = proc () {.closure.} =
+        sess.insert(page.id, View, cast[JsonNode](nil))
+        sess.insert(page.id, ViewFocusAreas, @[])
+        sess.insert(page.id, ViewHeight, 0)
+        ui.refresh(clnt, page.data)
+      searchAction = proc () {.closure.} =
+        discard
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
+      let copyAction = proc () {.closure.} =
+        discard
       leftButtons.add((" copy link ", copyAction))
     if page.midiProgress == nil:
       if page.viewCommands != nil and page.viewCommands[].len > 0:
@@ -402,14 +401,31 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         if page.sig == "login" or page.sig == "logout":
           @[]
         elif crypto.pubKey == "":
+          let
+            loginAction = proc () {.closure.} =
+              sess.insertPage(ui.initLogin(), "login")
           @[(" login ", loginAction)]
         elif page.sig == crypto.pubKey:
+          let
+            logoutAction = proc () {.closure.} =
+              sess.insertPage(ui.initLogout(), "logout")
+            downloadKeyAction = proc () {.closure.} =
+              when defined(emscripten):
+                crypto.downloadKey()
           when defined(emscripten):
             @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
           else:
             @[(" logout ", logoutAction)]
         else:
-          @[(" my page ", myPageAction)]
+          let
+            draftsAction = proc () {.closure.} =
+              sess.insertPage(ui.initDrafts(clnt), "drafts")
+            myPageAction = proc () {.closure.} =
+              sess.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
+          if globals.drafts and page.sig != "drafts":
+            @[(" drafts ", draftsAction), (" my page ", myPageAction)]
+          else:
+            @[(" my page ", myPageAction)]
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
     else:
       let currTime = times.epochTime()

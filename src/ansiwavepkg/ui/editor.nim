@@ -581,9 +581,9 @@ proc saveToStorage*(session: var auto, sig: string) =
     try:
       let body = post.joinLines(buffer.lines)
       if buffer.lines[].len == 1 and body.stripCodes == "":
-        storage.remove(sig & ".ansiwave")
+        storage.remove(sig)
       else:
-        discard storage.set(sig & ".ansiwave", body)
+        discard storage.set(sig, body)
       insert(session, Editor, editor.LastSaveTime, times.epochTime())
     except Exception as ex:
       discard
@@ -1219,7 +1219,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.fireRules
 
   if opts.sig != "":
-    result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig & ".ansiwave")))
+    result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
 proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =

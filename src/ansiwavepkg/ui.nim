@@ -16,7 +16,7 @@ from wavecorepkg/paths import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Login, Logout,
+    Post, User, Editor, Drafts, Login, Logout,
   Component* = ref object
     case kind*: ComponentKind
     of Post:
@@ -33,9 +33,20 @@ type
       request*: client.ChannelValue[client.Response]
       requestBody*: string
       requestSig*: string
+    of Drafts:
+      filenames*: seq[string]
     of Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
+  Draft = object
+    content: string
+    parent: string
+    sig: string
+
+proc drafts*(): seq[string] =
+  for filename in storage.list():
+    if strutils.endsWith(filename, ".new") or strutils.endsWith(filename, ".edit"):
+      result.add(filename)
 
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
@@ -45,6 +56,8 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
     comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
+  of Drafts:
+    comp.filenames = drafts()
   of Editor, Login, Logout:
     discard
 
@@ -60,6 +73,10 @@ proc initEditor*(width: int, height: int, sig: string, headers: string): Compone
   result = Component(kind: Editor)
   result.headers = headers
   result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
+
+proc initDrafts*(clnt: client.Client): Component =
+  result = Component(kind: Drafts)
+  refresh(clnt, result)
 
 proc initLogin*(): Component =
   Component(kind: Login)
@@ -97,6 +114,29 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
   result = JsonNode(kind: JArray)
   for post in posts:
     result.elems.add(toJson(post))
+
+proc toJson*(draft: Draft): JsonNode =
+  const maxLines = int(editorWidth / 4f)
+  let lines = splitPost("\n\n" & draft.content) # must add two newlines to simulate where the headers would normally be
+  %*[
+    {
+      "type": "rect",
+      "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+      "bottom-left": if lines.len > maxLines: "see more" else: "",
+      "action": "show-editor",
+      "action-data": {
+        "sig": draft.sig,
+        "headers": crypto.headers(draft.parent),
+      },
+    },
+    {
+      "type": "button",
+      "text": "context",
+      "action": "show-replies",
+      "action-data": {"sig": draft.parent},
+    },
+    "" # spacer
+  ]
 
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
@@ -179,6 +219,18 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "action": "edit",
       "action-data": {},
     }
+  of Drafts:
+    finishedLoading = true
+    var json = JsonNode(kind: JArray)
+    for filename in comp.filenames:
+      let newIdx = strutils.find(filename, ".new")
+      if newIdx != -1:
+        json.elems.add(toJson(Draft(content: storage.get(filename), parent: filename[0 ..< newIdx], sig: filename)))
+      else:
+        let editIdx = strutils.find(filename, ".edit")
+        if editIdx != -1:
+          json.elems.add(toJson(Draft(content: storage.get(filename), parent: filename[0 ..< editIdx], sig: filename)))
+    json
   of Login:
     finishedLoading = true
     %*[
