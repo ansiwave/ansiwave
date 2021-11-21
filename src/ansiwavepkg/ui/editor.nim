@@ -37,7 +37,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime, Name, AllBuffers, Opts, Play,
+    LastEditTime, LastSaveTime, Name, AllBuffers, Opts, MidiProgress,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   Snapshot = object
@@ -86,7 +86,7 @@ type
     lastSaveTime: float
     name: string
   BufferTable = ref Table[int, Buffer]
-  PlayInfo = ref object
+  MidiProgressType = ref object
     events: seq[paramidi.Event]
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
@@ -123,7 +123,7 @@ schema Fact(Id, Attr):
   Name: string
   AllBuffers: BufferTable
   Opts: Options
-  Play: PlayInfo
+  MidiProgress: MidiProgressType
 
 type
   EditorSession* = Session[Fact, Vars[Fact]]
@@ -177,9 +177,9 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
     let currentTime = times.epochTime()
     let (secs, playResult) = midi.play(events)
     if playResult.kind == sound.Error:
-      session.insert(Global, Play, cast[PlayInfo](nil))
+      session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
     else:
-      session.insert(Global, Play, PlayInfo(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
+      session.insert(Global, MidiProgress, MidiProgressType(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
 
 proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -268,7 +268,7 @@ let rules* =
         (Global, HintTime, hintTime)
         (Global, AllBuffers, buffers)
         (Global, Opts, options)
-        (Global, Play, play)
+        (Global, MidiProgress, midiProgress)
     rule getTerminalWindow(Fact):
       what:
         (TerminalWindow, X, x)
@@ -596,7 +596,7 @@ proc getContent*(session: var auto): string =
 
 proc isPlaying*(session: var auto): bool =
   let globals = session.query(rules.getGlobals)
-  globals.play != nil
+  globals.midiProgress != nil
 
 proc setEditable*(session: var auto, editable: bool) =
   session.insert(Editor, Editable, editable)
@@ -1211,7 +1211,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
-  result.insert(Global, Play, cast[PlayInfo](nil))
+  result.insert(Global, MidiProgress, cast[MidiProgressType](nil))
 
   onWindowResize(result, 0, 0, width, height)
 
@@ -1229,7 +1229,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
     currentTime = times.epochTime()
     input: tuple[key: iw.Key, codepoint: uint32] =
-      if globals.play != nil:
+      if globals.midiProgress != nil:
         (iw.Key.None, 0'u32) # ignore input while playing
       else:
         rawInput
@@ -1240,7 +1240,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
   # if we're playing music or the editor has unsaved changes, set finishedLoading to false to ensure the tick function
   # will continue running, allowing the save to eventually take place
   # (this only matters for the emscripten version)
-  if globals.play != nil or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
+  if globals.midiProgress != nil or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
     finishedLoading = false
 
   # render top bar
@@ -1354,19 +1354,19 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           sess.insert(Global, HintTime, times.epochTime() + hintSecs)
       discard renderButton(session, tb, text, textX, termY + termWindow.height - 1, input.key, cb)
 
-  if globals.play != nil:
-    if currentTime > globals.play.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
-      midi.stop(globals.play.addrs)
-      session.insert(Global, Play, cast[PlayInfo](nil))
+  if globals.midiProgress != nil:
+    if currentTime > globals.midiProgress.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
+      midi.stop(globals.midiProgress.addrs)
+      session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
       session.insert(selectedBuffer.id, Prompt, None)
     else:
       let
-        secs = globals.play.time.stop - globals.play.time.start
-        progress = currentTime - globals.play.time.start
+        secs = globals.midiProgress.time.stop - globals.midiProgress.time.start
+        progress = currentTime - globals.midiProgress.time.start
       # go to the right line
-      var lineTimesIdx = globals.play.lineTimes.len - 1
+      var lineTimesIdx = globals.midiProgress.lineTimes.len - 1
       while lineTimesIdx >= 0:
-        let (line, time) = globals.play.lineTimes[lineTimesIdx]
+        let (line, time) = globals.midiProgress.lineTimes[lineTimesIdx]
         if progress >= time:
           moveCursor(session, selectedBuffer.id, 0, line)
           break
