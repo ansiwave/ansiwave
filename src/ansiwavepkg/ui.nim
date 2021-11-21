@@ -172,7 +172,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.userContent.ready:
         %"loading..."
       elif comp.userContent.value.kind == client.Error:
-        %""
+        if comp.key == crypto.pubKey:
+          %"Your banner will be here. Put something about yourself...or not."
+        else:
+          %""
       else:
         %*{
           "type": "rect",
@@ -182,8 +185,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if comp.key == crypto.pubKey:
         %* {
           "type": "button",
-          "align": "left",
-          "text": "edit header",
+          "text": "edit banner",
           "action": "edit-user",
           "action-data": {"key": comp.key & ".edit"},
         }
@@ -373,10 +375,6 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     for child in node["children"]:
       render(tb, child, x + 1, y, focusIndex, areas)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
-    if node.hasKey("children-after"):
-      for child in node["children-after"]:
-        var y = yStart + 1
-        render(tb, child, x + 1, y, focusIndex, areas)
     if node.hasKey("top-right-focused") and isFocused:
       iw.write(tb, xEnd - node["top-right-focused"].str.runeLen, yStart, node["top-right-focused"].str)
     elif node.hasKey("top-right"):
@@ -387,17 +385,10 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.write(tb, x + 1, y, node["bottom-left"].str)
     y += 1
   of "button":
-    if node.hasKey("align") and node["align"].str == "left":
-      xStart += 1
-      xEnd = xStart + node["text"].str.len
-      y += 1
-      render(tb, node["text"].str, xStart, y)
-      iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
-    else:
-      xStart = max(x, editorWidth - node["text"].str.len + 1)
-      y += 1
-      render(tb, node["text"].str, xStart, y)
-      iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
+    xStart = max(x, editorWidth - node["text"].str.len + 1)
+    y += 1
+    render(tb, node["text"].str, xStart, y)
+    iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
   of "cursor":
     if isFocused:
