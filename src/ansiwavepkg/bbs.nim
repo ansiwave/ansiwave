@@ -166,6 +166,8 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       if globals.pages.hasKey(sig):
         session.goToPage(sig)
       else:
+        if storage.get(sig) == "" and actionData.hasKey("content"):
+          discard storage.set(sig, actionData["content"].str)
         session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "edit":
     result = input.key notin {iw.Key.Escape}

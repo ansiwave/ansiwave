@@ -175,13 +175,13 @@ proc createUser*() =
 from times import nil
 from strutils import nil
 
-proc headers*(parent: string): string =
+proc headers*(target: string, isNew: bool): string =
   strutils.join(
     [
       "/head.key " & pubKey,
       "/head.algo " & algorithm,
-      "/head.parent " & parent,
-      "/head.last-sig",
+      "/head.target " & target,
+      "/head.type " & (if isNew: "new" else: "edit"),
       "/head.board " & paths.sysopPublicKey,
     ],
     "\n",

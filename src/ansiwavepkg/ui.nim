@@ -41,8 +41,8 @@ type
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
+    target: string
     content: string
-    parent: string
     sig: string
 
 proc refresh*(clnt: client.Client, comp: Component) =
@@ -116,14 +116,14 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": crypto.headers(draft.parent),
+        "headers": crypto.headers(draft.target, strutils.endsWith(draft.sig, ".new")),
       },
     },
     {
       "type": "button",
       "text": "context",
       "action": "show-replies",
-      "action-data": {"sig": draft.parent},
+      "action-data": {"sig": draft.target},
     },
     "" # spacer
   ]
@@ -134,7 +134,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     client.get(comp.postContent)
     client.get(comp.replies)
     finishedLoading = comp.postContent.ready and comp.replies.ready
-    var userKey: string
+    var parsed: tuple[key: string, sig: string, target: string, content: string]
     %*[
       if not comp.postContent.ready:
         %"loading..."
@@ -143,8 +143,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         let body = comp.postContent.value.valid.body
         try:
-          let (commands, content) = common.parseAnsiwave(body)
-          userKey = commands["/head.key"].args[0].name
+          let (commands, headersAndContent, content) = common.parseAnsiwave(body)
+          parsed = (
+            key: commands["/head.key"],
+            sig: commands["/head.sig"],
+            target: commands["/head.target"],
+            content: content,
+          )
         except Exception as ex:
           discard
         %*{
@@ -152,19 +157,23 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "children": post.split(body),
         }
       ,
-      if userKey == crypto.pubKey:
+      if parsed.key == crypto.pubKey:
         %* {
           "type": "button",
           "text": "edit post",
-          "action": "edit-post",
-          "action-data": {"sig": comp.sig & ".edit"},
+          "action": "show-editor",
+          "action-data": {
+            "sig": comp.sig & ".edit",
+            "content": parsed.content,
+            "headers": crypto.headers(parsed.sig, false),
+          },
         }
       else:
         %* {
           "type": "button",
           "text": "see user",
           "action": "show-user",
-          "action-data": {"key": userKey},
+          "action-data": {"key": parsed.key},
         }
       ,
       {
@@ -173,7 +182,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "action": "show-editor",
         "action-data": {
           "sig": comp.sig & ".new",
-          "headers": crypto.headers(comp.sig),
+          "headers": crypto.headers(comp.sig, true),
         },
       },
       "", # spacer
@@ -239,11 +248,11 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     for filename in comp.filenames:
       let newIdx = strutils.find(filename, ".new")
       if newIdx != -1:
-        json.elems.add(toJson(Draft(content: storage.get(filename), parent: filename[0 ..< newIdx], sig: filename)))
+        json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename)))
       else:
         let editIdx = strutils.find(filename, ".edit")
         if editIdx != -1:
-          json.elems.add(toJson(Draft(content: storage.get(filename), parent: filename[0 ..< editIdx], sig: filename)))
+          json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< editIdx], sig: filename)))
     json
   of Login:
     finishedLoading = true

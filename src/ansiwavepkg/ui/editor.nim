@@ -1218,7 +1218,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   result.insert(Global, Opts, opts)
   result.fireRules
 
-  if opts.sig != "":
+  if opts.bbsMode and opts.sig != "":
     result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
