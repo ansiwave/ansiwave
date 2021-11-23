@@ -37,7 +37,7 @@ type
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
     HintText, HintTime, UndoHistory, UndoIndex, InsertMode,
-    LastEditTime, LastSaveTime, Name, AllBuffers, Opts, MidiProgress,
+    LastEditTime, LastSaveTime, AllBuffers, Opts, MidiProgress,
   PromptKind = enum
     None, DeleteLine, StopPlaying,
   Snapshot = object
@@ -84,7 +84,6 @@ type
     insertMode: bool
     lastEditTime: float
     lastSaveTime: float
-    name: string
   BufferTable = ref Table[int, Buffer]
   MidiProgressType = ref object
     events: seq[paramidi.Event]
@@ -120,7 +119,6 @@ schema Fact(Id, Attr):
   InsertMode: bool
   LastEditTime: float
   LastSaveTime: float
-  Name: string
   AllBuffers: BufferTable
   Opts: Options
   MidiProgress: MidiProgressType
@@ -506,7 +504,6 @@ let rules* =
         (id, InsertMode, insertMode)
         (id, LastEditTime, lastEditTime)
         (id, LastSaveTime, lastSaveTime)
-        (id, Name, name)
       thenFinally:
         var t: BufferTable
         new t
@@ -530,8 +527,7 @@ proc onWindowResize(session: var EditorSession, x: int, y: int, width: int, heig
 proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int] =
   session.query(rules.getTerminalWindow)
 
-proc insertBuffer(session: var EditorSession, id: Id, name: string, x: int, y: int, editable: bool, text: string) =
-  session.insert(id, Name, name)
+proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
   session.insert(id, ScrollX, 0)
@@ -626,7 +622,6 @@ proc initLink*(buffer: tuple): string =
   let
     output = zippy.compress(s, dataFormat = zippy.dfZlib)
     pairs = {
-      "name": uri.encodeUrl(buffer.name),
       "data": paths.encode(output)
     }
   var fragments: seq[string]
@@ -849,13 +844,13 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
               let hintText =
                 if buffer.links[i].error:
                   if buffer.id == Editor.ord:
-                    "hint: see the error with Tab"
+                    "hint: see the error with tab"
                   elif buffer.id == Errors.ord:
-                    "hint: see where the error happened with Tab"
+                    "hint: see where the error happened with tab"
                   else:
                     ""
                 else:
-                  "hint: play the current line with Tab"
+                  "hint: play the current line with tab"
               session.insert(Global, HintText, hintText)
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
               buffer.links[i].callback()
@@ -1173,29 +1168,15 @@ when defined(emscripten):
 proc init*(opts: Options, width: int, height: int): EditorSession =
   let isUri = uri.isAbsolute(uri.parseUri(opts.input))
 
-  var
-    editorText: string
-    editorName: string
+  var editorText: string
 
   if isUri:
     let link = parseLink(opts.input)
     editorText = link["data"]
-    editorName =
-      if "name" in link:
-        os.splitFile(uri.decodeUrl(link["name"])).name
-      else:
-        ""
   elif opts.input != "" and os.fileExists(opts.input):
     editorText = readFile(opts.input)
-    editorName = os.splitFile(opts.input).name
   else:
     editorText = ""
-    editorName = os.splitFile(opts.input).name
-
-  if opts.bbsMode:
-    editorName = "post"
-  elif editorName == "":
-    editorName = "hello"
 
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
@@ -1204,11 +1185,11 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   const
     tutorialText = staticRead("../assets/tutorial.ansiwave")
     publishText = staticRead("../assets/publish.ansiwave")
-  insertBuffer(result, Editor, editorName, 0, 2, not isUri, editorText)
-  insertBuffer(result, Errors, "errors", 0, 1, false, "")
-  insertBuffer(result, Tutorial, "tutorial", 0, 1, false, tutorialText)
+  insertBuffer(result, Editor, 0, 2, not isUri, editorText)
+  insertBuffer(result, Errors, 0, 1, false, "")
+  insertBuffer(result, Tutorial, 0, 1, false, tutorialText)
   if not opts.bbsMode:
-    insertBuffer(result, Publish, "publish", 0, 1, false, publishText)
+    insertBuffer(result, Publish, 0, 1, false, publishText)
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
@@ -1284,7 +1265,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     elif not globals.options.bbsMode:
       let
         topText = "read-only mode! to edit this, convert it into an ansiwave:"
-        bottomText = "ansiwave https://ansiwave.net/... $1.ansiwave".format(selectedBuffer.name)
+        bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
       iw.write(tb, max(termX, int(editorWidth/2 - topText.runeLen/2)), termY, topText)
       iw.write(tb, max(playX, int(editorWidth/2 - bottomText.runeLen/2)), termY + 1, bottomText)
   of Errors:
@@ -1319,7 +1300,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       editor = session.query(rules.getBuffer, id = Editor)
       errorCount = editor.errors[].len
       choices = [
-        (id: Editor.ord, label: strutils.format("$1 $2", (if editor.editable: "edit" else: "view"), editor.name), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
+        (id: Editor.ord, label: "editor", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
         (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
         (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
         (id: Publish.ord, label: "publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
