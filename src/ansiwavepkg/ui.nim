@@ -199,7 +199,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %* {
           "type": "button",
-          "text": "write a post",
+          "text": "write new post",
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
@@ -285,9 +285,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "type": "button",
           "text":
             if comp.key == paths.sysopPublicKey:
-              "create a subboard"
+              "create new subboard"
             else:
-              "write a blog post"
+              "write new journal post"
           ,
           "action": "show-editor",
           "action-data": {
