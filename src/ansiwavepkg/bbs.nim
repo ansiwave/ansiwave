@@ -280,7 +280,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           if info.x >= area.left and
               info.x <= area.right and
               info.y + scrollY >= area.top and
-              info.y + scrollY <= area.bottom - 1:
+              info.y + scrollY <= area.bottom - 1 and
+              info.y >= navbar.height:
             action = (area.action, area.actionData)
             focusIndex = i
             break
