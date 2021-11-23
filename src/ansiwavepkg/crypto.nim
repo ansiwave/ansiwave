@@ -169,6 +169,8 @@ proc createUser*() =
   image = stbiw.writePNG(width, height, 4, data)
   discard storage.set(loginKeyName, image, isBinary = true)
 
+  loadKey(image)
+
   when defined(emscripten):
     downloadKey()
 
