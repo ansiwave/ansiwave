@@ -902,9 +902,10 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
       of iw.ScrollDirection.sdDown:
         session.insert(buffer.id, CursorY, buffer.cursorY + linesPerScroll)
   elif focused:
-    if input.key == iw.Key.None:
+    if input.codepoint != 0:
+      session.insert(buffer.id, Prompt, None)
       discard editor.onInput(session, input.codepoint, buffer)
-    else:
+    elif input.key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
       discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
 
