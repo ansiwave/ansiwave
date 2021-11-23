@@ -13,6 +13,7 @@ import tables
 from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
+from wavecorepkg/common import nil
 from ./post import CommandTreesRef
 from times import nil
 from ./midi import nil
@@ -375,7 +376,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       let
         sendAction = proc () {.closure.} =
           editor.setEditable(page.data.session, false)
-          let (body, sig) = crypto.sign(page.data.headers, editor.getContent(page.data.session))
+          let (body, sig) = common.sign(crypto.keyPair, page.data.headers, editor.getContent(page.data.session))
           page.data.requestBody = body
           page.data.requestSig = sig
           page.data.request = client.submit(clnt, "ansiwave", body)

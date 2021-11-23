@@ -62,12 +62,10 @@ proc destego*(image: seq[uint8]): string =
     result &= ch.char
     pos += 8
 
-const
-  algorithm* = "ed25519"
-  loginKeyName = "login-key.png"
+const loginKeyName = "login-key.png"
 
 var
-  keyPair: ed25519.KeyPair
+  keyPair*: ed25519.KeyPair
   pubKey*: string
   image: seq[uint8]
 
@@ -173,25 +171,4 @@ proc createUser*() =
 
   when defined(emscripten):
     downloadKey()
-
-from times import nil
-from strutils import nil
-
-proc headers*(target: string, isNew: bool): string =
-  strutils.join(
-    [
-      "/head.key " & pubKey,
-      "/head.algo " & algorithm,
-      "/head.target " & target,
-      "/head.type " & (if isNew: "new" else: "edit"),
-      "/head.board " & paths.sysopPublicKey,
-    ],
-    "\n",
-  )
-
-proc sign*(headers: string, content: string): tuple[body: string, sig: string] =
-  result.body = "/head.time " & $times.toUnix(times.getTime()) & "\n"
-  result.body &= headers & "\n\n" & content
-  result.sig = paths.encode(ed25519.sign(keyPair, result.body))
-  result.body = "/head.sig " & result.sig & "\n" & result.body
 

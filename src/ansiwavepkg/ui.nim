@@ -122,7 +122,7 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": crypto.headers(draft.target, strutils.endsWith(draft.sig, ".new")),
+        "headers": common.headers(crypto.pubKey, draft.target, strutils.endsWith(draft.sig, ".new")),
       },
     },
     {
@@ -179,7 +179,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & ".edit",
               "content": parsed.content,
-              "headers": crypto.headers(parsed.sig, false),
+              "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
           }
         elif parsed.key != paths.sysopPublicKey:
@@ -203,7 +203,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": crypto.headers(comp.sig, true),
+            "headers": common.headers(crypto.pubKey, comp.sig, true),
           },
         }
       ,
@@ -262,7 +262,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.key & ".edit",
               "content": parsed.content,
-              "headers": crypto.headers(parsed.sig, false),
+              "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
           }
         else:
@@ -274,7 +274,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.key & ".edit",
-            "headers": crypto.headers("", true),
+            "headers": common.headers(crypto.pubKey, "", true),
           },
         }
       else:
@@ -292,7 +292,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.key & ".new",
-            "headers": crypto.headers(comp.key, true),
+            "headers": common.headers(crypto.pubKey, comp.key, true),
           },
         }
       else:
