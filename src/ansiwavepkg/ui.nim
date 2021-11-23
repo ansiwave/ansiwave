@@ -165,31 +165,32 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "children": lines,
         }
       ,
-      if parsed.key == "":
-        %[]
-      elif parsed.key == crypto.pubKey:
-        %* {
-          "type": "button",
-          "text":
-            if parsed.key == paths.sysopPublicKey:
-              "edit subboard"
-            else:
-              "edit post"
-          ,
-          "action": "show-editor",
-          "action-data": {
-            "sig": comp.sig & ".edit",
-            "content": parsed.content,
-            "headers": crypto.headers(parsed.sig, false),
-          },
-        }
-      elif parsed.key != paths.sysopPublicKey:
-        %* {
-          "type": "button",
-          "text": "see user",
-          "action": "show-user",
-          "action-data": {"key": parsed.key},
-        }
+      if parsed.key != "":
+        if parsed.key == crypto.pubKey:
+          %* {
+            "type": "button",
+            "text":
+              if parsed.key == paths.sysopPublicKey:
+                "edit subboard"
+              else:
+                "edit post"
+            ,
+            "action": "show-editor",
+            "action-data": {
+              "sig": comp.sig & ".edit",
+              "content": parsed.content,
+              "headers": crypto.headers(parsed.sig, false),
+            },
+          }
+        elif parsed.key != paths.sysopPublicKey:
+          %* {
+            "type": "button",
+            "text": "see user",
+            "action": "show-user",
+            "action-data": {"key": parsed.key},
+          }
+        else:
+          %[]
       else:
         %[]
       ,
@@ -252,19 +253,20 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "children": lines,
           }
       ,
-      if parsed.key == "":
-        %[]
-      elif parsed.key == crypto.pubKey:
-        %* {
-          "type": "button",
-          "text": "edit banner",
-          "action": "show-editor",
-          "action-data": {
-            "sig": comp.key & ".edit",
-            "content": parsed.content,
-            "headers": crypto.headers(parsed.sig, false),
-          },
-        }
+      if parsed.key != "":
+        if parsed.key == crypto.pubKey:
+          %* {
+            "type": "button",
+            "text": "edit banner",
+            "action": "show-editor",
+            "action-data": {
+              "sig": comp.key & ".edit",
+              "content": parsed.content,
+              "headers": crypto.headers(parsed.sig, false),
+            },
+          }
+        else:
+          %[]
       elif comp.key == crypto.pubKey:
         %* {
           "type": "button",
