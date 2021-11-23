@@ -209,10 +209,14 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         else:
           %""
       else:
-        %*{
-          "type": "rect",
-          "children": post.split(comp.userContent.value.valid.body),
-        }
+        let lines = post.split(comp.userContent.value.valid.body)
+        if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
+          %"Your banner will be here. Put something about yourself...or not."
+        else:
+          %*{
+            "type": "rect",
+            "children": lines,
+          }
       ,
       if comp.key == crypto.pubKey:
         %* {
