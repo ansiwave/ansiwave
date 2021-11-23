@@ -165,7 +165,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "children": lines,
         }
       ,
-      if parsed.key == crypto.pubKey:
+      if parsed.key == "":
+        %[]
+      elif parsed.key == crypto.pubKey:
         %* {
           "type": "button",
           "text":
@@ -181,7 +183,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "headers": crypto.headers(parsed.sig, false),
           },
         }
-      elif parsed.key != "" and parsed.key != paths.sysopPublicKey:
+      elif parsed.key != paths.sysopPublicKey:
         %* {
           "type": "button",
           "text": "see user",
@@ -191,15 +193,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %[]
       ,
-      {
-        "type": "button",
-        "text": "write a post",
-        "action": "show-editor",
-        "action-data": {
-          "sig": comp.sig & ".new",
-          "headers": crypto.headers(comp.sig, true),
-        },
-      },
+      if crypto.pubKey == "":
+        %[]
+      else:
+        %* {
+          "type": "button",
+          "text": "write a post",
+          "action": "show-editor",
+          "action-data": {
+            "sig": comp.sig & ".new",
+            "headers": crypto.headers(comp.sig, true),
+          },
+        }
+      ,
       "", # spacer
       if not comp.replies.ready:
         %"loading posts"
@@ -246,7 +252,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "children": lines,
           }
       ,
-      if parsed.key == crypto.pubKey:
+      if parsed.key == "":
+        %[]
+      elif parsed.key == crypto.pubKey:
         %* {
           "type": "button",
           "text": "edit banner",
