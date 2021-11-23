@@ -85,10 +85,16 @@ proc toJson*(entity: entities.Post): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies =
-      if entity.reply_count == 1:
-        "1 reply"
+      if entity.parent == paths.sysopPublicKey:
+        if entity.reply_count == 1:
+          "1 post"
+        else:
+          $entity.reply_count & " posts"
       else:
-        $entity.reply_count & " replies"
+        if entity.reply_count == 1:
+          "1 reply"
+        else:
+          $entity.reply_count & " replies"
     lines = post.split(entity.content.value.uncompressed)
   %*{
     "type": "rect",
@@ -162,7 +168,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if parsed.key == crypto.pubKey:
         %* {
           "type": "button",
-          "text": "edit post",
+          "text":
+            if parsed.key == paths.sysopPublicKey:
+              "edit subboard"
+            else:
+              "edit post"
+          ,
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".edit",
@@ -170,13 +181,15 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "headers": crypto.headers(parsed.sig, false),
           },
         }
-      else:
+      elif parsed.key != "" and parsed.key != paths.sysopPublicKey:
         %* {
           "type": "button",
           "text": "see user",
           "action": "show-user",
           "action-data": {"key": parsed.key},
         }
+      else:
+        %[]
       ,
       {
         "type": "button",
@@ -255,7 +268,25 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           },
         }
       else:
-        %""
+        %[]
+      ,
+      if comp.key == crypto.pubKey:
+        %* {
+          "type": "button",
+          "text":
+            if comp.key == paths.sysopPublicKey:
+              "create a subboard"
+            else:
+              "write a blog post"
+          ,
+          "action": "show-editor",
+          "action-data": {
+            "sig": comp.key & ".new",
+            "headers": crypto.headers(comp.key, true),
+          },
+        }
+      else:
+        %[]
       ,
       "", # spacer
       if not comp.userReplies.ready:
