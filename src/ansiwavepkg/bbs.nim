@@ -100,12 +100,21 @@ let rules =
 
 proc goToPage(session: var auto, sig: string) =
   let globals = session.query(rules.getGlobals)
-  var breadcrumbs = globals.breadcrumbs
+  var
+    breadcrumbs = globals.breadcrumbs
+    idx = globals.breadcrumbsIndex
+
+  # if there are breadcrumbs beyond the current page, remove them
   if globals.breadcrumbsIndex < breadcrumbs.len - 1:
-    breadcrumbs = breadcrumbs[0 .. globals.breadcrumbsIndex]
-  breadcrumbs.add(sig)
+    breadcrumbs = breadcrumbs[0 .. idx]
+
+  # add the new breadcrumb if it doesn't already exist
+  if breadcrumbs.len == 0 or breadcrumbs[breadcrumbs.len - 1] != sig:
+    breadcrumbs.add(sig)
+    idx += 1
+
   session.insert(Global, PageBreadcrumbs, breadcrumbs)
-  session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex + 1)
+  session.insert(Global, PageBreadcrumbsIndex, idx)
 
 var
   nextPageId = Id.high.ord + 1
@@ -120,6 +129,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
       sigToPageId[sig] = n
       nextPageId += 1
       n
+
   session.insert(id, Signature, sig)
   session.insert(id, ComponentData, comp)
   session.insert(id, FocusIndex, 0)
@@ -342,8 +352,17 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         storage.remove(page.sig)
         backAction()
         session.fireRules
-        if storage.set(page.data.requestSig & ".ansiwave", page.data.requestBody):
-          session.insertPage(ui.initPost(clnt, page.data.requestSig), page.data.requestSig)
+        let
+          idx = strutils.find(page.sig, ".edit")
+          sig =
+            # if it's an edit, go to the original sig
+            if idx != -1:
+              page.sig[0 ..< idx]
+            # go to the new sig
+            else:
+              page.data.requestSig
+        if storage.set(sig & ".ansiwave", page.data.requestBody):
+          session.insertPage(ui.initPost(clnt, sig), sig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         let continueAction = proc () =
