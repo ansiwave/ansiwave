@@ -141,7 +141,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.postContent.value.kind == client.Error:
         %"failed to load post"
       else:
-        let body = comp.postContent.value.valid.body
+        let
+          body = comp.postContent.value.valid.body
+          lines = post.split(body)
         try:
           let (commands, headersAndContent, content) = common.parseAnsiwave(body)
           parsed = (
@@ -154,7 +156,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           discard
         %*{
           "type": "rect",
-          "children": post.split(body),
+          "children": lines,
         }
       ,
       if parsed.key == crypto.pubKey:
@@ -200,6 +202,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     client.get(comp.userContent)
     client.get(comp.userReplies)
     finishedLoading = comp.userContent.ready and comp.userReplies.ready
+    var parsed: tuple[key: string, sig: string, target: string, content: string]
     %*[
       if not comp.userContent.ready:
         %"loading..."
@@ -209,7 +212,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         else:
           %""
       else:
-        let lines = post.split(comp.userContent.value.valid.body)
+        let
+          body = comp.userContent.value.valid.body
+          lines = post.split(body)
+        try:
+          let (commands, headersAndContent, content) = common.parseAnsiwave(body)
+          parsed = (
+            key: commands["/head.key"],
+            sig: commands["/head.sig"],
+            target: commands["/head.target"],
+            content: content,
+          )
+        except Exception as ex:
+          discard
         if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
           %"Your banner will be here. Put something about yourself...or not."
         else:
@@ -218,12 +233,26 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "children": lines,
           }
       ,
-      if comp.key == crypto.pubKey:
+      if parsed.key == crypto.pubKey:
         %* {
           "type": "button",
           "text": "edit banner",
-          "action": "edit-user",
-          "action-data": {"key": comp.key & ".edit"},
+          "action": "show-editor",
+          "action-data": {
+            "sig": comp.key & ".edit",
+            "content": parsed.content,
+            "headers": crypto.headers(parsed.sig, false),
+          },
+        }
+      elif comp.key == crypto.pubKey:
+        %* {
+          "type": "button",
+          "text": "create banner",
+          "action": "show-editor",
+          "action-data": {
+            "sig": comp.key & ".edit",
+            "headers": crypto.headers("", true),
+          },
         }
       else:
         %""

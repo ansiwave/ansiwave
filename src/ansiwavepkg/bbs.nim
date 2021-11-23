@@ -362,7 +362,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
             else:
               page.data.requestSig
         if storage.set(sig & ".ansiwave", page.data.requestBody):
-          session.insertPage(ui.initPost(clnt, sig), sig)
+          session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         let continueAction = proc () =
