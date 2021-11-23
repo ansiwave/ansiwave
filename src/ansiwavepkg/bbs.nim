@@ -388,9 +388,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     ui.render(result, view, 0, y, focusIndex, areas)
     let
       refreshAction = proc () {.closure.} =
+        sess.insert(page.id, FocusIndex, 0)
+        sess.insert(page.id, ScrollY, 0)
         sess.insert(page.id, View, cast[JsonNode](nil))
-        sess.insert(page.id, ViewFocusAreas, @[])
-        sess.insert(page.id, ViewHeight, 0)
         ui.refresh(clnt, page.data)
       searchAction = proc () {.closure.} =
         discard
