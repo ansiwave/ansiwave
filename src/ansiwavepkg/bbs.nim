@@ -155,6 +155,12 @@ proc initSession*(c: client.Client): auto =
   result.insertPage(ui.initUser(c, paths.sysopPublicKey), paths.sysopPublicKey)
   result.fireRules
 
+proc refresh(session: var auto, clnt: client.Client, page: Page) =
+  session.insert(page.id, FocusIndex, 0)
+  session.insert(page.id, ScrollY, 0)
+  session.insert(page.id, View, cast[JsonNode](nil))
+  ui.refresh(clnt, page.data)
+
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-replies":
@@ -199,10 +205,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       if globals.pages.hasKey(key):
         let page = globals.pages[key]
         page.data.showAllPosts = not page.data.showAllPosts
-        session.insert(page.id, FocusIndex, 0)
-        session.insert(page.id, ScrollY, 0)
-        session.insert(page.id, View, cast[JsonNode](nil))
-        ui.refresh(clnt, page.data)
+        refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
@@ -413,10 +416,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     ui.render(result, view, 0, y, focusIndex, areas)
     let
       refreshAction = proc () {.closure.} =
-        sess.insert(page.id, FocusIndex, 0)
-        sess.insert(page.id, ScrollY, 0)
-        sess.insert(page.id, View, cast[JsonNode](nil))
-        ui.refresh(clnt, page.data)
+        refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
         discard
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
