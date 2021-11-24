@@ -99,7 +99,7 @@ proc toJson*(entity: entities.Post): JsonNode =
           "1 reply"
         else:
           $entity.reply_count & " replies"
-    lines = post.split(entity.content.value.uncompressed)
+    lines = post.splitAfterHeaders(entity.content.value.uncompressed)
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
@@ -117,7 +117,7 @@ proc toJson*(posts: seq[entities.Post]): JsonNode =
 
 proc toJson*(draft: Draft): JsonNode =
   const maxLines = int(editorWidth / 4f)
-  let lines = post.split("\n\n" & draft.content) # must add two newlines to simulate where the headers would normally be
+  let lines = strutils.splitLines(draft.content)
   %*[
     {
       "type": "rect",
@@ -138,41 +138,27 @@ proc toJson*(draft: Draft): JsonNode =
     "" # spacer
   ]
 
-proc parseAnsiwave(ansiwave: string): tuple[key: string, sig: string, target: string, content: string] =
-  try:
-    let (commands, headersAndContent, content) = common.parseAnsiwave(ansiwave)
-    result = (
-      key: commands["/head.key"],
-      sig: commands["/head.sig"],
-      target: commands["/head.target"],
-      content: content,
-    )
-  except Exception as ex:
-    discard
-
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
     client.get(comp.postContent)
     client.get(comp.replies)
     finishedLoading = comp.postContent.ready and comp.replies.ready
-    var parsed: tuple[key: string, sig: string, target: string, content: string]
+    var parsed: post.Parsed
     %*[
       if not comp.postContent.ready:
         %"loading..."
-      elif comp.postContent.value.kind == client.Error:
-        %"failed to load post"
       else:
-        let
-          body = comp.postContent.value.valid.body
-          lines = post.split(body)
-        parsed = parseAnsiwave(body)
-        %*{
-          "type": "rect",
-          "children": lines,
-        }
+        parsed = post.getFromLocalOrRemote(comp.postContent.value, comp.sig)
+        if parsed.kind == post.Error:
+          %"failed to load post"
+        else:
+          %*{
+            "type": "rect",
+            "children": strutils.splitLines(parsed.content),
+          }
       ,
-      if parsed.key != "":
+      if parsed.kind != post.Error:
         if parsed.key == crypto.pubKey:
           %* {
             "type": "button",
@@ -229,29 +215,28 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     client.get(comp.userContent)
     client.get(comp.userReplies)
     finishedLoading = comp.userContent.ready and comp.userReplies.ready
-    var parsed: tuple[key: string, sig: string, target: string, content: string]
+    var parsed: post.Parsed
     %*[
       if not comp.userContent.ready:
         %"loading..."
-      elif comp.userContent.value.kind == client.Error:
-        if comp.key == crypto.pubKey:
-          %"Your banner will be here. Put something about yourself...or not."
-        else:
-          %""
       else:
-        let
-          body = comp.userContent.value.valid.body
-          lines = post.split(body)
-        parsed = parseAnsiwave(body)
-        if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
-          %"Your banner will be here. Put something about yourself...or not."
+        parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.key)
+        if parsed.kind == post.Error:
+          if comp.key == crypto.pubKey:
+            %"Your banner will be here. Put something about yourself...or not."
+          else:
+            %""
         else:
-          %*{
-            "type": "rect",
-            "children": lines,
-          }
+          let lines = strutils.splitLines(parsed.content)
+          if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
+            %"Your banner will be here. Put something about yourself...or not."
+          else:
+            %*{
+              "type": "rect",
+              "children": lines,
+            }
       ,
-      if parsed.key != "":
+      if parsed.kind != post.Error:
         if parsed.key == crypto.pubKey:
           %* {
             "type": "button",
@@ -421,14 +406,14 @@ proc getContent*(comp: Component): seq[string] =
     elif comp.postContent.value.kind == client.Error:
       @[]
     else:
-      post.split(comp.postContent.value.valid.body)
+      post.splitAfterHeaders(comp.postContent.value.valid.body)
   of User:
     if not comp.userContent.ready:
       @[]
     elif comp.userContent.value.kind == client.Error:
       @[]
     else:
-      post.split(comp.userContent.value.valid.body)
+      post.splitAfterHeaders(comp.userContent.value.valid.body)
   else:
     @[]
 

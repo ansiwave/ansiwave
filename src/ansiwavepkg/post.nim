@@ -12,6 +12,10 @@ from os import nil
 from ./constants import nil
 from json import nil
 from ./storage import nil
+from wavecorepkg/common import nil
+from parseutils import nil
+import tables
+from wavecorepkg/client import nil
 
 type
   RefStrings* = ref seq[ref string]
@@ -51,7 +55,7 @@ proc set*(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc split*(content: string): seq[string] =
+proc splitAfterHeaders*(content: string): seq[string] =
   let idx = strutils.find(content, "\n\n")
   if idx == -1: # this should never happen
     @[""]
@@ -135,4 +139,78 @@ proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]): midi.PlayResult =
         return play(res.events)
     of midi.Error:
       discard
+
+type
+  ParsedKind* = enum
+    Local, Remote, Error,
+  Parsed* = object
+    case kind*: ParsedKind
+    of Local, Remote:
+      key*: string
+      sig*: string
+      target*: string
+      time*: string
+      content*: string
+    of Error:
+      discard
+
+proc parseAnsiwave(ansiwave: string, parsed: var Parsed) =
+  try:
+    let
+      (commands, headersAndContent, content) = common.parseAnsiwave(ansiwave)
+      key = commands["/head.key"]
+      sig = commands["/head.sig"]
+      target = commands["/head.target"]
+      time = commands["/head.time"]
+    parsed.key = key
+    parsed.sig = sig
+    parsed.target = target
+    parsed.time = time
+    parsed.content = content
+  except Exception as ex:
+    parsed = Parsed(kind: Error)
+
+proc getFromLocalOrRemote*(response: client.Result[client.Response], sig: string): Parsed =
+  let local = storage.get(sig & ".ansiwave")
+
+  # if both failed, return error
+  if local == "" and response.kind == client.Error:
+    return Parsed(kind: Error)
+
+  var
+    localParsed: Parsed
+    remoteParsed: Parsed
+
+  # parse local
+  if local == "":
+    localParsed = Parsed(kind: Error)
+  else:
+    localParsed = Parsed(kind: Local)
+    parseAnsiwave(local, localParsed)
+
+  # parse remote
+  if response.kind == client.Error:
+    remoteParsed = Parsed(kind: Error)
+  else:
+    remoteParsed = Parsed(kind: Remote)
+    parseAnsiwave(response.valid.body, remoteParsed)
+
+  # if both parsed successfully, compare their timestamps and use the later one
+  if localParsed.kind != Error and remoteParsed.kind != Error:
+    var
+      localTime: int
+      remoteTime: int
+    try:
+      if 0 != parseutils.parseInt(localParsed.time, localTime) and
+         0 != parseutils.parseInt(remoteParsed.time, remoteTime):
+          if localTime > remoteTime:
+            return localParsed
+          else:
+            return remoteParsed
+    except Exception as ex:
+      return Parsed(kind: Error)
+  elif localParsed.kind != Error:
+    return localParsed
+  else:
+    return remoteParsed
 
