@@ -167,6 +167,16 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         session.goToPage(sig)
       else:
         session.insertPage(ui.initPost(clnt, sig), sig)
+  of "show-user":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    if result:
+      let
+        key = actionData["key"].str
+        globals = session.query(rules.getGlobals)
+      if globals.pages.hasKey(key):
+        session.goToPage(key)
+      else:
+        session.insertPage(ui.initUser(clnt, key), key)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
