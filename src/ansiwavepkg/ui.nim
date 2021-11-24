@@ -27,6 +27,7 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of User:
       key: string
+      showAllPosts*: bool
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
     of Editor:
@@ -52,10 +53,10 @@ proc refresh*(clnt: client.Client, comp: Component) =
     comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
-    if comp.key == paths.sysopPublicKey:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
-    else:
+    if comp.showAllPosts:
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.key)
+    else:
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
   of Drafts:
     comp.filenames = post.drafts()
   of Editor, Login, Logout:
@@ -301,7 +302,18 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %[]
       ,
-      "", # spacer
+      if comp.key == paths.sysopPublicKey:
+        %[]
+      else:
+        %* {
+          "type": "button",
+          "text": (if comp.showAllPosts: "see only journal posts" else: "see all posts"),
+          "action": "toggle-user-posts",
+          "action-data": {
+            "key": comp.key,
+          },
+        }
+      ,
       if not comp.userReplies.ready:
         %"loading posts"
       elif comp.userReplies.value.kind == client.Error:

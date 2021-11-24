@@ -190,6 +190,19 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         if storage.get(sig) == "" and actionData.hasKey("content"):
           discard storage.set(sig, actionData["content"].str)
         session.insertPage(ui.initEditor(width, height, sig, headers), sig)
+  of "toggle-user-posts":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    if result:
+      let
+        key = actionData["key"].str
+        globals = session.query(rules.getGlobals)
+      if globals.pages.hasKey(key):
+        let page = globals.pages[key]
+        page.data.showAllPosts = not page.data.showAllPosts
+        session.insert(page.id, FocusIndex, 0)
+        session.insert(page.id, ScrollY, 0)
+        session.insert(page.id, View, cast[JsonNode](nil))
+        ui.refresh(clnt, page.data)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "create-user":
