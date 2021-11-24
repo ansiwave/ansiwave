@@ -52,7 +52,10 @@ proc refresh*(clnt: client.Client, comp: Component) =
     comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
-    comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
+    if comp.key == paths.sysopPublicKey:
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
+    else:
+      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.key)
   of Drafts:
     comp.filenames = post.drafts()
   of Editor, Login, Logout:
