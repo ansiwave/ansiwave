@@ -138,6 +138,18 @@ proc toJson*(draft: Draft): JsonNode =
     "" # spacer
   ]
 
+proc parseAnsiwave(ansiwave: string): tuple[key: string, sig: string, target: string, content: string] =
+  try:
+    let (commands, headersAndContent, content) = common.parseAnsiwave(ansiwave)
+    result = (
+      key: commands["/head.key"],
+      sig: commands["/head.sig"],
+      target: commands["/head.target"],
+      content: content,
+    )
+  except Exception as ex:
+    discard
+
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
   of Post:
@@ -154,16 +166,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         let
           body = comp.postContent.value.valid.body
           lines = post.split(body)
-        try:
-          let (commands, headersAndContent, content) = common.parseAnsiwave(body)
-          parsed = (
-            key: commands["/head.key"],
-            sig: commands["/head.sig"],
-            target: commands["/head.target"],
-            content: content,
-          )
-        except Exception as ex:
-          discard
+        parsed = parseAnsiwave(body)
         %*{
           "type": "rect",
           "children": lines,
@@ -239,16 +242,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         let
           body = comp.userContent.value.valid.body
           lines = post.split(body)
-        try:
-          let (commands, headersAndContent, content) = common.parseAnsiwave(body)
-          parsed = (
-            key: commands["/head.key"],
-            sig: commands["/head.sig"],
-            target: commands["/head.target"],
-            content: content,
-          )
-        except Exception as ex:
-          discard
+        parsed = parseAnsiwave(body)
         if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
           %"Your banner will be here. Put something about yourself...or not."
         else:
