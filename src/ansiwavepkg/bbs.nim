@@ -262,8 +262,18 @@ proc init*() =
     crypto.loadKey()
   except Exception as ex:
     echo ex.msg
+
   when defined(emscripten):
     midi.fetchSoundfont()
+
+  # remove old cached files
+  const deleteFromStorageSeconds = 60 * 60 # 1 hour
+  for filename in storage.list():
+    if strutils.endsWith(filename, ".ansiwave"):
+      var parsed = post.Parsed(kind: post.Local)
+      post.parseAnsiwave(storage.get(filename), parsed)
+      if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
+        storage.remove(filename)
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules

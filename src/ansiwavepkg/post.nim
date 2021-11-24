@@ -154,7 +154,7 @@ type
     of Error:
       discard
 
-proc parseAnsiwave(ansiwave: string, parsed: var Parsed) =
+proc parseAnsiwave*(ansiwave: string, parsed: var Parsed) =
   try:
     let
       (commands, headersAndContent, content) = common.parseAnsiwave(ansiwave)
@@ -169,6 +169,12 @@ proc parseAnsiwave(ansiwave: string, parsed: var Parsed) =
     parsed.content = content
   except Exception as ex:
     parsed = Parsed(kind: Error)
+
+proc getTime*(parsed: Parsed): int =
+  try:
+    discard parseutils.parseInt(parsed.time, result)
+  except Exception as ex:
+    discard
 
 proc getFromLocalOrRemote*(response: client.Result[client.Response], sig: string): Parsed =
   let local = storage.get(sig & ".ansiwave")
@@ -197,20 +203,12 @@ proc getFromLocalOrRemote*(response: client.Result[client.Response], sig: string
 
   # if both parsed successfully, compare their timestamps and use the later one
   if localParsed.kind != Error and remoteParsed.kind != Error:
-    var
-      localTime: int
-      remoteTime: int
-    try:
-      if 0 != parseutils.parseInt(localParsed.time, localTime) and
-         0 != parseutils.parseInt(remoteParsed.time, remoteTime):
-          if localTime > remoteTime:
-            return localParsed
-          else:
-            return remoteParsed
-    except Exception as ex:
-      return Parsed(kind: Error)
+    if localParsed.getTime > remoteParsed.getTime:
+      localParsed
+    else:
+      remoteParsed
   elif localParsed.kind != Error:
-    return localParsed
+    localParsed
   else:
-    return remoteParsed
+    remoteParsed
 
