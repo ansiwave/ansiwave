@@ -282,6 +282,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           session.insert(page.id, ViewCommands, cmds)
         v
       else:
+        finishedLoading = true
         page.view
     isPlaying =
       if page.isEditor:
