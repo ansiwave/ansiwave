@@ -172,7 +172,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       if globals.pages.hasKey(sig):
         session.goToPage(sig)
       else:
-        session.insertPage(ui.initPost(clnt, sig), sig)
+        session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
   of "show-user":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
