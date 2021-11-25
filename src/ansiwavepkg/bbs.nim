@@ -475,9 +475,14 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         discard
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
     when not defined(emscripten):
-      let copyAction = proc () {.closure.} =
-        discard
-      leftButtons.add((" copy link ", copyAction))
+      let copyLinkAction = proc () {.closure.} =
+        editor.copyLink("https://ansiwave.net/#" & globals.hash)
+        # redraw ui without double buffering so everything is visible again
+        iw.setDoubleBuffering(false)
+        var finishedLoading: bool
+        discard render(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        iw.setDoubleBuffering(true)
+      leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
       if page.viewCommands != nil and page.viewCommands[].len > 0:
         let

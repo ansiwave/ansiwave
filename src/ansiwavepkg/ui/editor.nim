@@ -653,13 +653,13 @@ proc parseLink*(link: string): Table[string, string] =
     let hash = link[hashIndex+1 ..< link.len]
     return parseHash(hash)
 
-proc copyLink(session: var EditorSession, buffer: tuple) =
+proc copyLink*(link: string) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
   iw.showCursor()
   for i in 0 ..< 20:
     echo ""
-  echo initLink(buffer)
+  echo link
   echo ""
   echo "Copy the link above, and then press Enter to return to ANSIWAVE."
   var s: TaintedString
@@ -1286,7 +1286,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     let
       titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", termX + 1, termY, input.key, proc () = discard)
       copyLinkCallback = proc () =
-        copyLink(sess, sess.query(rules.getBuffer, id = Editor))
+        copyLink(initLink(sess.query(rules.getBuffer, id = Editor)))
         iw.setDoubleBuffering(false)
         var
           tb = iw.newTerminalBuffer(width, height)
