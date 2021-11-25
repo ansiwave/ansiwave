@@ -1047,18 +1047,13 @@ proc setCursorYPos*(tb: var TerminalBuffer, y: int) =
   ## Sets the current y cursor position.
   tb.currY = y
 
-proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor, bgTruecolor: RGB = rgbNone) =
-  ## Sets the current background color.
+proc setBackgroundColor*(tb: var TerminalBuffer, bg: BackgroundColor,
+                         bgTruecolor: RGB = rgbNone) =
   tb.currBg = bg
   tb.currBgTruecolor = bgTruecolor
 
 proc setForegroundColor*(tb: var TerminalBuffer, fg: ForegroundColor,
-                         bright: bool = false, fgTruecolor: RGB = rgbNone) =
-  ## Sets the current foreground color and the bright style flag.
-  if bright:
-    incl(tb.currStyle, styleBright)
-  else:
-    excl(tb.currStyle, styleBright)
+                         fgTruecolor: RGB = rgbNone) =
   tb.currFg = fg
   tb.currFgTruecolor = fgTruecolor
 

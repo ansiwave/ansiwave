@@ -94,9 +94,7 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let
     trimmed = code[1 ..< code.len - 1]
     params = ansi.parseParams(trimmed)
-  var
-    i = 0
-    bright = false
+  var i = 0
   while i < params.len:
     let param = params[i]
     if param == 0:
@@ -104,13 +102,11 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
       iw.setForegroundColor(tb, iw.fgNone)
       iw.setStyle(tb, {})
     elif param >= 1 and param <= 9:
-      if param == 1:
-        bright = true
       var style = iw.getStyle(tb)
       style.incl(iw.Style(param))
       iw.setStyle(tb, style)
     elif param >= 30 and param <= 37:
-      iw.setForegroundColor(tb, iw.ForegroundColor(param), bright)
+      iw.setForegroundColor(tb, iw.ForegroundColor(param))
     elif param >= 40 and param <= 47:
       iw.setBackgroundColor(tb, iw.BackgroundColor(param))
     elif param == 38 or param == 48:
@@ -135,7 +131,7 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
               b = params[i + 4].uint
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if param == 38:
-              iw.setForegroundColor(tb, value[0], false, (r, g, b))
+              iw.setForegroundColor(tb, value[0], (r, g, b))
             else:
               iw.setBackgroundColor(tb, value[1], (r, g, b))
             i += 5
