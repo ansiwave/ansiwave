@@ -163,7 +163,18 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
 
-proc initSession*(c: client.Client): auto =
+proc routeHash(session: var auto, clnt: client.Client, hash: string) =
+  let parts = editor.parseHash(hash)
+  if parts.hasKey("board"):
+    if parts.hasKey("type") and parts.hasKey("id"):
+      if parts["type"] == "user":
+        session.insertPage(ui.initUser(clnt, parts["id"]), parts["id"])
+      else:
+        session.insertPage(ui.initPost(clnt, parts["id"]), parts["id"])
+    else:
+      session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
+
+proc initSession*(clnt: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
@@ -175,7 +186,14 @@ proc initSession*(c: client.Client): auto =
   result.insert(Global, PageBreadcrumbs, empty)
   result.insert(Global, PageBreadcrumbsIndex, -1)
   result.insert(Global, Drafts, false)
-  result.insertPage(ui.initUser(c, paths.sysopPublicKey), paths.sysopPublicKey)
+  var hash =
+    when defined(emscripten):
+      emscripten.getHash()
+    else:
+      ""
+  if hash == "":
+    hash = "board:" & paths.sysopPublicKey
+  result.routeHash(clnt, hash)
   result.fireRules
 
 proc refresh(session: var auto, clnt: client.Client, page: Page) =
@@ -280,10 +298,7 @@ proc isEditor*(session: auto): bool =
     page = globals.pages[globals.selectedPage]
   page.isEditor
 
-proc routeHash(session: var auto, hash: string) =
-  echo editor.parseHash(hash)
-
-proc init*(session: var auto) =
+proc init*() =
   try:
     crypto.loadKey()
   except Exception as ex:
@@ -291,8 +306,6 @@ proc init*(session: var auto) =
 
   when defined(emscripten):
     midi.fetchSoundfont()
-    let globals = session.query(rules.getGlobals)
-    routeHash(session, globals.hash)
 
   # remove old cached files
   const deleteFromStorageSeconds = 60 * 60 # 1 hour
@@ -548,7 +561,7 @@ proc renderBBS*() =
   # create session
   var session = initSession(clnt)
 
-  init(session)
+  init()
 
   # start loop
   while true:
