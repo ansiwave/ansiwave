@@ -453,6 +453,37 @@ proc toHtml*(comp: Component): string =
   var finishedLoading = false
   comp.toJson(finishedLoading).toHtml
 
+proc toHash*(comp: Component, board: string): string =
+  var fragments: seq[string]
+  case comp.kind:
+  of Post:
+    let pairs = {
+      "type": "post",
+      "id": comp.sig,
+      "board": board,
+    }
+    for pair in pairs:
+      if pair[1].len > 0:
+        fragments.add(pair[0] & ":" & pair[1])
+  of User:
+    let pairs =
+      if comp.key == board:
+        @{
+          "board": board,
+        }
+      else:
+        @{
+          "type": "user",
+          "id": comp.key,
+          "board": board,
+        }
+    for pair in pairs:
+      if pair[1].len > 0:
+        fragments.add(pair[0] & ":" & pair[1])
+  of Editor, Drafts, Login, Logout:
+    discard
+  strutils.join(fragments, ",")
+
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
   codes.deleteAfter(runes, editorWidth - 1)

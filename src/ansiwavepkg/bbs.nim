@@ -26,6 +26,7 @@ type
   Id* = enum
     Global,
   Attr* = enum
+    Board, Hash,
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
@@ -50,6 +51,8 @@ type
     time: tuple[start: float, stop: float]
 
 schema Fact(Id, Attr):
+  Board: string
+  Hash: string
   SelectedPage: string
   AllPages: PageTable
   PageBreadcrumbs: StringSeq
@@ -72,6 +75,8 @@ let rules =
   ruleset:
     rule getGlobals(Fact):
       what:
+        (Global, Board, board)
+        (Global, Hash, hash)
         (Global, SelectedPage, selectedPage)
         (Global, AllPages, pages)
         (Global, PageBreadcrumbs, breadcrumbs)
@@ -84,6 +89,19 @@ let rules =
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
         session.insert(Global, Drafts, post.drafts().len > 0)
+    rule updateHash(Fact):
+      what:
+        (Global, Board, board)
+        (Global, SelectedPage, selectedPage)
+        (Global, AllPages, pages)
+      then:
+        if pages != nil and pages.hasKey(selectedPage):
+          let
+            page = pages[selectedPage]
+            hash = ui.toHash(page.data, board)
+          when defined(emscripten):
+            emscripten.setHash(hash)
+          session.insert(Global, Hash, hash)
     rule getPage(Fact):
       what:
         (id, Signature, sig)
@@ -149,6 +167,8 @@ proc initSession*(c: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
+  result.insert(Global, Board, paths.sysopPublicKey)
+  result.insert(Global, Hash, "")
   result.insert(Global, SelectedPage, "")
   result.insert(Global, AllPages, cast[PageTable](nil))
   let empty: StringSeq = @[]
@@ -271,11 +291,8 @@ proc init*(session: var auto) =
 
   when defined(emscripten):
     midi.fetchSoundfont()
-    var hash = emscripten.getHash()
-    if hash.len == 0:
-      hash = "board:" & paths.sysopPublicKey
-      emscripten.setHash(hash)
-    routeHash(session, hash)
+    let globals = session.query(rules.getGlobals)
+    routeHash(session, globals.hash)
 
   # remove old cached files
   const deleteFromStorageSeconds = 60 * 60 # 1 hour
