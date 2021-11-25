@@ -260,10 +260,10 @@ proc isEditor*(session: auto): bool =
     page = globals.pages[globals.selectedPage]
   page.isEditor
 
-proc routeHash(hash: string) =
-  discard
+proc routeHash(session: var auto, hash: string) =
+  echo editor.parseHash(hash)
 
-proc init*() =
+proc init*(session: var auto) =
   try:
     crypto.loadKey()
   except Exception as ex:
@@ -275,7 +275,7 @@ proc init*() =
     if hash.len == 0:
       hash = "board:" & paths.sysopPublicKey
       emscripten.setHash(hash)
-    routeHash(hash)
+    routeHash(session, hash)
 
   # remove old cached files
   const deleteFromStorageSeconds = 60 * 60 # 1 hour
@@ -527,10 +527,11 @@ proc renderBBS*() =
   vfs.register()
   var clnt = client.initClient(paths.address)
   client.start(clnt)
-  init()
 
   # create session
   var session = initSession(clnt)
+
+  init(session)
 
   # start loop
   while true:

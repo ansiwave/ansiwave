@@ -636,20 +636,22 @@ proc initLink*(buffer: tuple): string =
       fragments.add(pair[0] & ":" & pair[1])
   "https://ansiwave.net/view/#" & strutils.join(fragments, ",")
 
+proc parseHash*(hash: string): Table[string, string] =
+  let pairs = strutils.split(hash, ",")
+  for pair in pairs:
+    let keyVal = strutils.split(pair, ":")
+    if keyVal.len == 2:
+      result[keyVal[0]] =
+        if keyVal[0] == "data":
+          zippy.uncompress(paths.decode(keyVal[1]), dataFormat = zippy.dfZlib)
+        else:
+          keyVal[1]
+
 proc parseLink*(link: string): Table[string, string] =
   let hashIndex = link.find('#')
   if hashIndex >= 0:
-    let
-      fragment = link[hashIndex+1 ..< link.len]
-      pairs = strutils.split(fragment, ",")
-    for pair in pairs:
-      let keyVal = strutils.split(pair, ":")
-      if keyVal.len == 2:
-        result[keyVal[0]] =
-          if keyVal[0] == "data":
-            zippy.uncompress(paths.decode(keyVal[1]), dataFormat = zippy.dfZlib)
-          else:
-            keyVal[1]
+    let hash = link[hashIndex+1 ..< link.len]
+    return parseHash(hash)
 
 proc copyLink(session: var EditorSession, buffer: tuple) =
   # echo the link to the terminal so the user can copy it
