@@ -299,7 +299,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %"failed to load posts"
       else:
         if comp.userReplies.value.valid.len == 0:
-          %"no posts"
+          % (if comp.showAllPosts: "no posts" else: "no journal posts")
         else:
           toJson(comp.userReplies.value.valid)
     ]
