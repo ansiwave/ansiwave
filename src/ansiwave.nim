@@ -148,9 +148,7 @@ proc convert(opts: editor.Options) =
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
     elif inputExt == ".ansiwave" and outputExt == ".url":
-      let
-        lines = post.splitLines(readFile(opts.input))
-        link = editor.initLink((lines: lines, name: os.splitFile(opts.input).name))
+      let link = editor.initLink(readFile(opts.input))
       var f: File
       if open(f, opts.output, fmWrite):
         write(f, "[InternetShortcut]\n")

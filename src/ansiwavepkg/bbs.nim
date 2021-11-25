@@ -329,7 +329,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           session.insert(page.id, View, v)
           var cmds: CommandTreesRef
           new cmds
-          cmds[] = post.linesToTrees(ui.getContent(page.data))
+          cmds[] = post.linesToTrees(strutils.splitLines(ui.getContent(page.data)))
           session.insert(page.id, ViewCommands, cmds)
         v
       else:
@@ -474,15 +474,22 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       searchAction = proc () {.closure.} =
         discard
     var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
-    when not defined(emscripten):
-      let copyLinkAction = proc () {.closure.} =
-        editor.copyLink("https://ansiwave.net/#" & globals.hash)
-        # redraw ui without double buffering so everything is visible again
-        iw.setDoubleBuffering(false)
-        var finishedLoading: bool
-        discard render(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
-        iw.setDoubleBuffering(true)
-      leftButtons.add((" copy link ", copyLinkAction))
+    when defined(emscripten):
+      let content = ui.getContent(page.data)
+      if content != "":
+        let viewHtmlAction = proc () {.closure.} =
+          emscripten.openNewTab(editor.initLink(content))
+        leftButtons.add((" view as html ", viewHtmlAction))
+    else:
+      if iw.gIllwillInitialised:
+        let copyLinkAction = proc () {.closure.} =
+          editor.copyLink("https://ansiwave.net/#" & globals.hash)
+          # redraw ui without double buffering so everything is visible again
+          iw.setDoubleBuffering(false)
+          var finishedLoading: bool
+          discard render(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+          iw.setDoubleBuffering(true)
+        leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
       if page.viewCommands != nil and page.viewCommands[].len > 0:
         let

@@ -623,10 +623,9 @@ proc pasteLine(session: var EditorSession, buffer: tuple) =
     # force cursor to refresh in case it is out of bounds
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
-proc initLink*(buffer: tuple): string =
-  let s = post.joinLines(buffer.lines)
+proc initLink*(ansiwave: string): string =
   let
-    output = zippy.compress(s, dataFormat = zippy.dfZlib)
+    output = zippy.compress(ansiwave, dataFormat = zippy.dfZlib)
     pairs = {
       "data": paths.encode(output)
     }
@@ -1286,7 +1285,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     let
       titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", termX + 1, termY, input.key, proc () = discard)
       copyLinkCallback = proc () =
-        copyLink(initLink(sess.query(rules.getBuffer, id = Editor)))
+        let buffer = sess.query(rules.getBuffer, id = Editor)
+        copyLink(initLink(post.joinLines(buffer.lines)))
         iw.setDoubleBuffering(false)
         var
           tb = iw.newTerminalBuffer(width, height)

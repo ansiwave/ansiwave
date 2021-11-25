@@ -398,24 +398,28 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "you will never be able to log back in!",
       ]
 
-proc getContent*(comp: Component): seq[string] =
+proc getContent*(comp: Component): string =
   case comp.kind:
   of Post:
     if not comp.postContent.ready:
-      @[]
-    elif comp.postContent.value.kind == client.Error:
-      @[]
+      ""
     else:
-      post.splitAfterHeaders(comp.postContent.value.valid.body)
+      let parsed = post.getFromLocalOrRemote(comp.postContent.value, comp.sig)
+      if parsed.kind == post.Error:
+        ""
+      else:
+        parsed.content
   of User:
     if not comp.userContent.ready:
-      @[]
-    elif comp.userContent.value.kind == client.Error:
-      @[]
+      ""
     else:
-      post.splitAfterHeaders(comp.userContent.value.valid.body)
+      let parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.key)
+      if parsed.kind == post.Error:
+        ""
+      else:
+        parsed.content
   else:
-    @[]
+    ""
 
 proc toHtml(node: JsonNode): string
 
