@@ -19,6 +19,9 @@ from times import nil
 from ./midi import nil
 from strutils import nil
 
+when defined(emscripten):
+  from wavecorepkg/client/emscripten import nil
+
 type
   Id* = enum
     Global,
@@ -257,6 +260,9 @@ proc isEditor*(session: auto): bool =
     page = globals.pages[globals.selectedPage]
   page.isEditor
 
+proc routeHash(hash: string) =
+  discard
+
 proc init*() =
   try:
     crypto.loadKey()
@@ -265,6 +271,11 @@ proc init*() =
 
   when defined(emscripten):
     midi.fetchSoundfont()
+    var hash = emscripten.getHash()
+    if hash.len == 0:
+      hash = "board:" & paths.sysopPublicKey
+      emscripten.setHash(hash)
+    routeHash(hash)
 
   # remove old cached files
   const deleteFromStorageSeconds = 60 * 60 # 1 hour
