@@ -478,7 +478,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       let content = ui.getContent(page.data)
       if content != "":
         let viewHtmlAction = proc () {.closure.} =
-          emscripten.openNewTab(editor.initLink(content))
+          emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
         leftButtons.add((" view as html ", viewHtmlAction))
     else:
       if iw.gIllwillInitialised:
