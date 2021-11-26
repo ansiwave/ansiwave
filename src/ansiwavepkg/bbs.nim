@@ -92,16 +92,18 @@ let rules =
     rule updateHash(Fact):
       what:
         (Global, Board, board)
+        (Global, Hash, hash, then = false)
         (Global, SelectedPage, selectedPage)
         (Global, AllPages, pages)
       then:
         if pages != nil and pages.hasKey(selectedPage):
           let
             page = pages[selectedPage]
-            hash = ui.toHash(page.data, board)
-          when defined(emscripten):
-            emscripten.setHash(hash)
-          session.insert(Global, Hash, hash)
+            newHash = ui.toHash(page.data, board)
+          if hash != newHash:
+            when defined(emscripten):
+              emscripten.setHash(newHash)
+            session.insert(Global, Hash, newHash)
     rule getPage(Fact):
       what:
         (id, Signature, sig)
