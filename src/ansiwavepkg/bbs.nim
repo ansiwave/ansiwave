@@ -26,7 +26,7 @@ type
   Id* = enum
     Global,
   Attr* = enum
-    Board, Hash,
+    Board, Client, Hash,
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
@@ -49,9 +49,11 @@ type
   MidiProgressType = ref object
     midiResult: midi.PlayResult
     time: tuple[start: float, stop: float]
+  ClientType = client.Client
 
 schema Fact(Id, Attr):
   Board: string
+  Client: ClientType
   Hash: string
   SelectedPage: string
   AllPages: PageTable
@@ -71,6 +73,8 @@ schema Fact(Id, Attr):
 type
   BbsSession* = Session[Fact, Vars[Fact]]
 
+proc routeHash(session: var auto, clnt: client.Client, hash: string)
+
 let rules =
   ruleset:
     rule getGlobals(Fact):
@@ -89,7 +93,7 @@ let rules =
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
         session.insert(Global, Drafts, post.drafts().len > 0)
-    rule updateHash(Fact):
+    rule updateHashWhenPageChanges(Fact):
       what:
         (Global, Board, board)
         (Global, Hash, hash, then = false)
@@ -104,6 +108,20 @@ let rules =
             when defined(emscripten):
               emscripten.setHash(newHash)
             session.insert(Global, Hash, newHash)
+    rule updatePageWhenHashChanges(Fact):
+      what:
+        (Global, Board, board)
+        (Global, Hash, hash)
+        (Global, Client, client)
+        (Global, SelectedPage, selectedPage, then = false)
+        (Global, AllPages, pages, then = false)
+      then:
+        if pages != nil and pages.hasKey(selectedPage):
+          let
+            page = pages[selectedPage]
+            pageHash = ui.toHash(page.data, board)
+          if hash != pageHash:
+            session.routeHash(client, hash)
     rule getPage(Fact):
       what:
         (id, Signature, sig)
@@ -176,11 +194,16 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
     else:
       session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
 
+proc insertHash*(session: var auto, hash: string) =
+  session.insert(Global, Hash, hash)
+  session.fireRules
+
 proc initSession*(clnt: client.Client): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
   result.insert(Global, Board, paths.sysopPublicKey)
+  result.insert(Global, Client, clnt)
   result.insert(Global, Hash, "")
   result.insert(Global, SelectedPage, "")
   result.insert(Global, AllPages, cast[PageTable](nil))
