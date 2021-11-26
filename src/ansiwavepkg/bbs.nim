@@ -235,20 +235,14 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       let
         sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
-      if globals.pages.hasKey(sig):
-        session.goToPage(sig)
-      else:
-        session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
+      session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
   of "show-user":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
       let
         key = actionData["key"].str
         globals = session.query(rules.getGlobals)
-      if globals.pages.hasKey(key):
-        session.goToPage(key)
-      else:
-        session.insertPage(ui.initUser(clnt, key), key)
+      session.insertPage(ui.initUser(clnt, key), key)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
@@ -256,14 +250,9 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         sig = actionData["sig"].str
         headers = actionData["headers"].str
         globals = session.query(rules.getGlobals)
-      # if the content is empty, we want to reinitialize the editor
-      # so we start with the default content again
-      if globals.pages.hasKey(sig) and not editor.isEmpty(globals.pages[sig].data.session):
-        session.goToPage(sig)
-      else:
-        if storage.get(sig) == "" and actionData.hasKey("content"):
-          discard storage.set(sig, actionData["content"].str)
-        session.insertPage(ui.initEditor(width, height, sig, headers), sig)
+      if storage.get(sig) == "" and actionData.hasKey("content"):
+        discard storage.set(sig, actionData["content"].str)
+      session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "toggle-user-posts":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
