@@ -229,20 +229,19 @@ proc refresh(session: var auto, clnt: client.Client, page: Page) =
 
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
-  of "show-replies":
+  of "show-post":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
       let
+        typ = actionData["type"].str
         sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
-      session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
-  of "show-user":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
-    if result:
-      let
-        key = actionData["key"].str
-        globals = session.query(rules.getGlobals)
-      session.insertPage(ui.initUser(clnt, key), key)
+        comp =
+          if typ == "user" or sig == crypto.pubKey:
+            ui.initUser(clnt, sig)
+          else:
+            ui.initPost(clnt, sig)
+      session.insertPage(comp, sig)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:

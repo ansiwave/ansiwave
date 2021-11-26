@@ -105,8 +105,8 @@ proc toJson*(entity: entities.Post): JsonNode =
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "top-right": replies,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
-    "action": "show-replies",
-    "action-data": {"sig": entity.content.sig},
+    "action": "show-post",
+    "action-data": {"type": "post", "sig": entity.content.sig},
     "action-accessible-text": replies,
   }
 
@@ -132,8 +132,8 @@ proc toJson*(draft: Draft): JsonNode =
     {
       "type": "button",
       "text": "context",
-      "action": "show-replies",
-      "action-data": {"sig": draft.target},
+      "action": "show-post",
+      "action-data": {"type": "post", "sig": draft.target},
     },
     "" # spacer
   ]
@@ -179,8 +179,8 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           %* {
             "type": "button",
             "text": "see user",
-            "action": "show-user",
-            "action-data": {"key": parsed.key},
+            "action": "show-post",
+            "action-data": {"type": "user", "sig": parsed.key},
           }
         else:
           %[]
