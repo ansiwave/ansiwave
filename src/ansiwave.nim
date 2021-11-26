@@ -137,6 +137,11 @@ proc convert(opts: editor.Options) =
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
+    elif inputExt == ".ansiwavez" and outputExt == ".ansiwave":
+      var f: File
+      if open(f, opts.output, fmWrite):
+        write(f, zippy.uncompress(readFile(opts.input), dataFormat = zippy.dfZlib))
+        close(f)
     elif inputExt in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".psd"].toHashSet and outputExt == ".ansiwave":
       if "width" notin opts.args:
         raise newException(Exception, "--width is required")
