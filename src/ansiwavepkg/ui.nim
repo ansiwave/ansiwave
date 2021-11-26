@@ -20,13 +20,12 @@ type
   ComponentKind* = enum
     Post, User, Editor, Drafts, Login, Logout,
   Component* = ref object
+    sig: string
     case kind*: ComponentKind
     of Post:
-      sig: string
       postContent: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
     of User:
-      key: string
       showAllPosts*: bool
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
@@ -52,11 +51,11 @@ proc refresh*(clnt: client.Client, comp: Component) =
     comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
   of User:
-    comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.key))
+    comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     if comp.showAllPosts:
-      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.key)
+      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig)
     else:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.key)
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
   of Drafts:
     comp.filenames = post.drafts()
   of Editor, Login, Logout:
@@ -67,7 +66,7 @@ proc initPost*(clnt: client.Client, sig: string): Component =
   refresh(clnt, result)
 
 proc initUser*(clnt: client.Client, key: string): Component =
-  result = Component(kind: User, key: key)
+  result = Component(kind: User, sig: key)
   refresh(clnt, result)
 
 proc initEditor*(width: int, height: int, sig: string, headers: string): Component =
@@ -220,15 +219,15 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       if not comp.userContent.ready:
         %"loading..."
       else:
-        parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.key)
+        parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.sig)
         if parsed.kind == post.Error:
-          if comp.key == crypto.pubKey:
+          if comp.sig == crypto.pubKey:
             %"Your banner will be here. Put something about yourself...or not."
           else:
             %""
         else:
           let lines = strutils.splitLines(parsed.content)
-          if comp.key == crypto.pubKey and lines.len == 1 and lines[0] == "":
+          if comp.sig == crypto.pubKey and lines.len == 1 and lines[0] == "":
             %"Your banner will be here. Put something about yourself...or not."
           else:
             %*{
@@ -243,45 +242,45 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "text": "edit banner",
             "action": "show-editor",
             "action-data": {
-              "sig": comp.key & ".edit",
+              "sig": comp.sig & ".edit",
               "content": parsed.content,
               "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
           }
         else:
           %[]
-      elif comp.key == crypto.pubKey:
+      elif comp.sig == crypto.pubKey:
         %* {
           "type": "button",
           "text": "create banner",
           "action": "show-editor",
           "action-data": {
-            "sig": comp.key & ".edit",
+            "sig": comp.sig & ".edit",
             "headers": common.headers(crypto.pubKey, "", true),
           },
         }
       else:
         %[]
       ,
-      if comp.key == crypto.pubKey:
+      if comp.sig == crypto.pubKey:
         %* {
           "type": "button",
           "text":
-            if comp.key == paths.sysopPublicKey:
+            if comp.sig == paths.sysopPublicKey:
               "create new subboard"
             else:
               "write new journal post"
           ,
           "action": "show-editor",
           "action-data": {
-            "sig": comp.key & ".new",
-            "headers": common.headers(crypto.pubKey, comp.key, true),
+            "sig": comp.sig & ".new",
+            "headers": common.headers(crypto.pubKey, comp.sig, true),
           },
         }
       else:
         %[]
       ,
-      if comp.key == paths.sysopPublicKey:
+      if comp.sig == paths.sysopPublicKey:
         %[]
       else:
         %* {
@@ -289,7 +288,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "text": (if comp.showAllPosts: "see only journal posts" else: "see all posts"),
           "action": "toggle-user-posts",
           "action-data": {
-            "key": comp.key,
+            "key": comp.sig,
           },
         }
       ,
@@ -413,7 +412,7 @@ proc getContent*(comp: Component): string =
     if not comp.userContent.ready:
       ""
     else:
-      let parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.key)
+      let parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.sig)
       if parsed.kind == post.Error:
         ""
       else:
@@ -471,14 +470,14 @@ proc toHash*(comp: Component, board: string): string =
         fragments.add(pair[0] & ":" & pair[1])
   of User:
     let pairs =
-      if comp.key == board:
+      if comp.sig == board:
         @{
           "board": board,
         }
       else:
         @{
           "type": "user",
-          "id": comp.key,
+          "id": comp.sig,
           "board": board,
         }
     for pair in pairs:
