@@ -590,6 +590,12 @@ proc getContent*(session: auto): string =
     buffer = globals.buffers[Editor.ord]
   post.joinLines(buffer.lines)
 
+proc isEmpty*(session: auto): bool =
+  let
+    globals = session.query(rules.getGlobals)
+    buffer = globals.buffers[Editor.ord]
+  buffer.lines[].len == 1 and post.joinLines(buffer.lines).stripCodes == ""
+
 proc isPlaying*(session: auto): bool =
   let globals = session.query(rules.getGlobals)
   globals.midiProgress != nil

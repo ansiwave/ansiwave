@@ -258,9 +258,14 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         sig = actionData["sig"].str
         headers = actionData["headers"].str
         globals = session.query(rules.getGlobals)
-      if storage.get(sig) == "" and actionData.hasKey("content"):
-        discard storage.set(sig, actionData["content"].str)
-      session.insertPage(ui.initEditor(width, height, sig, headers), sig)
+      # if the content is empty, we want to reinitialize the editor
+      # so we start with the default content again
+      if globals.pages.hasKey(sig) and not editor.isEmpty(globals.pages[sig].data.session):
+        session.goToPage(sig)
+      else:
+        if storage.get(sig) == "" and actionData.hasKey("content"):
+          discard storage.set(sig, actionData["content"].str)
+        session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "toggle-user-posts":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
