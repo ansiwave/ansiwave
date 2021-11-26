@@ -21,6 +21,7 @@ type
     Post, User, Editor, Drafts, Login, Logout,
   Component* = ref object
     sig: string
+    offset*: int
     case kind*: ComponentKind
     of Post:
       postContent: client.ChannelValue[client.Response]
@@ -49,13 +50,13 @@ proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
-    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
+    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     if comp.showAllPosts:
-      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig)
+      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig)
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
   of Drafts:
     comp.filenames = post.drafts()
   of Editor, Login, Logout:
@@ -109,10 +110,26 @@ proc toJson*(entity: entities.Post): JsonNode =
     "action-accessible-text": replies,
   }
 
-proc toJson*(posts: seq[entities.Post]): JsonNode =
+proc toJson*(posts: seq[entities.Post], offset: int): JsonNode =
   result = JsonNode(kind: JArray)
+  if offset > 0:
+    result.add:
+      %* {
+        "type": "button",
+        "text": "previous page",
+        "action": "change-page",
+        "action-data": {"offset-change": -entities.limit},
+      }
   for post in posts:
     result.elems.add(toJson(post))
+  if posts.len == entities.limit:
+    result.add:
+      %* {
+        "type": "button",
+        "text": "next page",
+        "action": "change-page",
+        "action-data": {"offset-change": entities.limit},
+      }
 
 proc toJson*(draft: Draft): JsonNode =
   const maxLines = int(editorWidth / 4f)
@@ -208,7 +225,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if comp.replies.value.valid.len == 0:
           %"no posts"
         else:
-          toJson(comp.replies.value.valid)
+          toJson(comp.replies.value.valid, comp.offset)
     ]
   of User:
     client.get(comp.userContent)
@@ -300,7 +317,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if comp.userReplies.value.valid.len == 0:
           % (if comp.showAllPosts: "no posts" else: "no journal posts")
         else:
-          toJson(comp.userReplies.value.valid)
+          toJson(comp.userReplies.value.valid, comp.offset)
     ]
   of Editor:
     finishedLoading = true

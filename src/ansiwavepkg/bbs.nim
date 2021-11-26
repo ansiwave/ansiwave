@@ -242,6 +242,15 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
           else:
             ui.initPost(clnt, sig)
       session.insertPage(comp, sig)
+  of "change-page":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    if result:
+      let
+        change = actionData["offset-change"].num.int
+        globals = session.query(rules.getGlobals)
+        page = globals.pages[globals.selectedPage]
+      page.data.offset += change
+      refresh(session, clnt, page)
   of "show-editor":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
     if result:
@@ -261,6 +270,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       if globals.pages.hasKey(key):
         let page = globals.pages[key]
         page.data.showAllPosts = not page.data.showAllPosts
+        page.data.offset = 0
         refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
