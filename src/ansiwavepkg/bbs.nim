@@ -513,7 +513,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if content != "":
         let viewHtmlAction = proc () {.closure.} =
           emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
-        leftButtons.add((" view as html ", viewHtmlAction))
+        leftButtons.add((" plain view ", viewHtmlAction))
     else:
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
