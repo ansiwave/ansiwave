@@ -126,7 +126,6 @@ schema Fact(Id, Attr):
 type
   EditorSession* = Session[Fact, Vars[Fact]]
 
-proc getCurrentLine(session: var EditorSession, bufferId: int): int
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
 proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int]
@@ -213,9 +212,6 @@ proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: 
     link.callback()
   session.insert(bufferId, InvalidCommands, errsRef)
   session.insert(bufferId, Links, linksRef)
-  if getCurrentLine(session, bufferId) != line:
-    session.insert(bufferId, CursorX, 0)
-    session.insert(bufferId, CursorY, line)
 
 proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
   var
@@ -398,6 +394,7 @@ let rules* =
         session.insert(id, Links, linksRef)
     rule updateErrors(Fact):
       what:
+        (Editor, CursorY, cursorY)
         (Editor, InvalidCommands, errors)
       then:
         var newLines: RefStrings
@@ -407,12 +404,12 @@ let rules* =
         for error in errors[]:
           var sess = session
           let line = error.line
-          sugar.capture line:
+          sugar.capture cursorY, line:
             let cb =
               proc () =
                 sess.insert(Global, SelectedBuffer, Editor)
                 sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
-                if getCurrentLine(sess, Editor.ord) != line:
+                if cursorY != line:
                   sess.insert(Editor, CursorX, 0)
                   sess.insert(Editor, CursorY, line)
             linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
@@ -510,9 +507,6 @@ let rules* =
         for buffer in session.queryAll(this):
           t[buffer.id] = buffer
         session.insert(Global, AllBuffers, t)
-
-proc getCurrentLine(session: var EditorSession, bufferId: int): int =
-  session.query(rules.getBuffer, id = bufferId).cursorY
 
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
