@@ -9,7 +9,7 @@ from ./constants import nil
 import pararules
 from pararules/engine import Session, Vars
 from json import JsonNode
-import tables
+import tables, sets
 from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
@@ -344,6 +344,8 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
+const nonCachedPages = ["drafts"].toHashSet
+
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
@@ -353,7 +355,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     view =
       if page.view == nil:
         let v = ui.toJson(page.data, finishedLoading)
-        if finishedLoading:
+        if finishedLoading and page.sig notin nonCachedPages:
           session.insert(page.id, View, v)
           var cmds: CommandTreesRef
           new cmds

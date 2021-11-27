@@ -36,9 +36,7 @@ type
       request*: client.ChannelValue[client.Response]
       requestBody*: string
       requestSig*: string
-    of Drafts:
-      filenames*: seq[string]
-    of Login, Logout:
+    of Drafts, Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
@@ -57,9 +55,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
-  of Drafts:
-    comp.filenames = post.drafts()
-  of Editor, Login, Logout:
+  of Drafts, Editor, Login, Logout:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -329,7 +325,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of Drafts:
     finishedLoading = true
     var json = JsonNode(kind: JArray)
-    for filename in comp.filenames:
+    for filename in post.drafts():
       let newIdx = strutils.find(filename, ".new")
       if newIdx != -1:
         json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename)))
