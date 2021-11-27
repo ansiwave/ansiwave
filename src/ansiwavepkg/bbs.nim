@@ -98,7 +98,7 @@ let rules =
         (Global, Board, board)
         (Global, Hash, hash, then = false)
         (Global, SelectedPage, selectedPage)
-        (Global, AllPages, pages)
+        (Global, AllPages, pages, then = false)
       then:
         if pages != nil and pages.hasKey(selectedPage):
           let
