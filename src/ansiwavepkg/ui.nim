@@ -170,7 +170,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "children": strutils.splitLines(parsed.content),
           }
       ,
-      if parsed.kind != post.Error:
+      if comp.postContent.ready and parsed.kind != post.Error:
         if parsed.key == crypto.pubKey:
           %* {
             "type": "button",
@@ -248,7 +248,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               "children": lines,
             }
       ,
-      if parsed.kind != post.Error:
+      if comp.userContent.ready and parsed.kind != post.Error:
         if parsed.key == crypto.pubKey:
           %* {
             "type": "button",
