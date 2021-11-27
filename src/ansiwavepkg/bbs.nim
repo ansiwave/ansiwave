@@ -490,7 +490,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           page.data.request = client.submit(clnt, "ansiwave", body)
       rightButtons.add((" send ", sendAction))
     if not isPlaying:
-      navbar.render(result, 0, 0, input, [(" ← ", backAction)], errorLines, rightButtons)
+      var leftButtons: seq[(string, proc ())]
+      when not defined(emscripten):
+        leftButtons.add((" ← ", backAction))
+      navbar.render(result, 0, 0, input, leftButtons, errorLines, rightButtons)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -501,7 +504,10 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
         discard
-    var leftButtons = @[(" ← ", backAction), (" ⟳ ", refreshAction), (" search ", searchAction)]
+    var leftButtons: seq[(string, proc ())]
+    when not defined(emscripten):
+      leftButtons.add((" ← ", backAction))
+    leftButtons &= @[(" ⟳ ", refreshAction), (" search ", searchAction)]
     when defined(emscripten):
       let content = ui.getContent(page.data)
       if content != "":
