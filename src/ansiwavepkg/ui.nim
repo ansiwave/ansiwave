@@ -269,7 +269,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".edit",
-            "headers": common.headers(crypto.pubKey, "", true),
+            "headers": common.headers(crypto.pubKey, "", false),
           },
         }
       else:
