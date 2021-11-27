@@ -359,7 +359,7 @@ let rules* =
           of wavescript.Valid:
             # set the play button in the gutter to play the line
             let treeLocal = tree
-            sugar.capture treeLocal, midiContext:
+            sugar.capture cmdsRef, errsRef, linksRef, id, treeLocal, midiContext:
               let cb =
                 proc () =
                   var ctx = midiContext
