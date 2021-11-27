@@ -601,7 +601,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
 proc renderBBS*() =
   vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
-  var clnt = client.initClient(paths.address)
+  var clnt = client.initClient(paths.address, paths.postAddress)
   client.start(clnt)
 
   # create session
