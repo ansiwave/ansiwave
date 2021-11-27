@@ -187,12 +187,18 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
   let parts = editor.parseHash(hash)
   if parts.hasKey("board"):
     if parts.hasKey("type") and parts.hasKey("id"):
-      if parts["type"] == "user":
-        session.insertPage(ui.initUser(clnt, parts["id"]), parts["id"])
+      if sigToPageId.hasKey(parts["id"]):
+        session.goToPage(parts["id"])
       else:
-        session.insertPage(ui.initPost(clnt, parts["id"]), parts["id"])
+        if parts["type"] == "user":
+          session.insertPage(ui.initUser(clnt, parts["id"]), parts["id"])
+        else:
+          session.insertPage(ui.initPost(clnt, parts["id"]), parts["id"])
     else:
-      session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
+      if sigToPageId.hasKey(parts["board"]):
+        session.goToPage(parts["board"])
+      else:
+        session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
 
 proc insertHash*(session: var auto, hash: string) =
   session.insert(Global, Hash, hash)
