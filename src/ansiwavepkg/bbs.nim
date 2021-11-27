@@ -230,7 +230,7 @@ proc refresh(session: var auto, clnt: client.Client, page: Page) =
 proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-post":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
       let
         typ = actionData["type"].str
@@ -243,7 +243,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
             ui.initPost(clnt, sig)
       session.insertPage(comp, sig)
   of "change-page":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
       let
         change = actionData["offset-change"].num.int
@@ -252,7 +252,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       page.data.offset += change
       refresh(session, clnt, page)
   of "show-editor":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
       let
         sig = actionData["sig"].str
@@ -267,7 +267,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
           discard storage.set(sig, actionData["content"].str)
         session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "toggle-user-posts":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right}
+    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
       let
         key = actionData["key"].str
@@ -406,13 +406,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         focusIndex = page.focusIndex - 1
     of iw.Key.Down:
       focusIndex = page.focusIndex + 1
-    of iw.Key.Left, iw.Key.Escape:
-      if not isPlaying:
+    else:
+      if not isPlaying and input.key in (when defined(emscripten): {iw.Key.Escape} else: {iw.Key.Left, iw.Key.Escape}):
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
         return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
-    else:
-      discard
     # adjust focusIndex and scrollY based on viewFocusAreas
     if page.viewFocusAreas.len > 0:
       # don't let it go beyond the last focused area
