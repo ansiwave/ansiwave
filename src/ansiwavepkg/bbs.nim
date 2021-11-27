@@ -512,8 +512,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         discard
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
-      leftButtons.add((" ← ", backAction))
-    leftButtons &= @[(" ⟳ ", refreshAction), (" search ", searchAction)]
+      leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
+    leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
       let content = ui.getContent(page.data)
       if content != "":
