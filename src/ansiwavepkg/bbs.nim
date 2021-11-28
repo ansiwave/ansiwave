@@ -559,11 +559,11 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           @[(" login ", loginAction)]
         elif page.sig == crypto.pubKey:
           let
-            logoutAction = proc () {.closure.} =
+            logoutAction = proc () {.closure, gcsafe.} =
               sess.insertPage(ui.initLogout(), "logout")
             downloadKeyAction = proc () {.closure.} =
               when defined(emscripten):
-                crypto.downloadKey()
+                crypto.downloadImage()
           when defined(emscripten):
             @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
           else:

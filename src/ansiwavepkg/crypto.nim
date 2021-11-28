@@ -67,9 +67,8 @@ const loginKeyName = "login-key.png"
 var
   keyPair*: ed25519.KeyPair
   pubKey*: string
-  image: seq[uint8]
 
-proc loadKey*(privateKey: seq[uint8]) =
+proc loadImage*(privateKey: seq[uint8]) =
   try:
     var width, height, channels: int
     let
@@ -84,20 +83,18 @@ proc loadKey*(privateKey: seq[uint8]) =
       copyMem(privKey.addr, privKeyStr[0].unsafeAddr, privKeyStr.len)
       keyPair = ed25519.initKeyPair(privKey)
       pubKey = paths.encode(keyPair.public)
-      image = privateKey
   except Exception as ex:
     discard
 
 proc loadKey*() =
   let privateKey = cast[seq[uint8]](storage.get(loginKeyName, isBinary = true))
   if privateKey.len > 0:
-    loadKey(privateKey)
+    loadImage(privateKey)
 
 proc removeKey*() =
   storage.remove(loginKeyName)
   keyPair = ed25519.KeyPair()
   pubKey = ""
-  image = @[]
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
@@ -118,23 +115,22 @@ when defined(emscripten):
         copyMem(s[0].addr, image, length)
         free(image)
         s
-    loadKey(img)
+    loadImage(img)
     discard storage.set(loginKeyName, img, isBinary = true)
     if callback != nil:
       callback()
       callback = nil
 
-when defined(emscripten):
-  proc downloadKey*() =
+  proc downloadImage*(image: seq[uint8]) =
     if image.len > 0:
       let b64 = base64.encode(image)
       emscripten.startDownload("data:image/png;base64," & b64, "login-key.png")
 
-proc createUser*() =
-  keyPair = ed25519.initKeyPair()
-  pubKey = paths.encode(keyPair.public)
+  proc downloadImage*() =
+    downloadImage(cast[seq[uint8]](storage.get(loginKeyName, isBinary = true)))
 
-  let privateKey = paths.encode(keyPair.private)
+proc createImage*(privateKey: ed25519.PrivateKey): seq[uint8] =
+  let privateKey = paths.encode(privateKey)
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
@@ -163,12 +159,14 @@ proc createUser*() =
       data.add(255)
 
   stego(data, $ %* {"private-key": privateKey, "algo": "ed25519"})
+  stbiw.writePNG(width, height, 4, data)
 
-  image = stbiw.writePNG(width, height, 4, data)
+proc createUser*() =
+  keyPair = ed25519.initKeyPair()
+  pubKey = paths.encode(keyPair.public)
+  let image = createImage(keyPair.private)
   discard storage.set(loginKeyName, image, isBinary = true)
-
-  loadKey(image)
-
+  loadImage(image)
   when defined(emscripten):
-    downloadKey()
+    downloadImage(image)
 
