@@ -291,13 +291,19 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
+  of "go-back":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    if result:
+      let globals = session.query(rules.getGlobals)
+      if globals.breadcrumbsIndex > 0:
+        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   of "create-user":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       crypto.createUser()
       let globals = session.query(rules.getGlobals)
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
-  of "add-user":
+  of "login":
     when defined(emscripten):
       result = input.key in {iw.Key.Mouse, iw.Key.Enter}
       if result:
@@ -307,12 +313,6 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
           if globals.breadcrumbsIndex > 0:
             sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         )
-  of "go-back":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
-    if result:
-      let globals = session.query(rules.getGlobals)
-      if globals.breadcrumbsIndex > 0:
-        session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   of "logout":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:

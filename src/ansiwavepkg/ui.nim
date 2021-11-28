@@ -367,7 +367,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           {
             "type": "button",
             "text": "add existing login key",
-            "action": "add-user",
+            "action": "login",
             "action-data": {},
           },
         ]
