@@ -361,7 +361,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-const nonCachedPages = ["drafts"].toHashSet
+const nonCachedPages = ["drafts", "message"].toHashSet
 
 proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
