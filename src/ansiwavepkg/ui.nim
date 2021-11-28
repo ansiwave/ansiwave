@@ -134,7 +134,11 @@ proc toJson*(posts: seq[entities.Post], offset: int): JsonNode =
 
 proc toJson*(draft: Draft): JsonNode =
   const maxLines = int(editorWidth / 4f)
-  let lines = strutils.splitLines(draft.content)
+  let
+    lines = strutils.splitLines(draft.content)
+    isNew = strutils.endsWith(draft.sig, ".new")
+    parts = strutils.split(draft.sig, '.')
+    originalSig = parts[0]
   %*[
     {
       "type": "rect",
@@ -143,14 +147,14 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": common.headers(crypto.pubKey, draft.target, strutils.endsWith(draft.sig, ".new")),
+        "headers": common.headers(crypto.pubKey, draft.target, isNew),
       },
     },
     {
       "type": "button",
-      "text": "context",
+      "text": if isNew: "post this is replying to" else: "post this is editing",
       "action": "show-post",
-      "action-data": {"type": "post", "sig": draft.target},
+      "action-data": {"type": "post", "sig": originalSig},
     },
     "" # spacer
   ]
