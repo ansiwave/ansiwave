@@ -187,7 +187,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             ,
             "action": "show-editor",
             "action-data": {
-              "sig": parsed.sig & ".edit",
+              "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
               "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
@@ -260,7 +260,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "text": "edit banner",
             "action": "show-editor",
             "action-data": {
-              "sig": parsed.sig & ".edit",
+              "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
               "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
@@ -273,7 +273,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "text": "create banner",
           "action": "show-editor",
           "action-data": {
-            "sig": comp.sig & ".edit",
+            "sig": comp.sig & "." & comp.sig & ".edit",
             "headers": common.headers(crypto.pubKey, crypto.pubKey, false),
           },
         }
@@ -337,7 +337,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         let editIdx = strutils.find(filename, ".edit")
         if editIdx != -1:
-          json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< editIdx], sig: filename)))
+          # filename is: original-sig.last-sig.edit
+          let parts = strutils.split(filename, '.')
+          if parts.len == 3:
+            json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename)))
     json
   of Login:
     finishedLoading = true

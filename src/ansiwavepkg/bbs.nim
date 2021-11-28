@@ -484,7 +484,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           sig =
             # if it's an edit, go to the original sig
             if idx != -1:
-              page.sig[0 ..< idx]
+              let parts = strutils.split(page.sig, '.')
+              parts[0]
             # go to the new sig
             else:
               page.data.requestSig
