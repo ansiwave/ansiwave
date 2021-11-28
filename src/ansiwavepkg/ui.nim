@@ -187,7 +187,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             ,
             "action": "show-editor",
             "action-data": {
-              "sig": comp.sig & ".edit",
+              "sig": parsed.sig & ".edit",
               "content": parsed.content,
               "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
@@ -260,7 +260,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "text": "edit banner",
             "action": "show-editor",
             "action-data": {
-              "sig": comp.sig & ".edit",
+              "sig": parsed.sig & ".edit",
               "content": parsed.content,
               "headers": common.headers(crypto.pubKey, parsed.sig, false),
             },
