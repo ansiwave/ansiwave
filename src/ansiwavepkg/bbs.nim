@@ -338,10 +338,13 @@ proc isEditor(page: Page): bool =
   page.data.kind == ui.Editor
 
 proc isEditor*(session: auto): bool =
-  let
-    globals = session.query(rules.getGlobals)
-    page = globals.pages[globals.selectedPage]
-  page.isEditor
+  try:
+    let
+      globals = session.query(rules.getGlobals)
+      page = globals.pages[globals.selectedPage]
+    page.isEditor
+  except Exception as ex:
+    false
 
 proc init*() =
   try:
