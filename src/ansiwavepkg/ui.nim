@@ -18,7 +18,7 @@ from ./post import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Login, Logout,
+    Post, User, Editor, Drafts, Login, Logout, Message,
   Component* = ref object
     sig: string
     offset*: int
@@ -38,6 +38,8 @@ type
       requestSig*: string
     of Drafts, Login, Logout:
       discard
+    of Message:
+      message: string
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
     target: string
@@ -55,7 +57,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
-  of Drafts, Editor, Login, Logout:
+  of Drafts, Editor, Login, Logout, Message:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -80,6 +82,9 @@ proc initLogin*(): Component =
 
 proc initLogout*(): Component =
   Component(kind: Logout)
+
+proc initMessage*(message: string): Component =
+  Component(kind: Message, message: message)
 
 proc toJson*(entity: entities.Post): JsonNode =
   const maxLines = int(editorWidth / 4f)
@@ -409,6 +414,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "Warning: if you don't keep a copy of the login key elsewhere,",
         "you will never be able to log back in!",
       ]
+  of Message:
+    finishedLoading = true
+    % comp.message
 
 proc getContent*(comp: Component): string =
   case comp.kind:
@@ -496,7 +504,7 @@ proc toHash*(comp: Component, board: string): string =
     for pair in pairs:
       if pair[1].len > 0:
         fragments.add(pair[0] & ":" & pair[1])
-  of Editor, Drafts, Login, Logout:
+  of Editor, Drafts, Login, Logout, Message:
     discard
   strutils.join(fragments, ",")
 

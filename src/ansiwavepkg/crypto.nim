@@ -6,6 +6,7 @@ from ./storage import nil
 import json
 import stb_image/read as stbi
 import bitops
+from strutils import nil
 
 proc stego*(image: var seq[uint8], message: string) =
   var bits: seq[bool]
@@ -68,21 +69,23 @@ var
   keyPair*: ed25519.KeyPair
   pubKey*: string
 
-proc loadImage*(privateKey: seq[uint8]) =
+proc loadKey*(privateKeyStr: string) =
+  let privKeyStr = paths.decode(privateKeyStr)
+  doAssert privKeyStr.len == keyPair.private.len
+  var privKey: ed25519.PrivateKey
+  copyMem(privKey.addr, privKeyStr[0].unsafeAddr, privKeyStr.len)
+  keyPair = ed25519.initKeyPair(privKey)
+  pubKey = paths.encode(keyPair.public)
+
+proc loadImage*(privateKeyImage: seq[uint8]) =
   try:
     var width, height, channels: int
     let
-      data = stbi.loadFromMemory(privateKey, width, height, channels, stbi.RGBA)
+      data = stbi.loadFromMemory(privateKeyImage, width, height, channels, stbi.RGBA)
       json = destego(data)
     if json != "":
-      let
-        obj = parseJson(json)
-        privKeyStr = paths.decode(obj["private-key"].str)
-      doAssert privKeyStr.len == keyPair.private.len
-      var privKey: ed25519.PrivateKey
-      copyMem(privKey.addr, privKeyStr[0].unsafeAddr, privKeyStr.len)
-      keyPair = ed25519.initKeyPair(privKey)
-      pubKey = paths.encode(keyPair.public)
+      let obj = parseJson(json)
+      loadKey(obj["private-key"].str)
   except Exception as ex:
     discard
 
@@ -132,9 +135,19 @@ when defined(emscripten):
 proc createImage*(privateKey: ed25519.PrivateKey): seq[uint8] =
   let privateKey = paths.encode(privateKey)
 
+  var fragments: seq[string]
+  let pairs = {
+    "key": privateKey,
+    "algo": "ed25519",
+  }
+  for pair in pairs:
+    if pair[1].len > 0:
+      fragments.add(pair[0] & ":" & pair[1])
+  let address = "https://ansiwave.net/#" & strutils.join(fragments, ",")
+
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
-  if not qrcodegen.qrcodegen_encodeText(privateKey.cstring, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
+  if not qrcodegen.qrcodegen_encodeText(address.cstring, tempBuffer.addr, qrcode.addr, qrcodegen.qrcodegen_Ecc_LOW,
                                         qrcodegen.qrcodegen_VERSION_MIN, qrcodegen.qrcodegen_VERSION_MAX,
                                         qrcodegen.qrcodegen_Mask_AUTO, true):
     return
@@ -169,4 +182,14 @@ proc createUser*() =
   loadImage(image)
   when defined(emscripten):
     downloadImage(image)
+
+proc createUser*(privateKeyStr: string, algo: string): bool =
+  try:
+    doAssert algo == "ed25519"
+    loadKey(privateKeyStr)
+    let image = createImage(keyPair.private)
+    discard storage.set(loginKeyName, image, isBinary = true)
+    true
+  except Exception as ex:
+    false
 

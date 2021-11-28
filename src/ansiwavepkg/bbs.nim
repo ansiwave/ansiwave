@@ -199,6 +199,12 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
         session.goToPage(parts["board"])
       else:
         session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
+  elif parts.hasKey("key") and parts.hasKey("algo"):
+    if crypto.pubKey == "":
+      if crypto.createUser(parts["key"], parts["algo"]):
+        session.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
+    else:
+      session.insertPage(ui.initMessage("You must log out of your existing account before logging in to a new one."), "message")
 
 proc insertHash*(session: var auto, hash: string) =
   session.insert(Global, Hash, hash)
