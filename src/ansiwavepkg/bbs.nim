@@ -320,6 +320,11 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       let globals = session.query(rules.getGlobals)
       if globals.breadcrumbsIndex > 0:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+        session.fireRules
+        let
+          globals = session.query(rules.getGlobals)
+          page = globals.pages[globals.selectedPage]
+        refresh(session, clnt, page)
   else:
     discard
 
