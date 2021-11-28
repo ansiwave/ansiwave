@@ -571,7 +571,8 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
         elif page.sig == crypto.pubKey:
           let
             logoutAction = proc () {.closure, gcsafe.} =
-              sess.insertPage(ui.initLogout(), "logout")
+              {.cast(gcsafe).}:
+                sess.insertPage(ui.initLogout(), "logout")
             downloadKeyAction = proc () {.closure.} =
               when defined(emscripten):
                 crypto.downloadImage()
