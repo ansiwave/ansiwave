@@ -93,7 +93,7 @@ type
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
     addrs: sound.Addrs
-  WrappedRangeSeq = seq[tuple[firstLine: int, lineCount: int]]
+  WrappedRangeSeq = seq[tuple[lineNum: int, charCounts: seq[int]]]
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -290,7 +290,7 @@ let rules* =
     rule updateTerminalScrollX(Fact):
       what:
         (id, Width, bufferWidth)
-        (id, CursorX, cursorX)
+        (id, WrappedCursorX, cursorX)
         (id, ScrollX, scrollX, then = false)
       cond:
         cursorX >= 0
@@ -303,7 +303,7 @@ let rules* =
     rule updateTerminalScrollY(Fact):
       what:
         (id, Height, bufferHeight)
-        (id, CursorY, cursorY)
+        (id, WrappedCursorY, cursorY)
         (id, Lines, lines)
         (id, ScrollY, scrollY, then = false)
       cond:
@@ -314,27 +314,27 @@ let rules* =
           session.insert(id, ScrollY, cursorY)
         elif cursorY > scrollBottom and cursorY < lines[].len:
           session.insert(id, ScrollY, scrollY + (cursorY - scrollBottom))
-    rule cursorChanged(Fact):
+    rule wrappedCursorChanged(Fact):
       what:
-        (id, CursorX, cursorX)
-        (id, CursorY, cursorY)
-        (id, Lines, lines, then = false)
+        (id, WrappedCursorX, cursorX)
+        (id, WrappedCursorY, cursorY)
+        (id, WrappedLines, lines, then = false)
       then:
         if lines[].len == 0:
           if cursorX != 0:
-            session.insert(id, CursorX, 0)
+            session.insert(id, WrappedCursorX, 0)
           if cursorY != 0:
-            session.insert(id, CursorY, 0)
+            session.insert(id, WrappedCursorY, 0)
           return
         if cursorY < 0:
-          session.insert(id, CursorY, 0)
+          session.insert(id, WrappedCursorY, 0)
         elif cursorY >= lines[].len:
-          session.insert(id, CursorY, lines[].len - 1)
+          session.insert(id, WrappedCursorY, lines[].len - 1)
         else:
           if cursorX > lines[cursorY][].stripCodes.runeLen:
-            session.insert(id, CursorX, lines[cursorY][].stripCodes.runeLen)
+            session.insert(id, WrappedCursorX, lines[cursorY][].stripCodes.runeLen)
           elif cursorX < 0:
-            session.insert(id, CursorX, 0)
+            session.insert(id, WrappedCursorX, 0)
     rule addClearToBeginningOfEveryLine(Fact):
       what:
         (id, Lines, lines)
@@ -490,16 +490,33 @@ let rules* =
         let (wrappedLines, ranges) = post.wrapLines(lines)
         session.insert(id, WrappedLines, wrappedLines)
         session.insert(id, WrappedRanges, ranges)
-    rule wrappedCursorX(Fact):
+    rule wrappedCursor(Fact):
       what:
         (id, CursorX, cursorX)
-      then:
-        session.insert(id, WrappedCursorX, cursorX)
-    rule wrappedCursorY(Fact):
-      what:
         (id, CursorY, cursorY)
+        (id, WrappedCursorX, wrappedCursorX, then = false)
+        (id, WrappedCursorY, wrappedCursorY, then = false)
+        (id, WrappedRanges, wrappedRanges, then = false)
       then:
-        session.insert(id, WrappedCursorY, cursorY)
+        var
+          newWrappedCursorX = cursorX
+          newWrappedCursorY = cursorY
+        for (lineNum, charCounts) in wrappedRanges:
+          if cursorY < lineNum:
+            newWrappedCursorY += charCounts.len
+          elif cursorY == lineNum:
+            for charCount in charCounts:
+              if newWrappedCursorX >= charCount:
+                newWrappedCursorX -= charCount
+                newWrappedCursorY += 1
+              else:
+                break
+          else:
+            break
+        if newWrappedCursorX != wrappedCursorX:
+          session.insert(id, WrappedCursorX, newWrappedCursorX)
+        if newWrappedCursorY != wrappedCursorY:
+          session.insert(id, WrappedCursorY, newWrappedCursorY)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
@@ -552,6 +569,8 @@ proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int
 proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
+  session.insert(id, WrappedCursorX, 0)
+  session.insert(id, WrappedCursorY, 0)
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, Lines, post.splitLines(text))
@@ -757,9 +776,9 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     session.insert(buffer.id, CursorX, 0)
     session.insert(buffer.id, CursorY, buffer.cursorY + 1)
   of iw.Key.Up:
-    session.insert(buffer.id, CursorY, buffer.cursorY - 1)
+    session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY - 1)
   of iw.Key.Down:
-    session.insert(buffer.id, CursorY, buffer.cursorY + 1)
+    session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY + 1)
   of iw.Key.Left:
     session.insert(buffer.id, CursorX, buffer.cursorX - 1)
   of iw.Key.Right:
@@ -844,7 +863,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   iw.drawRect(tb, termX + buffer.x, termY + buffer.y, termX + buffer.x + buffer.width + 1, termY + buffer.y + buffer.height + 1, doubleStyle = focused)
 
   let
-    lines = buffer.lines[]
+    lines = buffer.wrappedLines[]
     scrollX = buffer.scrollX
     scrollY = buffer.scrollY
   var screenLine = 0
@@ -883,7 +902,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
               session.insert(Global, HintText, hintText)
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
               buffer.links[i].callback()
-        elif i == buffer.cursorY and input.key == iw.Key.Tab and buffer.prompt == None:
+        elif i == buffer.wrappedCursorY and input.key == iw.Key.Tab and buffer.prompt == None:
           buffer.links[i].callback()
     screenLine += 1
 
@@ -896,8 +915,8 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
           info.y >= termY + buffer.y and
           info.y <= termY + buffer.y + buffer.height:
         if buffer.mode == 0:
-            session.insert(buffer.id, CursorX, info.x - (termX + buffer.x + 1 - buffer.scrollX))
-            session.insert(buffer.id, CursorY, info.y - (termY + buffer.y + 1 - buffer.scrollY))
+            session.insert(buffer.id, WrappedCursorX, info.x - (termX + buffer.x + 1 - buffer.scrollX))
+            session.insert(buffer.id, WrappedCursorY, info.y - (termY + buffer.y + 1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
             x = info.x - termX - buffer.x - 1 + buffer.scrollX
@@ -922,9 +941,9 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
       of iw.ScrollDirection.sdNone:
         discard
       of iw.ScrollDirection.sdUp:
-        session.insert(buffer.id, CursorY, buffer.cursorY - linesPerScroll)
+        session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY - linesPerScroll)
       of iw.ScrollDirection.sdDown:
-        session.insert(buffer.id, CursorY, buffer.cursorY + linesPerScroll)
+        session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY + linesPerScroll)
   elif focused:
     if input.codepoint != 0:
       session.insert(buffer.id, Prompt, None)
@@ -934,8 +953,8 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
       discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
 
   let
-    col = termX + buffer.x + 1 + buffer.cursorX - buffer.scrollX
-    row = termY + buffer.y + 1 + buffer.cursorY - buffer.scrollY
+    col = termX + buffer.x + 1 + buffer.wrappedCursorX - buffer.scrollX
+    row = termY + buffer.y + 1 + buffer.wrappedCursorY - buffer.scrollY
   if buffer.mode == 0 or buffer.prompt == StopPlaying:
     setCursor(tb, col, row)
   var

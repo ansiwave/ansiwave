@@ -62,7 +62,7 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
         currentLine = chars
   result.add $currentLine
 
-proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[(int, int)]] =
+proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[tuple[lineNum: int, charCounts: seq[int]]]] =
   new result.lines
   var i = 0
   for line in lines[]:
@@ -71,7 +71,7 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[(int, i
       result.lines[].add(line)
       i.inc
     else:
-      result.ranges.add((i, newLines.len))
+      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.len)))
       for newLine in newLines:
         var s: ref string
         new s
