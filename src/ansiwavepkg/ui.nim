@@ -403,6 +403,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "go-back",
           "action-data": {},
         },
+        "", # spacer
         {
           "type": "button",
           "text": "continue logout",
