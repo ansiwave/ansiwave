@@ -16,7 +16,7 @@ from wavecorepkg/common import nil
 from parseutils import nil
 import tables
 from wavecorepkg/client import nil
-from std/wordwrap import nil
+import unicode
 
 type
   RefStrings* = ref seq[ref string]
@@ -35,21 +35,47 @@ proc splitLines*(text: string): RefStrings =
       raise newException(Exception, "Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
     row.inc
 
+proc wrapLine(line: string, maxWidth: int): seq[string] =
+  var
+    partitions: seq[tuple[isWhitespace: bool, chars: seq[Rune]]]
+    lastPartition: tuple[isWhitespace: bool, chars: seq[Rune]]
+  for ch in runes(line):
+    if lastPartition.chars.len == 0:
+      lastPartition = (unicode.isWhitespace(ch), @[ch])
+    else:
+      let isWhitespace = unicode.isWhitespace(ch)
+      if isWhitespace == lastPartition.isWhitespace:
+        lastPartition.chars.add ch
+      else:
+        partitions.add lastPartition
+        lastPartition = (isWhitespace, @[ch])
+  partitions.add lastPartition
+  var currentLine: seq[Rune]
+  for (isWhitespace, chars) in partitions:
+    if isWhitespace:
+      currentLine &= chars
+    else:
+      if currentLine.len + chars.len <= maxWidth:
+        currentLine &= chars
+      else:
+        result.add $currentLine
+        currentLine = chars
+  result.add $currentLine
+
 proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[(int, int)]] =
   new result.lines
   var i = 0
   for line in lines[]:
-    let res = wordwrap.wrapWords(line[])
-    if res == line[]:
+    let newLines = wrapLine(line[], constants.editorWidth)
+    if newLines.len == 1:
       result.lines[].add(line)
       i.inc
     else:
-      let sublines = strutils.splitLines(res)
-      result.ranges.add((i, sublines.len))
-      for subline in sublines:
+      result.ranges.add((i, newLines.len))
+      for newLine in newLines:
         var s: ref string
         new s
-        s[] = subline
+        s[] = newLine
         result.lines[].add(s)
         i.inc
 
