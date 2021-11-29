@@ -55,7 +55,7 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
     if isWhitespace:
       currentLine &= chars
     else:
-      if currentLine.len + chars.len <= maxWidth:
+      if currentLine.stripCodes.len + chars.stripCodes.len <= maxWidth:
         currentLine &= chars
       else:
         result.add $currentLine
@@ -66,12 +66,12 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[tuple[l
   new result.lines
   var i = 0
   for line in lines[]:
-    let newLines = wrapLine(line[], constants.editorWidth)
+    let newLines = wrapLine(line[], constants.editorWidth - 1)
     if newLines.len == 1:
       result.lines[].add(line)
       i.inc
     else:
-      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.runeLen)))
+      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.stripCodes.runeLen)))
       for newLine in newLines:
         var s: ref string
         new s
