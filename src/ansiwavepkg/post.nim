@@ -71,7 +71,7 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[tuple[l
       result.lines[].add(line)
       i.inc
     else:
-      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.len)))
+      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.runeLen)))
       for newLine in newLines:
         var s: ref string
         new s
