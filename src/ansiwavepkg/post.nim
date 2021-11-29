@@ -16,6 +16,7 @@ from wavecorepkg/common import nil
 from parseutils import nil
 import tables
 from wavecorepkg/client import nil
+from std/wordwrap import nil
 
 type
   RefStrings* = ref seq[ref string]
@@ -33,6 +34,24 @@ proc splitLines*(text: string): RefStrings =
     if col != -1:
       raise newException(Exception, "Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
     row.inc
+
+proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[(int, int)]] =
+  new result.lines
+  var i = 0
+  for line in lines[]:
+    let res = wordwrap.wrapWords(line[])
+    if res == line[]:
+      result.lines[].add(line)
+      i.inc
+    else:
+      let sublines = strutils.splitLines(res)
+      result.ranges.add((i, sublines.len))
+      for subline in sublines:
+        var s: ref string
+        new s
+        s[] = subline
+        result.lines[].add(s)
+        i.inc
 
 proc joinLines*(lines: RefStrings): string =
   let lineCount = lines[].len

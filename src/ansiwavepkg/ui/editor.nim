@@ -29,10 +29,10 @@ type
     Global, TerminalWindow,
     Editor, Errors, Tutorial, Publish,
   Attr* = enum
-    CursorX, CursorY,
+    CursorX, CursorY, WrappedCursorX, WrappedCursorY,
     ScrollX, ScrollY,
     X, Y, Width, Height,
-    SelectedBuffer, Lines,
+    SelectedBuffer, Lines, WrappedLines, WrappedRanges,
     Editable, SelectedMode, SelectedBrightness,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
@@ -62,9 +62,12 @@ type
     id: int
     cursorX: int
     cursorY: int
+    wrappedCursorX: int
+    wrappedCursorY: int
     scrollX: int
     scrollY: int
     lines: RefStrings
+    wrappedLines: RefStrings
     x: int
     y: int
     width: int
@@ -90,10 +93,13 @@ type
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
     addrs: sound.Addrs
+  WrappedRangeSeq = seq[tuple[firstLine: int, lineCount: int]]
 
 schema Fact(Id, Attr):
   CursorX: int
   CursorY: int
+  WrappedCursorX: int
+  WrappedCursorY: int
   ScrollX: int
   ScrollY: int
   X: int
@@ -102,6 +108,8 @@ schema Fact(Id, Attr):
   Height: int
   SelectedBuffer: Id
   Lines: RefStrings
+  WrappedLines: RefStrings
+  WrappedRanges: WrappedRangeSeq
   Editable: bool
   SelectedMode: int
   SelectedBrightness: int
@@ -475,13 +483,33 @@ let rules* =
         (id, Lines, lines)
       then:
         session.insert(id, LastEditTime, times.epochTime())
+    rule wrappedLines(Fact):
+      what:
+        (id, Lines, lines)
+      then:
+        let (wrappedLines, ranges) = post.wrapLines(lines)
+        session.insert(id, WrappedLines, wrappedLines)
+        session.insert(id, WrappedRanges, ranges)
+    rule wrappedCursorX(Fact):
+      what:
+        (id, CursorX, cursorX)
+      then:
+        session.insert(id, WrappedCursorX, cursorX)
+    rule wrappedCursorY(Fact):
+      what:
+        (id, CursorY, cursorY)
+      then:
+        session.insert(id, WrappedCursorY, cursorY)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
+        (id, WrappedCursorX, wrappedCursorX)
+        (id, WrappedCursorY, wrappedCursorY)
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
         (id, Lines, lines)
+        (id, WrappedLines, wrappedLines)
         (id, X, x)
         (id, Y, y)
         (id, Width, width)
