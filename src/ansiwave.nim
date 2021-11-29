@@ -198,7 +198,7 @@ proc main*() =
   iw.hideCursor()
   # render home if no args are passed
   if opts.input == "":
-    bbs.renderBBS()
+    bbs.main()
     return
   # enter the main render loop
   var session: editor.EditorSession

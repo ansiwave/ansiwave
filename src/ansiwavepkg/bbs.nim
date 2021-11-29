@@ -366,7 +366,7 @@ proc init*() =
 
 const nonCachedPages = ["drafts", "message"].toHashSet
 
-proc render*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
+proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
     globals = session.query(rules.getGlobals)
@@ -432,7 +432,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
       if not isPlaying and input.key in (when defined(emscripten): {iw.Key.Escape} else: {iw.Key.Left, iw.Key.Escape}):
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
-        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
     # adjust focusIndex and scrollY based on viewFocusAreas
     if page.viewFocusAreas.len > 0:
       # don't let it go beyond the last focused area
@@ -494,7 +494,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
               page.data.requestSig
         if storage.set(sig & ".ansiwave", page.data.requestBody):
           session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
-        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         let continueAction = proc () =
           page.data.request.chan = nil
@@ -542,7 +542,7 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
           # redraw ui without double buffering so everything is visible again
           iw.setDoubleBuffering(false)
           var finishedLoading: bool
-          discard render(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+          discard tick(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
           iw.setDoubleBuffering(true)
         leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
@@ -618,9 +618,9 @@ proc render*(session: var auto, clnt: client.Client, width: int, height: int, in
     # if the view height has changed, emscripten needs to render again
     when defined(emscripten):
       if y != page.viewHeight:
-        return render(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
-proc renderBBS*() =
+proc main*() =
   vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address, paths.postAddress)
@@ -634,7 +634,7 @@ proc renderBBS*() =
   # start loop
   while true:
     var finishedLoading = false
-    var tb = render(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
+    var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
     # display and sleep
     iw.display(tb)
     os.sleep(constants.sleepMsecs)
