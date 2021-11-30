@@ -14,7 +14,7 @@ from json import nil
 from ./storage import nil
 from wavecorepkg/common import nil
 from parseutils import nil
-import tables
+import tables, sets
 from wavecorepkg/client import nil
 import unicode
 
@@ -36,8 +36,11 @@ proc splitLines*(text: string): RefStrings =
     row.inc
 
 proc wrapLine(line: string, maxWidth: int): seq[string] =
-  # never wrap lines that contain commands
-  if strutils.startsWith(line.stripCodes, "/"):
+  # never wrap lines that are a command or that start with a whitespace char
+  let
+    chars = line.toRunes
+    firstValidChar = codes.firstValidChar(chars)
+  if firstValidChar == -1 or ($chars[firstValidChar] == "/" or $chars[firstValidChar] in wavescript.whitespaceChars):
     return @[line]
 
   var
@@ -80,7 +83,7 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappe
     wrappedLineNum = 0
     lineNum = 0
   for line in lines[]:
-    let newLines = wrapLine(line[], constants.editorWidth - 1)
+    let newLines = wrapLine(line[], constants.editorWidth)
     if newLines.len == 1:
       result.lines[].add(line)
       let endCol = line[].stripCodes.runeLen
@@ -111,7 +114,7 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappe
 
 proc wrapLines*(lines: seq[string]): seq[string] =
   for line in lines:
-    let newLines = wrapLine(line, constants.editorWidth - 1)
+    let newLines = wrapLine(line, constants.editorWidth)
     if newLines.len == 1:
       result.add(line)
     else:
