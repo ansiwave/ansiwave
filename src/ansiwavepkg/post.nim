@@ -62,22 +62,46 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
         currentLine = chars
   result.add $currentLine
 
-proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, ranges: seq[tuple[lineNum: int, charCounts: seq[int]]]] =
+type
+  LineRange = tuple[lineNum: int, startCol: int, endCol: int]
+  LineRanges = seq[LineRange]
+  ToWrappedTable* = Table[int, LineRanges]
+  ToUnwrappedTable* = Table[int, LineRange]
+
+proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappedTable, toUnwrapped: ToUnwrappedTable] =
   new result.lines
-  var i = 0
+  var
+    wrappedLineNum = 0
+    lineNum = 0
   for line in lines[]:
     let newLines = wrapLine(line[], constants.editorWidth - 1)
     if newLines.len == 1:
       result.lines[].add(line)
-      i.inc
+      let endCol = line[].stripCodes.runeLen
+      result.toWrapped[lineNum] = @[(wrappedLineNum, 0, endCol)]
+      result.toUnwrapped[wrappedLineNum] = (lineNum, 0, endCol)
+      wrappedLineNum.inc
+      lineNum.inc
     else:
-      result.ranges.add((i, sequtils.map(newLines, proc (x: string): int = x.stripCodes.runeLen)))
+      var
+        col = 0
+        ranges: LineRanges
       for newLine in newLines:
         var s: ref string
         new s
         s[] = newLine
         result.lines[].add(s)
-        i.inc
+        let
+          # at the very end of the line, there is an extra spot
+          # so the cursor can append to the end
+          adjust = if newLines.len - ranges.len == 1: 0 else: -1
+          endCol = col+newLine.stripCodes.runeLen + adjust
+        ranges.add((wrappedLineNum, col, endCol))
+        result.toUnwrapped[wrappedLineNum] = (lineNum, col, endCol)
+        wrappedLineNum.inc
+        col += newLine.stripCodes.runeLen
+      result.toWrapped[lineNum] = ranges
+      lineNum.inc
 
 proc joinLines*(lines: RefStrings): string =
   let lineCount = lines[].len

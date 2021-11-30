@@ -22,7 +22,7 @@ import streams
 from uri import nil
 import json
 from ../storage import nil
-from ../post import RefStrings
+from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
 
 type
   Id* = enum
@@ -32,7 +32,7 @@ type
     CursorX, CursorY, WrappedCursorX, WrappedCursorY,
     ScrollX, ScrollY,
     X, Y, Width, Height,
-    SelectedBuffer, Lines, WrappedLines, WrappedRanges,
+    SelectedBuffer, Lines, WrappedLines, ToWrapped, ToUnwrapped,
     Editable, SelectedMode, SelectedBrightness,
     SelectedChar, SelectedFgColor, SelectedBgColor,
     Prompt, ValidCommands, InvalidCommands, Links,
@@ -93,7 +93,6 @@ type
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
     addrs: sound.Addrs
-  WrappedRangeSeq = seq[tuple[lineNum: int, charCounts: seq[int]]]
 
 schema Fact(Id, Attr):
   CursorX: int
@@ -109,7 +108,8 @@ schema Fact(Id, Attr):
   SelectedBuffer: Id
   Lines: RefStrings
   WrappedLines: RefStrings
-  WrappedRanges: WrappedRangeSeq
+  ToWrapped: ToWrappedTable
+  ToUnwrapped: ToUnwrappedTable
   Editable: bool
   SelectedMode: int
   SelectedBrightness: int
@@ -487,36 +487,45 @@ let rules* =
       what:
         (id, Lines, lines)
       then:
-        let (wrappedLines, ranges) = post.wrapLines(lines)
+        let (wrappedLines, toWrapped, toUnwrapped) = post.wrapLines(lines)
         session.insert(id, WrappedLines, wrappedLines)
-        session.insert(id, WrappedRanges, ranges)
-    rule wrappedCursor(Fact):
+        session.insert(id, ToWrapped, toWrapped)
+        session.insert(id, ToUnwrapped, toUnwrapped)
+    rule wrapCursor(Fact):
       what:
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, WrappedCursorX, wrappedCursorX, then = false)
         (id, WrappedCursorY, wrappedCursorY, then = false)
-        (id, WrappedRanges, wrappedRanges, then = false)
+        (id, ToWrapped, toWrapped, then = false)
       then:
-        var
-          newWrappedCursorX = cursorX
-          newWrappedCursorY = cursorY
-        for (lineNum, charCounts) in wrappedRanges:
-          if cursorY < lineNum:
-            newWrappedCursorY += charCounts.len
-          elif cursorY == lineNum:
-            for charCount in charCounts:
-              if newWrappedCursorX >= charCount:
-                newWrappedCursorX -= charCount
-                newWrappedCursorY += 1
-              else:
-                break
-          else:
-            break
-        if newWrappedCursorX != wrappedCursorX:
-          session.insert(id, WrappedCursorX, newWrappedCursorX)
-        if newWrappedCursorY != wrappedCursorY:
-          session.insert(id, WrappedCursorY, newWrappedCursorY)
+        if toWrapped.hasKey(cursorY):
+          for (wrappedLineNum, startCol, endCol) in toWrapped[cursorY]:
+            if cursorX >= startCol and cursorX <= endCol:
+              let
+                newWrappedCursorX = cursorX - startCol
+                newWrappedCursorY = wrappedLineNum
+              if newWrappedCursorX != wrappedCursorX:
+                session.insert(id, WrappedCursorX, newWrappedCursorX)
+              if newWrappedCursorY != wrappedCursorY:
+                session.insert(id, WrappedCursorY, newWrappedCursorY)
+    rule unwrapCursor(Fact):
+      what:
+        (id, CursorX, cursorX, then = false)
+        (id, CursorY, cursorY, then = false)
+        (id, WrappedCursorX, wrappedCursorX)
+        (id, WrappedCursorY, wrappedCursorY)
+        (id, ToUnwrapped, toUnwrapped, then = false)
+      then:
+        if toUnwrapped.hasKey(wrappedCursorY):
+          let
+            (lineNum, startCol, endCol) = toUnwrapped[wrappedCursorY]
+            newCursorX = wrappedCursorX + startCol
+            newCursorY = lineNum
+          if newCursorX != cursorX:
+            session.insert(id, CursorX, newCursorX)
+          if newCursorY != cursorY:
+            session.insert(id, CursorY, newCursorY)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
