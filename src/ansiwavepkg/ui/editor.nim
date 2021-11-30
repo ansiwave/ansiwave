@@ -29,7 +29,7 @@ type
     Global, TerminalWindow,
     Editor, Errors, Tutorial, Publish,
   Attr* = enum
-    CursorX, CursorY, WrappedCursorX, WrappedCursorY,
+    CursorX, CursorY, WrappedCursorX, WrappedCursorY, Cursor, WrappedCursor,
     ScrollX, ScrollY,
     X, Y, Width, Height,
     SelectedBuffer, Lines, WrappedLines, ToWrapped, ToUnwrapped,
@@ -93,12 +93,15 @@ type
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
     addrs: sound.Addrs
+  XY = tuple[x: int, y: int]
 
 schema Fact(Id, Attr):
   CursorX: int
   CursorY: int
   WrappedCursorX: int
   WrappedCursorY: int
+  Cursor: XY
+  WrappedCursor: XY
   ScrollX: int
   ScrollY: int
   X: int
@@ -493,7 +496,7 @@ let rules* =
         (id, Lines, lines)
       then:
         session.insert(id, LastEditTime, times.epochTime())
-    rule wrappedLines(Fact):
+    rule wrapLines(Fact):
       what:
         (id, Lines, lines)
       then:
@@ -501,19 +504,30 @@ let rules* =
         session.insert(id, WrappedLines, wrappedLines)
         session.insert(id, ToWrapped, toWrapped)
         session.insert(id, ToUnwrapped, toUnwrapped)
-    rule wrapCursor(Fact):
+    rule updateCursor(Fact):
       what:
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
+      then:
+        session.insert(id, Cursor, (cursorX, cursorY))
+    rule updateWrappedCursor(Fact):
+      what:
+        (id, WrappedCursorX, cursorX)
+        (id, WrappedCursorY, cursorY)
+      then:
+        session.insert(id, WrappedCursor, (cursorX, cursorY))
+    rule wrapCursor(Fact):
+      what:
+        (id, Cursor, cursor)
         (id, WrappedCursorX, wrappedCursorX, then = false)
         (id, WrappedCursorY, wrappedCursorY, then = false)
         (id, ToWrapped, toWrapped, then = false)
       then:
-        if toWrapped.hasKey(cursorY):
-          for (wrappedLineNum, startCol, endCol) in toWrapped[cursorY]:
-            if cursorX >= startCol and cursorX <= endCol:
+        if toWrapped.hasKey(cursor.y):
+          for (wrappedLineNum, startCol, endCol) in toWrapped[cursor.y]:
+            if cursor.x >= startCol and cursor.x <= endCol:
               let
-                newWrappedCursorX = cursorX - startCol
+                newWrappedCursorX = cursor.x - startCol
                 newWrappedCursorY = wrappedLineNum
               if newWrappedCursorX != wrappedCursorX:
                 session.insert(id, WrappedCursorX, newWrappedCursorX)
@@ -523,14 +537,13 @@ let rules* =
       what:
         (id, CursorX, cursorX, then = false)
         (id, CursorY, cursorY, then = false)
-        (id, WrappedCursorX, wrappedCursorX)
-        (id, WrappedCursorY, wrappedCursorY)
+        (id, WrappedCursor, wrappedCursor)
         (id, ToUnwrapped, toUnwrapped, then = false)
       then:
-        if toUnwrapped.hasKey(wrappedCursorY):
+        if toUnwrapped.hasKey(wrappedCursor.y):
           let
-            (lineNum, startCol, endCol) = toUnwrapped[wrappedCursorY]
-            newCursorX = wrappedCursorX + startCol
+            (lineNum, startCol, endCol) = toUnwrapped[wrappedCursor.y]
+            newCursorX = wrappedCursor.x + startCol
             newCursorY = lineNum
           if newCursorX != cursorX:
             session.insert(id, CursorX, newCursorX)
