@@ -65,11 +65,13 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
 type
   LineRange = tuple[lineNum: int, startCol: int, endCol: int]
   LineRanges = seq[LineRange]
-  ToWrappedTable* = Table[int, LineRanges]
-  ToUnwrappedTable* = Table[int, LineRange]
+  ToWrappedTable* = TableRef[int, LineRanges]
+  ToUnwrappedTable* = TableRef[int, LineRange]
 
 proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappedTable, toUnwrapped: ToUnwrappedTable] =
   new result.lines
+  new result.toWrapped
+  new result.toUnwrapped
   var
     wrappedLineNum = 0
     lineNum = 0
