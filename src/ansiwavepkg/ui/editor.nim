@@ -261,6 +261,23 @@ proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
     of midi.Error:
       discard
 
+proc cursorChanged(session: var auto, id: int, cursorX: int, cursorY: int, lines: RefStrings, wrapped: bool) =
+  if lines[].len == 0:
+    if cursorX != 0:
+      session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
+    if cursorY != 0:
+      session.insert(id, if wrapped: WrappedCursorY else: CursorY, 0)
+    return
+  if cursorY < 0:
+    session.insert(id, if wrapped: WrappedCursorY else: CursorY, 0)
+  elif cursorY >= lines[].len:
+    session.insert(id, if wrapped: WrappedCursorY else: CursorY, lines[].len - 1)
+  else:
+    if cursorX > lines[cursorY][].stripCodes.runeLen:
+      session.insert(id, if wrapped: WrappedCursorX else: CursorX, lines[cursorY][].stripCodes.runeLen)
+    elif cursorX < 0:
+      session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
+
 let rules* =
   ruleset:
     rule getGlobals(Fact):
@@ -314,27 +331,20 @@ let rules* =
           session.insert(id, ScrollY, cursorY)
         elif cursorY > scrollBottom and cursorY < lines[].len:
           session.insert(id, ScrollY, scrollY + (cursorY - scrollBottom))
+    rule cursorChanged(Fact):
+      what:
+        (id, CursorX, cursorX)
+        (id, CursorY, cursorY)
+        (id, Lines, lines, then = false)
+      then:
+        session.cursorChanged(id, cursorX, cursorY, lines, false)
     rule wrappedCursorChanged(Fact):
       what:
         (id, WrappedCursorX, cursorX)
         (id, WrappedCursorY, cursorY)
         (id, WrappedLines, lines, then = false)
       then:
-        if lines[].len == 0:
-          if cursorX != 0:
-            session.insert(id, WrappedCursorX, 0)
-          if cursorY != 0:
-            session.insert(id, WrappedCursorY, 0)
-          return
-        if cursorY < 0:
-          session.insert(id, WrappedCursorY, 0)
-        elif cursorY >= lines[].len:
-          session.insert(id, WrappedCursorY, lines[].len - 1)
-        else:
-          if cursorX > lines[cursorY][].stripCodes.runeLen:
-            session.insert(id, WrappedCursorX, lines[cursorY][].stripCodes.runeLen)
-          elif cursorX < 0:
-            session.insert(id, WrappedCursorX, 0)
+        session.cursorChanged(id, cursorX, cursorY, lines, true)
     rule addClearToBeginningOfEveryLine(Fact):
       what:
         (id, Lines, lines)
