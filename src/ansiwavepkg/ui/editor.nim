@@ -68,6 +68,8 @@ type
     scrollY: int
     lines: RefStrings
     wrappedLines: RefStrings
+    toWrapped: ToWrappedTable
+    toUnwrapped: ToUnwrappedTable
     x: int
     y: int
     width: int
@@ -559,6 +561,8 @@ let rules* =
         (id, ScrollY, scrollY)
         (id, Lines, lines)
         (id, WrappedLines, wrappedLines)
+        (id, ToWrapped, toWrapped)
+        (id, ToUnwrapped, toUnwrapped)
         (id, X, x)
         (id, Y, y)
         (id, Width, width)
@@ -584,6 +588,18 @@ let rules* =
         for buffer in session.queryAll(this):
           t[buffer.id] = buffer
         session.insert(Global, AllBuffers, t)
+
+proc unwrapLines(wrappedLines: RefStrings, toUnwrapped: ToUnwrappedTable): RefStrings =
+  new result
+  for wrappedLineNum in 0 ..< wrappedLines[].len:
+    if toUnwrapped.hasKey(wrappedLineNum):
+      let (lineNum, _, _) = toUnwrapped[wrappedLineNum]
+      if result[].len > lineNum:
+        post.set(result, lineNum, result[lineNum][] & wrappedLines[wrappedLineNum][])
+      else:
+        result[].add(wrappedLines[wrappedLineNum])
+    else:
+      result[].add(wrappedLines[wrappedLineNum])
 
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
@@ -954,7 +970,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
             x = info.x - termX - buffer.x - 1 + buffer.scrollX
             y = info.y - termY - buffer.y - 1 + buffer.scrollY
           if x >= 0 and y >= 0:
-            var lines = buffer.lines
+            var lines = buffer.wrappedLines
             while y > lines[].len - 1:
               post.add(lines, "")
             var line = lines[y][].toRunes
@@ -967,7 +983,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
               oldChar = line[realX].toUTF8
               newChar = if oldChar in wavescript.whitespaceChars: buffer.selectedChar else: oldChar
             post.set(lines, y, codes.dedupeCodes($line[0 ..< realX] & prefix & newChar & suffix & $line[realX + 1 ..< line.len]))
-            session.insert(buffer.id, Lines, lines)
+            session.insert(buffer.id, Lines, unwrapLines(lines, buffer.toUnwrapped))
     elif info.scroll:
       case info.scrollDir:
       of iw.ScrollDirection.sdNone:
