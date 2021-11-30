@@ -512,7 +512,16 @@ proc toHash*(comp: Component, board: string): string =
     for pair in pairs:
       if pair[1].len > 0:
         fragments.add(pair[0] & ":" & pair[1])
-  of Editor, Drafts, Login, Logout, Message:
+  of Drafts:
+    let pairs =
+      {
+        "type": "drafts",
+        "board": board,
+      }
+    for pair in pairs:
+      if pair[1].len > 0:
+        fragments.add(pair[0] & ":" & pair[1])
+  of Editor, Login, Logout, Message:
     discard
   strutils.join(fragments, ",")
 

@@ -194,6 +194,12 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
           session.insertPage(ui.initUser(clnt, parts["id"]), parts["id"])
         else:
           session.insertPage(ui.initPost(clnt, parts["id"]), parts["id"])
+    elif parts.hasKey("type"):
+      case parts["type"]:
+      of "drafts":
+        session.insertPage(ui.initDrafts(clnt), "drafts")
+      else:
+        discard
     else:
       if sigToPageId.hasKey(parts["board"]):
         session.goToPage(parts["board"])
