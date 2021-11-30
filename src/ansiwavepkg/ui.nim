@@ -152,7 +152,7 @@ proc toJson*(draft: Draft): JsonNode =
     },
     {
       "type": "button",
-      "text": if isNew: "post that this is replying to" else: "post that this is editing",
+      "text": if isNew: "see post that this is replying to" else: "see post that this is editing",
       "action": "show-post",
       "action-data": {"type": "post", "sig": originalSig},
     },
