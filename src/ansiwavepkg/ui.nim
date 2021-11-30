@@ -135,7 +135,7 @@ proc toJson*(posts: seq[entities.Post], offset: int): JsonNode =
 proc toJson*(draft: Draft): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
-    lines = strutils.splitLines(draft.content)
+    lines = post.wrapLines(strutils.splitLines(draft.content))
     isNew = strutils.endsWith(draft.sig, ".new")
     parts = strutils.split(draft.sig, '.')
     originalSig = parts[0]
@@ -176,7 +176,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         else:
           %*{
             "type": "rect",
-            "children": strutils.splitLines(parsed.content),
+            "children": post.wrapLines(strutils.splitLines(parsed.content)),
           }
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
@@ -248,7 +248,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           else:
             %""
         else:
-          let lines = strutils.splitLines(parsed.content)
+          let lines = post.wrapLines(strutils.splitLines(parsed.content))
           if comp.sig == crypto.pubKey and lines.len == 1 and lines[0] == "":
             %"Your banner will be here. Put something about yourself...or not."
           else:

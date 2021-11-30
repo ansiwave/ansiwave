@@ -109,6 +109,15 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappe
       result.toWrapped[lineNum] = ranges
       lineNum.inc
 
+proc wrapLines*(lines: seq[string]): seq[string] =
+  for line in lines:
+    let newLines = wrapLine(line, constants.editorWidth - 1)
+    if newLines.len == 1:
+      result.add(line)
+    else:
+      for newLine in newLines:
+        result.add(newLine)
+
 proc joinLines*(lines: RefStrings): string =
   let lineCount = lines[].len
   var i = 0
@@ -135,7 +144,7 @@ proc splitAfterHeaders*(content: string): seq[string] =
   if idx == -1: # this should never happen
     @[""]
   else:
-    strutils.splitLines(content[idx + 2 ..< content.len])
+    wrapLines(strutils.splitLines(content[idx + 2 ..< content.len]))
 
 proc drafts*(): seq[string] =
   for filename in storage.list():
