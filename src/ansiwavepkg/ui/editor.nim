@@ -350,7 +350,7 @@ let rules* =
       what:
         (id, Height, bufferHeight)
         (id, WrappedCursorY, cursorY)
-        (id, Lines, lines)
+        (id, WrappedLines, lines)
         (id, ScrollY, scrollY, then = false)
       cond:
         cursorY >= 0
