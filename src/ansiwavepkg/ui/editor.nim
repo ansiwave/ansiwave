@@ -283,6 +283,30 @@ proc cursorChanged(session: var auto, id: int, cursorX: int, cursorY: int, lines
     elif cursorX < 0:
       session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
 
+proc unwrapLines(wrappedLines: RefStrings, toUnwrapped: ToUnwrappedTable): RefStrings =
+  new result
+  for wrappedLineNum in 0 ..< wrappedLines[].len:
+    if toUnwrapped.hasKey(wrappedLineNum):
+      let (lineNum, _, _) = toUnwrapped[wrappedLineNum]
+      if result[].len > lineNum:
+        post.set(result, lineNum, result[lineNum][] & wrappedLines[wrappedLineNum][])
+      else:
+        result[].add(wrappedLines[wrappedLineNum])
+    else:
+      result[].add(wrappedLines[wrappedLineNum])
+
+proc removeWrappedLines(lines: var seq[ref string], toUnwrapped: ToUnwrappedTable) =
+  var
+    lineNums: HashSet[int]
+    empty: ref string
+  new empty
+  for i in 0 ..< lines.len:
+    let lineNum = toUnwrapped[i].lineNum
+    if lineNum notin lineNums:
+      lineNums.incl(lineNum)
+    else:
+      lines[i] = empty
+
 let rules* =
   ruleset:
     rule getGlobals(Fact):
@@ -364,11 +388,14 @@ let rules* =
     rule parseCommands(Fact):
       what:
         (Global, Opts, options)
-        (id, Lines, lines)
+        (id, WrappedLines, lines)
+        (id, ToUnwrapped, toUnwrapped)
       cond:
         id != Errors.ord
       then:
-        let trees = post.linesToTrees(lines[])
+        var nonWrappedLines = lines[]
+        removeWrappedLines(nonWrappedLines, toUnwrapped)
+        let trees = post.linesToTrees(nonWrappedLines)
         var cmdsRef, errsRef: RefCommands
         var linksRef: RefLinks
         new cmdsRef
@@ -588,18 +615,6 @@ let rules* =
         for buffer in session.queryAll(this):
           t[buffer.id] = buffer
         session.insert(Global, AllBuffers, t)
-
-proc unwrapLines(wrappedLines: RefStrings, toUnwrapped: ToUnwrappedTable): RefStrings =
-  new result
-  for wrappedLineNum in 0 ..< wrappedLines[].len:
-    if toUnwrapped.hasKey(wrappedLineNum):
-      let (lineNum, _, _) = toUnwrapped[wrappedLineNum]
-      if result[].len > lineNum:
-        post.set(result, lineNum, result[lineNum][] & wrappedLines[wrappedLineNum][])
-      else:
-        result[].add(wrappedLines[wrappedLineNum])
-    else:
-      result[].add(wrappedLines[wrappedLineNum])
 
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)

@@ -36,6 +36,10 @@ proc splitLines*(text: string): RefStrings =
     row.inc
 
 proc wrapLine(line: string, maxWidth: int): seq[string] =
+  # never wrap lines that contain commands
+  if strutils.startsWith(line.stripCodes, "/"):
+    return @[line]
+
   var
     partitions: seq[tuple[isWhitespace: bool, chars: seq[Rune]]]
     lastPartition: tuple[isWhitespace: bool, chars: seq[Rune]]
