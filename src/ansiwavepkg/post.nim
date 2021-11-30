@@ -83,7 +83,8 @@ proc wrapLines*(lines: RefStrings): tuple[lines: RefStrings, toWrapped: ToWrappe
     wrappedLineNum = 0
     lineNum = 0
   for line in lines[]:
-    let newLines = wrapLine(line[], constants.editorWidth)
+    # we subtract one so there is an extra column for the cursor
+    let newLines = wrapLine(line[], constants.editorWidth - 1)
     if newLines.len == 1:
       result.lines[].add(line)
       let endCol = line[].stripCodes.runeLen
