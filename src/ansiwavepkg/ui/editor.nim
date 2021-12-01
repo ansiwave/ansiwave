@@ -1012,7 +1012,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   elif focused:
     if input.codepoint != 0:
       session.insert(buffer.id, Prompt, None)
-      discard editor.onInput(session, input.codepoint, buffer)
+      discard onInput(session, input.codepoint, buffer)
     elif input.key != iw.Key.None:
       session.insert(buffer.id, Prompt, None)
       discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
