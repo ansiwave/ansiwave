@@ -42,6 +42,8 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
     firstValidChar = codes.firstValidChar(chars)
   if firstValidChar == -1 or ($chars[firstValidChar] == "/" or $chars[firstValidChar] in wavescript.whitespaceChars):
     return @[line]
+  elif chars.stripCodes.len <= maxWidth:
+    return @[line]
 
   var
     partitions: seq[tuple[isWhitespace: bool, chars: seq[Rune]]]
