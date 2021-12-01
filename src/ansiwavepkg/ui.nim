@@ -95,7 +95,7 @@ proc initLogout*(): Component =
 proc initMessage*(message: string): Component =
   Component(kind: Message, message: message)
 
-proc initSearch*(clnt: client.Client): Component =
+proc initSearch*(): Component =
   Component(kind: Search, searchField: simpleeditor.init())
 
 proc toJson*(entity: entities.Post): JsonNode =

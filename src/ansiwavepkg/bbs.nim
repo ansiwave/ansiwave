@@ -199,6 +199,8 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
       case parts["type"]:
       of "drafts":
         session.insertPage(ui.initDrafts(clnt), "drafts")
+      of "search":
+        session.insertPage(ui.initSearch(), "search")
       else:
         discard
     else:
@@ -530,7 +532,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
-        sess.insertPage(ui.initSearch(clnt), "search")
+        sess.insertPage(ui.initSearch(), "search")
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
