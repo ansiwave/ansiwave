@@ -41,6 +41,8 @@ type
       message: string
     of Search:
       searchField*: simpleeditor.EditorSession
+      searchResults*: client.ChannelValue[seq[entities.Post]]
+      showResults*: bool
     of Drafts, Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
@@ -432,8 +434,27 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = true
     % comp.message
   of Search:
-    finishedLoading = true
-    simpleeditor.toJson(comp.searchField)
+    if comp.showResults:
+      client.get(comp.searchResults)
+      finishedLoading = comp.searchResults.ready
+    else:
+      finishedLoading = true
+    %* [
+      simpleeditor.toJson(comp.searchField),
+      "", # spacer
+      if comp.showResults:
+        if not comp.searchResults.ready:
+          %"searching"
+        elif comp.searchResults.value.kind == client.Error:
+          %"failed to fetch search results"
+        else:
+          if comp.searchResults.value.valid.len == 0:
+            %"no results"
+          else:
+            toJson(comp.searchResults.value.valid, comp.offset)
+      else:
+        %""
+    ]
 
 proc getContent*(comp: Component): string =
   case comp.kind:

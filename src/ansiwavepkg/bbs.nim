@@ -299,9 +299,13 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "simpleedit":
-    result = input.key notin {iw.Key.Escape}
+    result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
-      simpleeditor.onInput(comp.searchField, input)
+      if input.key == iw.Key.Enter:
+        comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), simpleeditor.getContent(comp.searchField), comp.offset)
+        comp.showResults = true
+      else:
+        simpleeditor.onInput(comp.searchField, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:

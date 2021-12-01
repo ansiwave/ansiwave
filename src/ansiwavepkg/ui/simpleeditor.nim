@@ -27,6 +27,9 @@ let rules =
         (Editor, CursorY, cursorY)
         (Editor, Line, line)
 
+proc getContent*(session: EditorSession): string =
+  session.query(rules.getEditor).line
+
 proc init*(): EditorSession =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
@@ -51,8 +54,6 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
         line = buffer.line.toRunes
         newLine = $line[0 ..< buffer.cursorX] & $line[buffer.cursorX + 1 ..< line.len]
       session.insert(Editor, Line, newLine)
-  of iw.Key.Enter:
-    discard
   of iw.Key.Left:
     if buffer.cursorX > 0:
       session.insert(Editor, CursorX, buffer.cursorX - 1)
