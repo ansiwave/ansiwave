@@ -4,6 +4,7 @@ from wavecorepkg/client import nil
 from os import nil
 from ./ui import nil
 from ./ui/editor import nil
+from ./ui/simpleeditor import nil
 from ./ui/navbar import nil
 from ./constants import nil
 import pararules
@@ -297,6 +298,10 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
         refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
+  of "simpleedit":
+    result = input.key notin {iw.Key.Escape}
+    if result:
+      simpleeditor.onInput(comp.searchField, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -370,7 +375,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-const nonCachedPages = ["drafts", "message"].toHashSet
+const nonCachedPages = ["drafts", "message", "search"].toHashSet
 
 proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
@@ -530,11 +535,12 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
-        discard
+        sess.insertPage(ui.initSearch(clnt), "search")
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
-    leftButtons &= @[(" search ", searchAction)]
+    if page.sig != "search":
+      leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
       let content = ui.getContent(page.data)
       if content != "":

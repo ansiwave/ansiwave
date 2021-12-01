@@ -15,10 +15,11 @@ from ./crypto import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
 from ./post import nil
+from ./ui/simpleeditor import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Login, Logout, Message,
+    Post, User, Editor, Drafts, Login, Logout, Message, Search,
   Component* = ref object
     sig: string
     offset*: int
@@ -36,10 +37,12 @@ type
       request*: client.ChannelValue[client.Response]
       requestBody*: string
       requestSig*: string
-    of Drafts, Login, Logout:
-      discard
     of Message:
       message: string
+    of Search:
+      searchField*: simpleeditor.EditorSession
+    of Drafts, Login, Logout:
+      discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
     target: string
@@ -57,7 +60,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
-  of Drafts, Editor, Login, Logout, Message:
+  of Drafts, Editor, Login, Logout, Message, Search:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -85,6 +88,9 @@ proc initLogout*(): Component =
 
 proc initMessage*(message: string): Component =
   Component(kind: Message, message: message)
+
+proc initSearch*(clnt: client.Client): Component =
+  Component(kind: Search, searchField: simpleeditor.init())
 
 proc toJson*(entity: entities.Post): JsonNode =
   const maxLines = int(editorWidth / 4f)
@@ -425,6 +431,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of Message:
     finishedLoading = true
     % comp.message
+  of Search:
+    finishedLoading = true
+    simpleeditor.toJson(comp.searchField)
 
 proc getContent*(comp: Component): string =
   case comp.kind:
@@ -521,6 +530,15 @@ proc toHash*(comp: Component, board: string): string =
     for pair in pairs:
       if pair[1].len > 0:
         fragments.add(pair[0] & ":" & pair[1])
+  of Search:
+    let pairs =
+      {
+        "type": "search",
+        "board": board,
+      }
+    for pair in pairs:
+      if pair[1].len > 0:
+        fragments.add(pair[0] & ":" & pair[1])
   of Editor, Login, Logout, Message:
     discard
   strutils.join(fragments, ",")
@@ -547,6 +565,10 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     for child in node["children"]:
       render(tb, child, x + 1, y, focusIndex, areas)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
+    if node.hasKey("children-after"):
+      for child in node["children-after"]:
+        var y = yStart + 1
+        render(tb, child, x + 1, y, focusIndex, areas)
     if node.hasKey("top-right-focused") and isFocused:
       iw.write(tb, xEnd - node["top-right-focused"].str.runeLen, yStart, node["top-right-focused"].str)
     elif node.hasKey("top-right"):
