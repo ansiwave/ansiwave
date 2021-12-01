@@ -41,6 +41,7 @@ type
       message: string
     of Search:
       searchField*: simpleeditor.EditorSession
+      searchTerm*: string
       searchResults*: client.ChannelValue[seq[entities.Post]]
       showResults*: bool
     of Drafts, Login, Logout:
@@ -62,7 +63,10 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
-  of Drafts, Editor, Login, Logout, Message, Search:
+  of Search:
+    if comp.showResults:
+      comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), comp.searchTerm, comp.offset)
+  of Drafts, Editor, Login, Logout, Message:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -235,10 +239,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-        if comp.replies.value.valid.len == 0:
-          %"no posts"
-        else:
-          toJson(comp.replies.value.valid, comp.offset)
+       toJson(comp.replies.value.valid, comp.offset)
     ]
   of User:
     client.get(comp.userContent)
@@ -327,10 +328,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userReplies.value.kind == client.Error:
         %"failed to load posts"
       else:
-        if comp.userReplies.value.valid.len == 0:
-          % (if comp.showAllPosts: "no posts" else: "no journal posts")
-        else:
-          toJson(comp.userReplies.value.valid, comp.offset)
+        toJson(comp.userReplies.value.valid, comp.offset)
     ]
   of Editor:
     finishedLoading = true
@@ -448,10 +446,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         elif comp.searchResults.value.kind == client.Error:
           %"failed to fetch search results"
         else:
-          if comp.searchResults.value.valid.len == 0:
-            %"no results"
-          else:
-            toJson(comp.searchResults.value.valid, comp.offset)
+          toJson(comp.searchResults.value.valid, comp.offset)
       else:
         %""
     ]

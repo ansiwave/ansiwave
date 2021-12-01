@@ -246,7 +246,7 @@ proc refresh(session: var auto, clnt: client.Client, page: Page) =
   session.insert(page.id, View, cast[JsonNode](nil))
   ui.refresh(clnt, page.data)
 
-proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
+proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-post":
     result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
@@ -264,10 +264,7 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
   of "change-page":
     result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
-      let
-        change = actionData["offset-change"].num.int
-        globals = session.query(rules.getGlobals)
-        page = globals.pages[globals.selectedPage]
+      let change = actionData["offset-change"].num.int
       page.data.offset += change
       refresh(session, clnt, page)
   of "show-editor":
@@ -288,24 +285,21 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
   of "toggle-user-posts":
     result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
     if result:
-      let
-        key = actionData["key"].str
-        globals = session.query(rules.getGlobals)
-      if globals.pages.hasKey(key):
-        let page = globals.pages[key]
-        page.data.showAllPosts = not page.data.showAllPosts
-        page.data.offset = 0
-        refresh(session, clnt, page)
+      let key = actionData["key"].str
+      page.data.showAllPosts = not page.data.showAllPosts
+      page.data.offset = 0
+      refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
   of "simpleedit":
     result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
       if input.key == iw.Key.Enter:
-        comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), simpleeditor.getContent(comp.searchField), comp.offset)
-        comp.showResults = true
+        page.data.searchTerm = simpleeditor.getContent(page.data.searchField)
+        page.data.showResults = true
+        refresh(session, clnt, page)
       else:
-        simpleeditor.onInput(comp.searchField, input)
+        simpleeditor.onInput(page.data.searchField, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -336,9 +330,6 @@ proc handleAction(session: var auto, clnt: client.Client, comp: ui.Component, wi
       if globals.breadcrumbsIndex > 0:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         session.fireRules
-        let
-          globals = session.query(rules.getGlobals)
-          page = globals.pages[globals.selectedPage]
         refresh(session, clnt, page)
   else:
     discard
@@ -436,7 +427,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       action = (area.action, area.actionData)
 
   # handle the action
-  if not handleAction(session, clnt, page.data, width, height, input, action.actionName, action.actionData):
+  if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData):
     case input.key:
     of iw.Key.Up:
       if page.focusIndex > 0:
