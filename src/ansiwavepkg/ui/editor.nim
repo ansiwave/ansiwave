@@ -139,6 +139,8 @@ schema Fact(Id, Attr):
 type
   EditorSession* = Session[Fact, Vars[Fact]]
 
+const textWidth = editorWidth + 1
+
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
 proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int]
@@ -174,8 +176,8 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
           tb = tick(session)
       # draw progress bar
       let termWindow = getTerminalWindow(session)
-      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + editorWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
-      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(editorWidth + 1)), termWindow.y, "▓")
+      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + textWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
+      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(textWidth + 1)), termWindow.y, "▓")
       iw.display(tb)
       let key = iw.getKey()
       if key in {iw.Key.Tab, iw.Key.Escape}:
@@ -331,7 +333,7 @@ let rules* =
       cond:
         id != TerminalWindow.ord
       then:
-        session.insert(id, Width, min(width - 2, editorWidth))
+        session.insert(id, Width, min(width - 2, textWidth))
         session.insert(id, Height, height - 3 - bufferY)
     rule updateTerminalScrollX(Fact):
       what:
@@ -1377,8 +1379,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       let
         topText = "read-only mode! to edit this, convert it into an ansiwave:"
         bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
-      iw.write(tb, max(termX, int(editorWidth/2 - topText.runeLen/2)), termY, topText)
-      iw.write(tb, max(playX, int(editorWidth/2 - bottomText.runeLen/2)), termY + 1, bottomText)
+      iw.write(tb, max(termX, int(textWidth/2 - topText.runeLen/2)), termY, topText)
+      iw.write(tb, max(playX, int(textWidth/2 - bottomText.runeLen/2)), termY + 1, bottomText)
   of Errors:
     discard renderButton(session, tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", termX + 1, termY, input.key, proc () = discard)
   of Tutorial:
@@ -1467,8 +1469,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         else:
           lineTimesIdx -= 1
       # draw progress bar
-      iw.fill(tb, termX, termY, termX + editorWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
-      iw.fill(tb, termX, termY, termX + int((progress / secs) * float(editorWidth + 1)), termY, "▓")
+      iw.fill(tb, termX, termY, termX + textWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
+      iw.fill(tb, termX, termY, termX + int((progress / secs) * float(textWidth + 1)), termY, "▓")
       session.insert(selectedBuffer.id, Prompt, StopPlaying)
 
 proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
