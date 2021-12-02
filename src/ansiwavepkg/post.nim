@@ -35,6 +35,9 @@ proc splitLines*(text: string): RefStrings =
       raise newException(Exception, "Invalid UTF-8 data in line $1, byte $2".format(row+1, col+1))
     row.inc
 
+proc isWhitespace(ch: Rune): bool =
+  unicode.isWhitespace(ch) or ($ch in wavescript.whitespaceChars)
+
 proc wrapLine(line: string, maxWidth: int): seq[string] =
   # never wrap lines that are a command or that start with a whitespace char
   let
@@ -50,9 +53,9 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
     lastPartition: tuple[isWhitespace: bool, chars: seq[Rune]]
   for ch in runes(line):
     if lastPartition.chars.len == 0:
-      lastPartition = (unicode.isWhitespace(ch), @[ch])
+      lastPartition = (isWhitespace(ch), @[ch])
     else:
-      let isWhitespace = unicode.isWhitespace(ch)
+      let isWhitespace = isWhitespace(ch)
       if isWhitespace == lastPartition.isWhitespace:
         lastPartition.chars.add ch
       else:
