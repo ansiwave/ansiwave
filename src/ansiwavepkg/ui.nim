@@ -123,7 +123,7 @@ proc toJson*(entity: entities.Post): JsonNode =
     "action-accessible-text": replies,
   }
 
-proc toJson*(posts: seq[entities.Post], offset: int): JsonNode =
+proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string): JsonNode =
   result = JsonNode(kind: JArray)
   if offset > 0:
     result.add:
@@ -133,8 +133,11 @@ proc toJson*(posts: seq[entities.Post], offset: int): JsonNode =
         "action": "change-page",
         "action-data": {"offset-change": -entities.limit},
       }
-  for post in posts:
-    result.elems.add(toJson(post))
+  if posts.len > 0:
+    for post in posts:
+      result.elems.add(toJson(post))
+  else:
+    result.elems.add(%noResultsText)
   if posts.len == entities.limit:
     result.add:
       %* {
@@ -239,7 +242,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-       toJson(comp.replies.value.valid, comp.offset)
+       toJson(comp.replies.value.valid, comp.offset, "no posts")
     ]
   of User:
     client.get(comp.userContent)
@@ -328,7 +331,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userReplies.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.userReplies.value.valid, comp.offset)
+        toJson(comp.userReplies.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
@@ -446,7 +449,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         elif comp.searchResults.value.kind == client.Error:
           %"failed to fetch search results"
         else:
-          toJson(comp.searchResults.value.valid, comp.offset)
+          toJson(comp.searchResults.value.valid, comp.offset, "no results")
       else:
         %""
     ]
