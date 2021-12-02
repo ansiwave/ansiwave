@@ -88,7 +88,7 @@ proc onInput*(session: var EditorSession, input: tuple[key: iw.Key, codepoint: u
     discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
   session.fireRules
 
-proc toJson*(session: EditorSession, prompt: string): JsonNode =
+proc toJson*(session: EditorSession, prompt: string, action: string): JsonNode =
   let editor = session.query(rules.getEditor)
   %*{
     "type": "rect",
@@ -98,7 +98,7 @@ proc toJson*(session: EditorSession, prompt: string): JsonNode =
     ],
     "bottom-left-focused": prompt,
     "bottom-left": "",
-    "action": "simpleedit",
+    "action": action,
     "action-data": {},
   }
 

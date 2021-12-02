@@ -293,12 +293,13 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
       refresh(session, clnt, page)
   of "edit":
     result = input.key notin {iw.Key.Escape}
-  of "simpleedit":
+  of "search":
     result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
       if input.key == iw.Key.Enter:
         page.data.searchTerm = simpleeditor.getContent(page.data.searchField)
         page.data.showResults = true
+        page.data.offset = 0
         refresh(session, clnt, page)
       else:
         simpleeditor.onInput(page.data.searchField, input)
