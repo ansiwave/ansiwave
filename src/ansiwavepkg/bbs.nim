@@ -365,7 +365,7 @@ proc init*() =
     midi.fetchSoundfont()
 
   # remove old cached files
-  const deleteFromStorageSeconds = 60 * 60 # 1 hour
+  const deleteFromStorageSeconds = 60 * 60 * 24 # 1 day
   for filename in storage.list():
     if strutils.endsWith(filename, ".ansiwave"):
       var parsed = post.Parsed(kind: post.Local)
