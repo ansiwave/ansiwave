@@ -1032,8 +1032,11 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   var
     xBlock = tb[col, termY + buffer.y]
     yBlock = tb[termX + buffer.x, row]
-  xBlock.fg = iw.fgYellow
-  yBlock.fg = iw.fgYellow
+  const
+    dash = "-".toRunes[0]
+    pipe = "|".toRunes[0]
+  xBlock.ch = dash
+  yBlock.ch = pipe
   tb[col, termY + buffer.y] = xBlock
   tb[termX + buffer.x, row] = yBlock
 
