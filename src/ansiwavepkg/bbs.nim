@@ -251,7 +251,7 @@ proc refresh(session: var auto, clnt: client.Client, page: Page) =
 proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
   case actionName:
   of "show-post":
-    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       let
         typ = actionData["type"].str
@@ -264,13 +264,13 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
             ui.initPost(clnt, sig)
       session.insertPage(comp, sig)
   of "change-page":
-    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       let change = actionData["offset-change"].num.int
       page.data.offset += change
       refresh(session, clnt, page)
   of "show-editor":
-    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       let
         sig = actionData["sig"].str
@@ -285,7 +285,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
           discard storage.set(sig, actionData["content"].str)
         session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "toggle-user-posts":
-    result = input.key in (when defined(emscripten): {iw.Key.Mouse, iw.Key.Enter} else: {iw.Key.Mouse, iw.Key.Enter, iw.Key.Right})
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
       let key = actionData["key"].str
       page.data.showAllPosts = not page.data.showAllPosts
@@ -411,7 +411,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
     focusIndex = page.focusIndex
     scrollY = page.scrollY
-  if (input.key != iw.Key.None or input.codepoint > 0) and page.focusIndex < page.viewFocusAreas.len:
+  if (input.key != iw.Key.None or input.codepoint > 0):
     if input.key == iw.Key.Mouse:
       let info = iw.getMouse()
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
@@ -425,25 +425,28 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             action = (area.action, area.actionData)
             focusIndex = i
             break
-    else:
-      let area = page.viewFocusAreas[page.focusIndex]
+    elif focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
+      let area = page.viewFocusAreas[focusIndex]
       action = (area.action, area.actionData)
 
   # handle the action
   if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData):
     case input.key:
     of iw.Key.Up:
-      if page.focusIndex > 0:
-        focusIndex = page.focusIndex - 1
+      if focusIndex >= 0:
+        focusIndex = focusIndex - 1
     of iw.Key.Down:
-      focusIndex = page.focusIndex + 1
+      if focusIndex < 0:
+        focusIndex = 0
+      else:
+        focusIndex = focusIndex + 1
     else:
-      if not isPlaying and input.key in (when defined(emscripten): {iw.Key.Escape} else: {iw.Key.Left, iw.Key.Escape}):
+      if not isPlaying and input.key == iw.Key.Escape:
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
     # adjust focusIndex and scrollY based on viewFocusAreas
-    if page.viewFocusAreas.len > 0:
+    if focusIndex >= 0 and page.viewFocusAreas.len > 0:
       # don't let it go beyond the last focused area
       if focusIndex > page.viewFocusAreas.len - 1:
         focusIndex = page.viewFocusAreas.len - 1
@@ -523,7 +526,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       var leftButtons: seq[(string, proc ())]
       when not defined(emscripten):
         leftButtons.add((" ← ", backAction))
-      navbar.render(result, 0, 0, input, leftButtons, errorLines, rightButtons)
+      navbar.render(result, 0, 0, input, leftButtons, errorLines, rightButtons, focusIndex)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -604,7 +607,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             @[(" drafts ", draftsAction), (" my page ", myPageAction)]
           else:
             @[(" my page ", myPageAction)]
-      navbar.render(result, 0, 0, input, leftButtons, [], rightButtons)
+      navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
     else:
       let currTime = times.epochTime()
       if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
