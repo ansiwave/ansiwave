@@ -881,6 +881,7 @@ type
     forceWrite*: bool
     fgTruecolor*: RGB
     bgTruecolor*: RGB
+    cursor*: bool
 
   TerminalBuffer* = ref object
     ## A virtual terminal buffer of a fixed width and height. It remembers the
