@@ -248,7 +248,7 @@ proc refresh(session: var auto, clnt: client.Client, page: Page) =
   session.insert(page.id, View, cast[JsonNode](nil))
   ui.refresh(clnt, page.data)
 
-proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode]): bool =
+proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
   case actionName:
   of "show-post":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
@@ -292,7 +292,11 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
       page.data.offset = 0
       refresh(session, clnt, page)
   of "edit":
-    result = input.key notin {iw.Key.Escape}
+    if focusIndex >= 0:
+      if input.key == iw.Key.Up and editor.getCursorY(page.data.session) == 0:
+        focusIndex -= 1
+      else:
+        result = input.key notin {iw.Key.Escape}
   of "search":
     result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
@@ -430,7 +434,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       action = (area.action, area.actionData)
 
   # handle the action
-  if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData):
+  if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData, focusIndex):
     case input.key:
     of iw.Key.Up:
       if focusIndex >= 0:
@@ -480,7 +484,19 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
     result = iw.newTerminalBuffer(width, height)
-    editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, input, finishedLoading)
+    let filteredInput =
+      if focusIndex == 0:
+        input
+      elif input.key == iw.Key.Mouse:
+        let info = iw.getMouse()
+        if info.button == iw.MouseButton.mbLeft and
+            info.action == iw.MouseButtonAction.mbaPressed and
+            info.y >= navbar.height:
+          focusIndex = 0
+        input
+      else:
+        (iw.Key.None, 0'u32)
+    editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, filteredInput, focusIndex == 0, finishedLoading)
     ui.render(result, view, 0, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
     var errorLines: seq[string]

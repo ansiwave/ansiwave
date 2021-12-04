@@ -674,7 +674,7 @@ proc saveBuffer*(f: File | StringStream, lines: RefStrings) =
       write(f, "\n")
     i.inc
 
-proc saveToStorage*(session: var auto, sig: string) =
+proc saveToStorage*(session: var EditorSession, sig: string) =
   let globals = session.query(rules.getGlobals)
   let buffer = globals.buffers[Editor.ord]
   if buffer.editable and
@@ -690,23 +690,29 @@ proc saveToStorage*(session: var auto, sig: string) =
     except Exception as ex:
       discard
 
-proc getContent*(session: auto): string =
+proc getContent*(session: EditorSession): string =
   let
     globals = session.query(rules.getGlobals)
     buffer = globals.buffers[Editor.ord]
   post.joinLines(buffer.lines)
 
-proc isEmpty*(session: auto): bool =
+proc getCursorY*(session: EditorSession): int =
+  let
+    globals = session.query(rules.getGlobals)
+    selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
+  selectedBuffer.cursorY
+
+proc isEmpty*(session: EditorSession): bool =
   let
     globals = session.query(rules.getGlobals)
     buffer = globals.buffers[Editor.ord]
   buffer.lines[].len == 1 and post.joinLines(buffer.lines).stripCodes == ""
 
-proc isPlaying*(session: auto): bool =
+proc isPlaying*(session: EditorSession): bool =
   let globals = session.query(rules.getGlobals)
   globals.midiProgress != nil
 
-proc setEditable*(session: var auto, editable: bool) =
+proc setEditable*(session: var EditorSession, editable: bool) =
   session.insert(Editor, Editable, editable)
 
 var clipboard = ""
@@ -923,8 +929,7 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   session.insert(buffer.id, CursorX, buffer.cursorX + 1)
   true
 
-proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32]) =
-  let focused = buffer.prompt != StopPlaying
+proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
   iw.drawRect(tb, termX + buffer.x, termY + buffer.y, termX + buffer.x + buffer.width + 1, termY + buffer.y + buffer.height + 1, doubleStyle = focused)
 
   let
@@ -1321,7 +1326,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
     result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
-proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool) =
+proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool, finishedLoading: var bool) =
   let
     termWindow = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
@@ -1401,14 +1406,14 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         var
           tb = iw.newTerminalBuffer(width, height)
           finishedLoading: bool
-        tick(sess, tb, termX, termY, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        tick(sess, tb, termX, termY, width, height, (iw.Key.None, 0'u32), focused, finishedLoading)
         iw.display(tb)
         iw.setDoubleBuffering(true)
     discard renderButton(session, tb, "↕ copy link", titleX, termY, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
   else:
     discard
 
-  renderBuffer(session, tb, termX, termY, selectedBuffer, input)
+  renderBuffer(session, tb, termX, termY, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
 
   # render bottom bar
   var x = 0
@@ -1480,7 +1485,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   result = iw.newTerminalBuffer(width, height)
   var finishedLoading: bool
-  tick(session, result, x, y, width, height, input, finishedLoading)
+  tick(session, result, x, y, width, height, input, true, finishedLoading)
 
 proc tick*(session: var EditorSession): iw.TerminalBuffer =
   let (x, y, width, height) = session.query(rules.getTerminalWindow)
