@@ -292,7 +292,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
       page.data.offset = 0
       refresh(session, clnt, page)
   of "edit":
-    if focusIndex >= 0:
+    if focusIndex == 0:
       if input.key == iw.Key.Up and editor.getCursorY(page.data.session) == 0:
         focusIndex -= 1
       else:
@@ -485,7 +485,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
   if page.isEditor:
     result = iw.newTerminalBuffer(width, height)
     let filteredInput =
-      if focusIndex == 0:
+      if page.focusIndex == 0:
         input
       elif input.key == iw.Key.Mouse:
         let info = iw.getMouse()

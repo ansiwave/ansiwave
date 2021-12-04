@@ -700,7 +700,7 @@ proc getCursorY*(session: EditorSession): int =
   let
     globals = session.query(rules.getGlobals)
     selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
-  selectedBuffer.cursorY
+  selectedBuffer.wrappedCursorY
 
 proc isEmpty*(session: EditorSession): bool =
   let
