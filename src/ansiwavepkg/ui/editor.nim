@@ -1100,7 +1100,7 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
   elif key in shortcut.key:
     cb()
 
-proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, colorX: int, colorY: int): int =
+proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], colorX: int, colorY: int): int =
   const
     colorFgDarkCodes    = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
     colorFgBrightCodes  = ["", "\e[30m", "\e[1;31m", "\e[1;32m", "\e[1;33m", "\e[1;34m", "\e[1;35m", "\e[1;36m", "\e[37m"]
@@ -1135,7 +1135,7 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
   codes.write(tb, colorX, colorY, colorChars)
   iw.write(tb, colorX + fgIndex * 3, colorY + 1, "↑")
   codes.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
-  if key == iw.Key.Mouse:
+  if input.key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.y == colorY:
       if info.action == iw.MouseButtonAction.mbaPressed:
@@ -1155,7 +1155,11 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
   elif buffer.mode == 1:
     try:
-      let ch = char(key.ord)
+      let ch =
+        if input.codepoint != 0:
+          char(input.codepoint)
+        else:
+          char(input.key.ord)
       if ch in colorFgShortcutsSet:
         let index = find(colorFgShortcuts, ch)
         session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
@@ -1179,7 +1183,7 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
       (id: 1, label: "☼", callback: brightCallback),
     ]
     shortcut = (key: {iw.Key.CtrlB}, hint: "hint: change brightness with ctrl b")
-  result = renderRadioButtons(session, tb, result, colorY, choices, buffer.brightness, key, false, shortcut)
+  result = renderRadioButtons(session, tb, result, colorY, choices, buffer.brightness, input.key, false, shortcut)
 
 proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int, brushY: int): int =
   const
@@ -1368,7 +1372,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
       x = renderRadioButtons(session, tb, termX + x, termY + 0, choices, selectedBuffer.mode, input.key, false, shortcut)
 
-      x = renderColors(session, tb, selectedBuffer, input.key, termX + x + 1, termY)
+      x = renderColors(session, tb, selectedBuffer, input, termX + x + 1, termY)
 
       if selectedBuffer.mode == 0:
         discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
