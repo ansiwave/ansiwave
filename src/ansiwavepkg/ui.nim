@@ -19,7 +19,7 @@ from ./ui/simpleeditor import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Recents, Login, Logout, Message, Search,
+    Post, User, Editor, Drafts, Sent, Login, Logout, Message, Search,
   Component* = ref object
     sig: string
     offset*: int
@@ -44,7 +44,7 @@ type
       searchTerm*: string
       searchResults*: client.ChannelValue[seq[entities.Post]]
       showResults*: bool
-    of Drafts, Recents, Login, Logout:
+    of Drafts, Sent, Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
@@ -69,7 +69,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Search:
     if comp.showResults:
       comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), comp.searchTerm, comp.offset)
-  of Drafts, Recents, Editor, Login, Logout, Message:
+  of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -89,8 +89,8 @@ proc initDrafts*(clnt: client.Client): Component =
   result = Component(kind: Drafts)
   refresh(clnt, result)
 
-proc initRecents*(clnt: client.Client): Component =
-  result = Component(kind: Recents)
+proc initSent*(clnt: client.Client): Component =
+  result = Component(kind: Sent)
   refresh(clnt, result)
 
 proc initLogin*(): Component =
@@ -373,10 +373,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           if parts.len == 3:
             json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename)))
     json
-  of Recents:
+  of Sent:
     finishedLoading = true
     var json = %* [
-      "These are your recently made posts.",
+      "These are your recently sent posts.",
       "They may take some time to appear on the board.",
       "",
     ]
@@ -580,10 +580,10 @@ proc toHash*(comp: Component, board: string): string =
     for pair in pairs:
       if pair[1].len > 0:
         fragments.add(pair[0] & ":" & pair[1])
-  of Recents:
+  of Sent:
     let pairs =
       {
-        "type": "recents",
+        "type": "sent",
         "board": board,
       }
     for pair in pairs:
