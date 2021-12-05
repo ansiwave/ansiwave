@@ -84,7 +84,7 @@ proc onInput*(session: var EditorSession, input: tuple[key: iw.Key, codepoint: u
   let buffer = session.query(rules.getEditor)
   if input.codepoint != 0:
     discard onInput(session, input.codepoint, buffer)
-  elif input.key != iw.Key.None:
+  elif input.key notin {iw.Key.None, iw.Key.Mouse}:
     discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
   session.fireRules
 
