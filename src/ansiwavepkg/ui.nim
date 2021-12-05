@@ -19,7 +19,7 @@ from ./ui/simpleeditor import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Login, Logout, Message, Search,
+    Post, User, Editor, Drafts, Recents, Login, Logout, Message, Search,
   Component* = ref object
     sig: string
     offset*: int
@@ -44,11 +44,14 @@ type
       searchTerm*: string
       searchResults*: client.ChannelValue[seq[entities.Post]]
       showResults*: bool
-    of Drafts, Login, Logout:
+    of Drafts, Recents, Login, Logout:
       discard
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
   Draft = object
     target: string
+    content: string
+    sig: string
+  Recent = object
     content: string
     sig: string
 
@@ -66,7 +69,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
   of Search:
     if comp.showResults:
       comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), comp.searchTerm, comp.offset)
-  of Drafts, Editor, Login, Logout, Message:
+  of Drafts, Recents, Editor, Login, Logout, Message:
     discard
 
 proc initPost*(clnt: client.Client, sig: string): Component =
@@ -84,6 +87,10 @@ proc initEditor*(width: int, height: int, sig: string, headers: string): Compone
 
 proc initDrafts*(clnt: client.Client): Component =
   result = Component(kind: Drafts)
+  refresh(clnt, result)
+
+proc initRecents*(clnt: client.Client): Component =
+  result = Component(kind: Recents)
   refresh(clnt, result)
 
 proc initLogin*(): Component =
@@ -173,6 +180,17 @@ proc toJson*(draft: Draft): JsonNode =
     },
     "" # spacer
   ]
+
+proc toJson*(recent: Recent): JsonNode =
+  const maxLines = int(editorWidth / 4f)
+  let lines = strutils.splitLines(recent.content)
+  %* {
+    "type": "rect",
+    "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+    "bottom-left": if lines.len > maxLines: "see more" else: "",
+    "action": "show-post",
+    "action-data": {"type": "post", "sig": recent.sig},
+  }
 
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
@@ -354,6 +372,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           let parts = strutils.split(filename, '.')
           if parts.len == 3:
             json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename)))
+    json
+  of Recents:
+    finishedLoading = true
+    var json = %* [
+      "These are your recently made posts.",
+      "They may take some time to appear on the board.",
+      "",
+    ]
+    for filename in post.recents(crypto.pubKey):
+      var parsed = post.Parsed(kind: post.Local)
+      post.parseAnsiwave(storage.get(filename), parsed)
+      let parts = strutils.split(filename, '.')
+      json.elems.add(toJson(Recent(content: parsed.content, sig: parts[0])))
     json
   of Login:
     finishedLoading = true
@@ -544,6 +575,15 @@ proc toHash*(comp: Component, board: string): string =
     let pairs =
       {
         "type": "drafts",
+        "board": board,
+      }
+    for pair in pairs:
+      if pair[1].len > 0:
+        fragments.add(pair[0] & ":" & pair[1])
+  of Recents:
+    let pairs =
+      {
+        "type": "recents",
         "board": board,
       }
     for pair in pairs:

@@ -159,6 +159,13 @@ proc drafts*(): seq[string] =
     if strutils.endsWith(filename, ".new") or strutils.endsWith(filename, ".edit"):
       result.add(filename)
 
+proc recents*(pubKey: string): seq[string] =
+  for filename in storage.list():
+    if strutils.endsWith(filename, ".ansiwave") and
+        # don't include banner in recents
+        filename != pubKey & ".ansiwave":
+      result.add(filename)
+
 type
   CommandTreesRef* = ref seq[wavescript.CommandTree]
 

@@ -31,7 +31,7 @@ type
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
-    Drafts,
+    HasDrafts, HasRecents,
   Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
@@ -60,7 +60,8 @@ schema Fact(Id, Attr):
   AllPages: PageTable
   PageBreadcrumbs: StringSeq
   PageBreadcrumbsIndex: int
-  Drafts: bool
+  HasDrafts: bool
+  HasRecents: bool
   Signature: string
   ComponentData: Component
   FocusIndex: int
@@ -86,14 +87,16 @@ let rules =
         (Global, AllPages, pages)
         (Global, PageBreadcrumbs, breadcrumbs)
         (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
-        (Global, Drafts, drafts)
+        (Global, HasDrafts, hasDrafts)
+        (Global, HasRecents, hasRecents)
     rule changeSelectedPage(Fact):
       what:
         (Global, PageBreadcrumbs, breadcrumbs)
         (Global, PageBreadcrumbsIndex, breadcrumbsIndex)
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
-        session.insert(Global, Drafts, post.drafts().len > 0)
+        session.insert(Global, HasDrafts, post.drafts().len > 0)
+        session.insert(Global, HasRecents, post.recents(crypto.pubKey).len > 0)
     rule updateHashWhenPageChanges(Fact):
       what:
         (Global, Board, board)
@@ -199,6 +202,8 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
       case parts["type"]:
       of "drafts":
         session.insertPage(ui.initDrafts(clnt), "drafts")
+      of "recents":
+        session.insertPage(ui.initRecents(clnt), "recents")
       of "search":
         session.insertPage(ui.initSearch(), "search")
       else:
@@ -231,7 +236,8 @@ proc initSession*(clnt: client.Client): auto =
   let empty: StringSeq = @[]
   result.insert(Global, PageBreadcrumbs, empty)
   result.insert(Global, PageBreadcrumbsIndex, -1)
-  result.insert(Global, Drafts, false)
+  result.insert(Global, HasDrafts, false)
+  result.insert(Global, HasRecents, false)
   var hash =
     when defined(emscripten):
       emscripten.getHash()
@@ -377,7 +383,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-const nonCachedPages = ["drafts", "message", "search"].toHashSet
+const nonCachedPages = ["drafts", "recents", "message", "search"].toHashSet
 
 proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
@@ -617,12 +623,17 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           let
             draftsAction = proc () {.closure.} =
               sess.insertPage(ui.initDrafts(clnt), "drafts")
+            recentsAction = proc () {.closure.} =
+              sess.insertPage(ui.initRecents(clnt), "recents")
             myPageAction = proc () {.closure.} =
               sess.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
-          if globals.drafts and page.sig != "drafts":
-            @[(" drafts ", draftsAction), (" my page ", myPageAction)]
-          else:
-            @[(" my page ", myPageAction)]
+          var s: seq[(string, proc ())]
+          if globals.hasDrafts and page.sig != "drafts":
+            s.add((" drafts ", draftsAction))
+          if globals.hasRecents and page.sig != "recents":
+            s.add((" recents ", recentsAction))
+          s.add((" my page ", myPageAction))
+          s
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
     else:
       let currTime = times.epochTime()
@@ -655,10 +666,10 @@ proc main*() =
   var clnt = client.initClient(paths.address, paths.postAddress)
   client.start(clnt)
 
+  init()
+
   # create session
   var session = initSession(clnt)
-
-  init()
 
   # start loop
   while true:
