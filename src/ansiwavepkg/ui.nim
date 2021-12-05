@@ -441,7 +441,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     else:
       finishedLoading = true
     %* [
-      simpleeditor.toJson(comp.searchField, "search and press enter", "search"),
+      simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
       "", # spacer
       if comp.showResults:
         if not comp.searchResults.ready:
