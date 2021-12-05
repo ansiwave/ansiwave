@@ -56,13 +56,13 @@ proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
-    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
+    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, false, comp.offset)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     if comp.showAllPosts:
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, true, comp.offset)
   of Search:
     if comp.showResults:
       comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), comp.searchTerm, comp.offset)
