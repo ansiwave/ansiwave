@@ -383,8 +383,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     for filename in post.recents(crypto.pubKey):
       var parsed = post.Parsed(kind: post.Local)
       post.parseAnsiwave(storage.get(filename), parsed)
-      let parts = strutils.split(filename, '.')
-      json.elems.add(toJson(Recent(content: parsed.content, sig: parts[0])))
+      if parsed.kind != post.Error:
+        let parts = strutils.split(filename, '.')
+        json.elems.add(toJson(Recent(content: parsed.content, sig: parts[0])))
     json
   of Login:
     finishedLoading = true
