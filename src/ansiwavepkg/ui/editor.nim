@@ -768,7 +768,7 @@ proc copyLink*(link: string) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
   iw.showCursor()
-  for i in 0 ..< 20:
+  for i in 0 ..< 100:
     echo ""
   echo link
   echo ""
