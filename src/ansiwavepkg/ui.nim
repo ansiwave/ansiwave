@@ -42,6 +42,7 @@ type
     of Search:
       searchField*: simpleeditor.EditorSession
       searchTerm*: string
+      searchKind*: entities.SearchKind
       searchResults*: client.ChannelValue[seq[entities.Post]]
       showResults*: bool
     of Drafts, Sent, Login, Logout:
@@ -68,7 +69,7 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, true, comp.offset)
   of Search:
     if comp.showResults:
-      comp.searchResults = client.searchPosts(clnt, paths.db(paths.sysopPublicKey), comp.searchTerm, comp.offset)
+      comp.searchResults = client.search(clnt, paths.db(paths.sysopPublicKey), comp.searchKind, comp.searchTerm, comp.offset)
   of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
@@ -340,9 +341,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "text": ["journal posts", "all posts"],
           "index": (if comp.showAllPosts: 1 else: 0),
           "action": "toggle-user-posts",
-          "action-data": {
-            "key": comp.sig,
-          },
+          "action-data": {},
         }
       ,
       "", # spacer
@@ -476,6 +475,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       finishedLoading = true
     %* [
       simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
+      {
+        "type": "tabs",
+        "text": ["all posts", "users"],
+        "index": comp.searchKind.ord,
+        "action": "change-search-type",
+        "action-data": {},
+      },
       "", # spacer
       if comp.showResults:
         if not comp.searchResults.ready:

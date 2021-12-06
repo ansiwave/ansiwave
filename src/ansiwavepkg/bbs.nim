@@ -1,5 +1,6 @@
 from ./illwill as iw import `[]`, `[]=`
 from wavecorepkg/db/vfs import nil
+from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from os import nil
 from ./ui import nil
@@ -292,8 +293,18 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   of "toggle-user-posts":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Left, iw.Key.Right}
     if result:
-      let key = actionData["key"].str
       page.data.showAllPosts = not page.data.showAllPosts
+      page.data.offset = 0
+      refresh(session, clnt, page)
+  of "change-search-type":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Left, iw.Key.Right}
+    if result:
+      let diff =
+        if input.key == iw.Key.Left:
+          -1
+        else:
+          1
+      page.data.searchKind = entities.SearchKind(abs(page.data.searchKind.ord + diff) mod (entities.SearchKind.high.ord + 1))
       page.data.offset = 0
       refresh(session, clnt, page)
   of "edit":
