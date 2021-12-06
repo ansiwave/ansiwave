@@ -12,7 +12,7 @@ import pararules
 from pararules/engine import Session, Vars
 from json import JsonNode
 import tables, sets
-from ./crypto import nil
+from ./user import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
 from wavecorepkg/common import nil
@@ -97,7 +97,7 @@ let rules =
       then:
         session.insert(Global, SelectedPage, breadcrumbs[breadcrumbsIndex])
         session.insert(Global, HasDrafts, post.drafts().len > 0)
-        session.insert(Global, HasSent, post.recents(crypto.pubKey).len > 0)
+        session.insert(Global, HasSent, post.recents(user.pubKey).len > 0)
     rule updateHashWhenPageChanges(Fact):
       what:
         (Global, Board, board)
@@ -215,9 +215,9 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
       else:
         session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
   elif parts.hasKey("key") and parts.hasKey("algo"):
-    if crypto.pubKey == "":
-      if crypto.createUser(parts["key"], parts["algo"]):
-        session.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
+    if user.pubKey == "":
+      if user.createUser(parts["key"], parts["algo"]):
+        session.insertPage(ui.initUser(clnt, user.pubKey), user.pubKey)
     else:
       session.insertPage(ui.initMessage("You must log out of your existing account before logging in to a new one."), "message")
 
@@ -264,7 +264,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         sig = actionData["sig"].str
         globals = session.query(rules.getGlobals)
         comp =
-          if typ == "user" or sig == crypto.pubKey:
+          if typ == "user" or sig == user.pubKey:
             ui.initUser(clnt, sig)
           else:
             ui.initPost(clnt, sig)
@@ -339,7 +339,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   of "create-user":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
-      crypto.createUser()
+      user.createUser()
       let globals = session.query(rules.getGlobals)
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
   of "login":
@@ -347,7 +347,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
       result = input.key in {iw.Key.Mouse, iw.Key.Enter}
       if result:
         var sess = session
-        crypto.browsePrivateKey(proc () =
+        user.browsePrivateKey(proc () =
           let globals = sess.query(rules.getGlobals)
           if globals.breadcrumbsIndex > 0:
             sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
@@ -355,7 +355,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   of "logout":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
-      crypto.removeKey()
+      user.removeKey()
       let globals = session.query(rules.getGlobals)
       if globals.breadcrumbsIndex > 0:
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
@@ -384,7 +384,7 @@ proc isEditor*(session: auto): bool =
 
 proc init*() =
   try:
-    crypto.loadKey()
+    user.loadKey()
   except Exception as ex:
     echo ex.msg
 
@@ -544,7 +544,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             else:
               page.data.requestSig
         if storage.set(sig & ".ansiwave", page.data.requestBody):
-          session.insertPage(if sig == crypto.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
+          session.insertPage(if sig == user.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         let continueAction = proc () =
@@ -556,7 +556,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       let
         sendAction = proc () {.closure.} =
           editor.setEditable(page.data.session, false)
-          let (body, sig) = common.sign(crypto.keyPair, page.data.headers, editor.getContent(page.data.session))
+          let (body, sig) = common.sign(user.keyPair, page.data.headers, editor.getContent(page.data.session))
           page.data.requestBody = body
           page.data.requestSig = sig
           page.data.request = client.submit(clnt, "ansiwave", body)
@@ -619,19 +619,19 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       var rightButtons: seq[(string, proc ())] =
         if page.sig == "login" or page.sig == "logout":
           @[]
-        elif crypto.pubKey == "":
+        elif user.pubKey == "":
           let
             loginAction = proc () {.closure.} =
               sess.insertPage(ui.initLogin(), "login")
           @[(" login ", loginAction)]
-        elif page.sig == crypto.pubKey:
+        elif page.sig == user.pubKey:
           let
             logoutAction = proc () {.closure, gcsafe.} =
               {.cast(gcsafe).}:
                 sess.insertPage(ui.initLogout(), "logout")
             downloadKeyAction = proc () {.closure.} =
               when defined(emscripten):
-                crypto.downloadImage()
+                user.downloadImage()
           when defined(emscripten):
             @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
           else:
@@ -643,7 +643,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             sentAction = proc () {.closure.} =
               sess.insertPage(ui.initSent(clnt), "sent")
             myPageAction = proc () {.closure.} =
-              sess.insertPage(ui.initUser(clnt, crypto.pubKey), crypto.pubKey)
+              sess.insertPage(ui.initUser(clnt, user.pubKey), user.pubKey)
           var s: seq[(string, proc ())]
           if globals.hasDrafts and page.sig != "drafts":
             s.add((" drafts ", draftsAction))

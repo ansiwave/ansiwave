@@ -104,13 +104,13 @@ test "qrcode":
                              qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
   printQr(qrcode.addr)
 
-from ./ansiwavepkg/crypto import nil
+from ./ansiwavepkg/user import nil
 import stb_image/read as stbi
 
 test "stego":
   var width, height, channels: int
   var data = stbi.loadFromMemory(cast[seq[uint8]](img), width, height, channels, stbi.RGBA)
   const message = "Hello, world!"
-  crypto.stego(data, message)
-  check message == crypto.destego(data)
+  user.stego(data, message)
+  check message == user.destego(data)
 

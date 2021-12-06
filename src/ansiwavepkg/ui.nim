@@ -11,7 +11,7 @@ from strutils import format
 from os import `/`
 from ./ui/editor import nil
 from ./ui/navbar import nil
-from ./crypto import nil
+from ./user import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
 from ./post import nil
@@ -174,7 +174,7 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": common.headers(crypto.pubKey, draft.target, isNew),
+        "headers": common.headers(user.pubKey, draft.target, isNew),
       },
     },
     {
@@ -218,7 +218,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           }
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
-        if parsed.key == crypto.pubKey:
+        if parsed.key == user.pubKey:
           %* {
             "type": "button",
             "text":
@@ -231,7 +231,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(crypto.pubKey, parsed.sig, false),
+              "headers": common.headers(user.pubKey, parsed.sig, false),
             },
           }
         elif parsed.key != paths.sysopPublicKey:
@@ -246,7 +246,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %[]
       ,
-      if crypto.pubKey == "":
+      if user.pubKey == "":
         %[]
       else:
         %* {
@@ -255,7 +255,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(crypto.pubKey, comp.sig, true),
+            "headers": common.headers(user.pubKey, comp.sig, true),
           },
         }
       ,
@@ -288,13 +288,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.sig)
         if parsed.kind == post.Error:
-          if comp.sig == crypto.pubKey:
+          if comp.sig == user.pubKey:
             %"Your banner will be here. Put something about yourself...or not."
           else:
             %""
         else:
           let lines = post.wrapLines(strutils.splitLines(parsed.content))
-          if comp.sig == crypto.pubKey and lines.len == 1 and lines[0] == "":
+          if comp.sig == user.pubKey and lines.len == 1 and lines[0] == "":
             %"Your banner will be here. Put something about yourself...or not."
           else:
             %*{
@@ -303,7 +303,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             }
       ,
       if comp.userContent.ready and parsed.kind != post.Error:
-        if parsed.key == crypto.pubKey:
+        if parsed.key == user.pubKey:
           %* {
             "type": "button",
             "text": "edit banner",
@@ -311,25 +311,25 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(crypto.pubKey, parsed.sig, false),
+              "headers": common.headers(user.pubKey, parsed.sig, false),
             },
           }
         else:
           %[]
-      elif comp.sig == crypto.pubKey:
+      elif comp.sig == user.pubKey:
         %* {
           "type": "button",
           "text": "create banner",
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & "." & comp.sig & ".edit",
-            "headers": common.headers(crypto.pubKey, crypto.pubKey, false),
+            "headers": common.headers(user.pubKey, user.pubKey, false),
           },
         }
       else:
         %[]
       ,
-      if comp.sig == crypto.pubKey:
+      if comp.sig == user.pubKey:
         %* {
           "type": "button",
           "text":
@@ -341,7 +341,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(crypto.pubKey, comp.sig, true),
+            "headers": common.headers(user.pubKey, comp.sig, true),
           },
         }
       else:
@@ -395,7 +395,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "They may take some time to appear on the board.",
       "",
     ]
-    for filename in post.recents(crypto.pubKey):
+    for filename in post.recents(user.pubKey):
       var parsed = post.Parsed(kind: post.Local)
       post.parseAnsiwave(storage.get(filename), parsed)
       if parsed.kind != post.Error:
