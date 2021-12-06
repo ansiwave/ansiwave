@@ -58,19 +58,23 @@ type
     content: string
     sig: string
 
+var myUser: client.ChannelValue[entities.User]
+
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, false, comp.offset)
   of User:
-    if comp.sig != paths.sysopPublicKey:
-      comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     if comp.showAllPosts:
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
     else:
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, true, comp.offset)
+    if comp.sig != paths.sysopPublicKey:
+      comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
+    if user.pubKey != "":
+      myUser = client.queryUser(clnt, paths.db(paths.sysopPublicKey), user.pubKey)
   of Search:
     if comp.showResults:
       comp.searchResults = client.search(clnt, paths.db(paths.sysopPublicKey), comp.searchKind, comp.searchTerm, comp.offset)
@@ -270,16 +274,27 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of User:
     client.get(comp.userContent)
     client.get(comp.userReplies)
-    finishedLoading = comp.userContent.ready and comp.userReplies.ready
+    client.get(myUser)
+    finishedLoading = comp.userContent.ready and comp.userReplies.ready and myUser.ready
     var parsed: post.Parsed
     %*[
       if comp.sig != paths.sysopPublicKey:
         client.get(comp.user)
-        if not comp.user.ready:
+        if not comp.user.ready or
+            comp.user.value.kind == client.Error:
           %[]
         else:
-          finishedLoading = false # so the editor will always refresh
-          simpleeditor.toJson(comp.tagsField, "press enter to edit tags", "edit-tags")
+          if not myUser.ready or
+              myUser.value.kind == client.Error:
+              # TODO: require moderator tag to show tag editor
+              #"moderator" notin common.parseTags(myUser.value.valid.tags.value):
+            if comp.user.value.valid.tags.value == "":
+              %[]
+            else:
+              %comp.user.value.valid.tags.value
+          else:
+            finishedLoading = false # so the editor will always refresh
+            simpleeditor.toJson(comp.tagsField, "press enter to edit tags", "edit-tags")
       else:
         %[]
       ,
