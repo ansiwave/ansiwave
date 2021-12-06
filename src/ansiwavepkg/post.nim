@@ -147,13 +147,6 @@ proc set*(lines: var RefStrings, i: int, line: string) =
   s[] = line
   lines[i] = s
 
-proc splitAfterHeaders*(content: string): seq[string] =
-  let idx = strutils.find(content, "\n\n")
-  if idx == -1: # this should never happen
-    @[""]
-  else:
-    wrapLines(strutils.splitLines(content[idx + 2 ..< content.len]))
-
 proc drafts*(): seq[string] =
   for filename in storage.list():
     if strutils.endsWith(filename, ".new") or strutils.endsWith(filename, ".edit"):

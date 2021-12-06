@@ -30,6 +30,8 @@ type
     of User:
       showAllPosts*: bool
       tagsField*: simpleeditor.EditorSession
+      tagsSig*: string
+      editTagsRequest*: client.ChannelValue[client.Response]
       user: client.ChannelValue[entities.User]
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
@@ -128,7 +130,7 @@ proc toJson*(entity: entities.Post): JsonNode =
           "1 reply"
         else:
           $entity.reply_count & " replies"
-    lines = post.splitAfterHeaders(entity.content.value.uncompressed)
+    lines = post.wrapLines(common.splitAfterHeaders(entity.content.value.uncompressed))
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
@@ -178,7 +180,7 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": common.headers(user.pubKey, draft.target, isNew),
+        "headers": common.headers(user.pubKey, draft.target, if isNew: common.New else: common.Edit),
       },
     },
     {
@@ -235,7 +237,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, false),
+              "headers": common.headers(user.pubKey, parsed.sig, common.Edit),
             },
           }
         elif parsed.key != paths.sysopPublicKey:
@@ -259,7 +261,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, true),
+            "headers": common.headers(user.pubKey, comp.sig, common.New),
           },
         }
       ,
@@ -284,17 +286,39 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             comp.user.value.kind == client.Error:
           %[]
         else:
-          if not myUser.ready or
-              myUser.value.kind == client.Error:
-              # TODO: require moderator tag to show tag editor
-              #"moderator" notin common.parseTags(myUser.value.valid.tags.value):
-            if comp.user.value.valid.tags.value == "":
-              %[]
-            else:
-              %comp.user.value.valid.tags.value
-          else:
+          if comp.tagsSig != "":
             finishedLoading = false # so the editor will always refresh
-            simpleeditor.toJson(comp.tagsField, "press enter to edit tags", "edit-tags")
+            let text =
+              if comp.editTagsRequest.started:
+                client.get(comp.editTagsRequest)
+                if comp.editTagsRequest.ready:
+                  comp.tagsSig = ""
+                  comp.editTagsRequest.started = false
+                "editing tags..."
+              else:
+                "press enter to edit tags or esc to cancel"
+            simpleeditor.toJson(comp.tagsField, text, "edit-tags")
+          else:
+            %[
+              if comp.user.value.valid.tags.value == "":
+                %[]
+              else:
+                % (" " & comp.user.value.valid.tags.value)
+              ,
+              if not myUser.ready or
+                  myUser.value.kind == client.Error or
+                  "moderator" notin common.parseTags(myUser.value.valid.tags.value):
+                %[]
+              else:
+                %* {
+                  "type": "button",
+                  "text": "edit tags",
+                  "action": "start-editing-tags",
+                  "action-data": {
+                    "tags-sig": comp.user.value.valid.tags.sig,
+                  },
+                }
+            ]
       else:
         %[]
       ,
@@ -326,7 +350,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, false),
+              "headers": common.headers(user.pubKey, parsed.sig, common.Edit),
             },
           }
         else:
@@ -338,7 +362,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & "." & comp.sig & ".edit",
-            "headers": common.headers(user.pubKey, user.pubKey, false),
+            "headers": common.headers(user.pubKey, user.pubKey, common.Edit),
           },
         }
       else:
@@ -356,7 +380,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, true),
+            "headers": common.headers(user.pubKey, comp.sig, common.New),
           },
         }
       else:

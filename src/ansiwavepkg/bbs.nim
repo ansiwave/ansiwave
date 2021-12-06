@@ -323,11 +323,21 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         refresh(session, clnt, page)
       else:
         simpleeditor.onInput(page.data.searchField, input)
-  of "edit-tags":
-    result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
+  of "start-editing-tags":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
-      if input.key == iw.Key.Enter:
-        discard
+      page.data.tagsSig = actionData["tags-sig"].str
+      refresh(session, clnt, page)
+  of "edit-tags":
+    result = input.key notin {iw.Key.Up, iw.Key.Down}
+    if result:
+      if input.key == iw.Key.Escape:
+        page.data.tagsSig = ""
+      elif input.key == iw.Key.Enter:
+        let
+          headers = common.headers(user.pubKey, page.data.tagsSig, common.Tags)
+          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.tagsField))
+        page.data.editTagsRequest = client.submit(clnt, "ansiwave", body)
       else:
         simpleeditor.onInput(page.data.tagsField, input)
   of "go-back":
