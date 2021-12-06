@@ -323,6 +323,13 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         refresh(session, clnt, page)
       else:
         simpleeditor.onInput(page.data.searchField, input)
+  of "edit-tags":
+    result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
+    if result:
+      if input.key == iw.Key.Enter:
+        discard
+      else:
+        simpleeditor.onInput(page.data.tagsField, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -393,7 +400,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-const nonCachedPages = ["drafts", "sent", "message", "search"].toHashSet
+const nonCachedPages = ["drafts", "sent", "message"].toHashSet
 
 proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules

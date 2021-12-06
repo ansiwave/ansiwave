@@ -29,6 +29,8 @@ type
       replies: client.ChannelValue[seq[entities.Post]]
     of User:
       showAllPosts*: bool
+      tagsField*: simpleeditor.EditorSession
+      user: client.ChannelValue[entities.User]
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
     of Editor:
@@ -62,6 +64,8 @@ proc refresh*(clnt: client.Client, comp: Component) =
     comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, false, comp.offset)
   of User:
+    if comp.sig != paths.sysopPublicKey:
+      comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
     comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
     if comp.showAllPosts:
       comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
@@ -78,7 +82,7 @@ proc initPost*(clnt: client.Client, sig: string): Component =
   refresh(clnt, result)
 
 proc initUser*(clnt: client.Client, key: string): Component =
-  result = Component(kind: User, sig: key)
+  result = Component(kind: User, sig: key, tagsField: simpleeditor.init())
   refresh(clnt, result)
 
 proc initEditor*(width: int, height: int, sig: string, headers: string): Component =
@@ -269,6 +273,16 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = comp.userContent.ready and comp.userReplies.ready
     var parsed: post.Parsed
     %*[
+      if comp.sig != paths.sysopPublicKey:
+        client.get(comp.user)
+        if not comp.user.ready:
+          %[]
+        else:
+          finishedLoading = false # so the editor will always refresh
+          simpleeditor.toJson(comp.tagsField, "press enter to edit tags", "edit-tags")
+      else:
+        %[]
+      ,
       if not comp.userContent.ready:
         %"loading..."
       else:
@@ -468,11 +482,9 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = true
     % comp.message
   of Search:
+    finishedLoading = false # so the editor will always refresh
     if comp.showResults:
       client.get(comp.searchResults)
-      finishedLoading = comp.searchResults.ready
-    else:
-      finishedLoading = true
     %* [
       simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
       {
