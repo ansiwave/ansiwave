@@ -688,7 +688,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
 proc main*() =
-  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.dbDir & "/" & paths.dbFilename
+  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address, paths.postAddress)
   client.start(clnt)
