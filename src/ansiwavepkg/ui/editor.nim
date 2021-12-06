@@ -1030,15 +1030,15 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   if buffer.mode == 0 or buffer.prompt == StopPlaying:
     setCursor(tb, col, row)
   var
-    xBlock = tb[col, termY + buffer.y]
-    yBlock = tb[termX + buffer.x, row]
+    xBlock = tb[col, termY + buffer.y + buffer.height + 1]
+    yBlock = tb[termX + buffer.x + buffer.width + 1, row]
   const
     dash = "-".toRunes[0]
     pipe = "|".toRunes[0]
   xBlock.ch = dash
   yBlock.ch = pipe
-  tb[col, termY + buffer.y] = xBlock
-  tb[termX + buffer.x, row] = yBlock
+  tb[col, termY + buffer.y + buffer.height + 1] = xBlock
+  tb[termX + buffer.x + buffer.width + 1, row] = yBlock
 
   var prompt = ""
   case buffer.prompt:
