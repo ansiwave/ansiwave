@@ -336,14 +336,16 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %[]
       else:
         %* {
-          "type": "button",
-          "text": (if comp.showAllPosts: "see only journal posts" else: "see all posts"),
+          "type": "tabs",
+          "text": ["journal posts", "all posts"],
+          "index": (if comp.showAllPosts: 1 else: 0),
           "action": "toggle-user-posts",
           "action-data": {
             "key": comp.sig,
           },
         }
       ,
+      "", # spacer
       if not comp.userReplies.ready:
         %"loading posts"
       elif comp.userReplies.value.kind == client.Error:
@@ -644,6 +646,18 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     render(tb, node["text"].str, xStart, y)
     iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
     y += 1
+  of "tabs":
+    xStart += 1
+    var
+      tabX = 0
+      tabIndex = 0
+    for tab in node["text"]:
+      codes.write(tb, xStart + tabX, y+1, tab.str)
+      if tabIndex == node["index"].num:
+        iw.drawRect(tb, xStart + tabX - 1, yStart, xStart + tabX + tab.str.runeLen, y+2, doubleStyle = isFocused)
+      tabX += tab.str.runeLen + 2
+      tabIndex += 1
+    y += 3
   of "cursor":
     if isFocused:
       let
@@ -659,7 +673,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.setCursorPos(tb, col, row)
   of "editor":
     discard
-  const focusables = ["rect", "button", "editor"].toHashSet
+  const focusables = ["rect", "button", "tabs", "editor"].toHashSet
   if nodeType in focusables:
     var area: ViewFocusArea
     area.top = yStart

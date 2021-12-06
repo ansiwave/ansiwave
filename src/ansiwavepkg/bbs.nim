@@ -249,7 +249,6 @@ proc initSession*(clnt: client.Client): auto =
   result.fireRules
 
 proc refresh(session: var auto, clnt: client.Client, page: Page) =
-  session.insert(page.id, FocusIndex, 0)
   session.insert(page.id, ScrollY, 0)
   session.insert(page.id, View, cast[JsonNode](nil))
   ui.refresh(clnt, page.data)
@@ -291,7 +290,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
           discard storage.set(sig, actionData["content"].str)
         session.insertPage(ui.initEditor(width, height, sig, headers), sig)
   of "toggle-user-posts":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Left, iw.Key.Right}
     if result:
       let key = actionData["key"].str
       page.data.showAllPosts = not page.data.showAllPosts
