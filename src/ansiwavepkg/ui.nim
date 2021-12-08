@@ -60,8 +60,6 @@ type
     content: string
     sig: string
 
-var myUser: client.ChannelValue[entities.User]
-
 proc refresh*(clnt: client.Client, comp: Component) =
   case comp.kind:
   of Post:
@@ -75,8 +73,6 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, true, comp.offset)
     if comp.sig != paths.sysopPublicKey:
       comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
-    if user.pubKey != "":
-      myUser = client.queryUser(clnt, paths.db(paths.sysopPublicKey), user.pubKey)
     comp.editTagsRequest.started = false
     comp.tagsSig = ""
   of Search:
@@ -278,8 +274,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of User:
     client.get(comp.userContent)
     client.get(comp.userReplies)
-    client.get(myUser)
-    finishedLoading = comp.userContent.ready and comp.userReplies.ready and myUser.ready
+    finishedLoading = comp.userContent.ready and comp.userReplies.ready
     var parsed: post.Parsed
     %*[
       if comp.sig != paths.sysopPublicKey:
@@ -308,19 +303,14 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 % (" " & comp.user.value.valid.tags.value)
               ,
-              if not myUser.ready or
-                  myUser.value.kind == client.Error or
-                  "moderator" notin common.parseTags(myUser.value.valid.tags.value):
-                %[]
-              else:
-                %* {
-                  "type": "button",
-                  "text": "edit tags",
-                  "action": "start-editing-tags",
-                  "action-data": {
-                    "tags-sig": comp.user.value.valid.tags.sig,
-                  },
-                }
+              %* {
+                "type": "button",
+                "text": "edit tags",
+                "action": "start-editing-tags",
+                "action-data": {
+                  "tags-sig": comp.user.value.valid.tags.sig,
+                },
+              }
             ]
       else:
         %[]
