@@ -323,11 +323,6 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         refresh(session, clnt, page)
       else:
         simpleeditor.onInput(page.data.searchField, input)
-  of "start-editing-tags":
-    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
-    if result:
-      refresh(session, clnt, page)
-      page.data.tagsSig = actionData["tags-sig"].str
   of "edit-tags":
     result = input.key notin {iw.Key.Up, iw.Key.Down}
     if result:
@@ -475,6 +470,11 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         focusIndex = 0
       else:
         focusIndex = focusIndex + 1
+    of iw.Key.CtrlT:
+      if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
+        let sig = page.data.user.value.valid.tags.sig
+        refresh(sess, clnt, page)
+        page.data.tagsSig = sig
     else:
       if not isPlaying and input.key == iw.Key.Escape:
         backAction()

@@ -32,7 +32,7 @@ type
       tagsField*: simpleeditor.EditorSession
       tagsSig*: string
       editTagsRequest*: client.ChannelValue[client.Response]
-      user: client.ChannelValue[entities.User]
+      user*: client.ChannelValue[entities.User]
       userContent: client.ChannelValue[client.Response]
       userReplies: client.ChannelValue[seq[entities.Post]]
     of Editor:
@@ -274,7 +274,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of User:
     client.get(comp.userContent)
     client.get(comp.userReplies)
-    finishedLoading = comp.userContent.ready and comp.userReplies.ready
+    finishedLoading =
+      comp.userContent.ready and
+      comp.userReplies.ready and
+      (comp.sig == paths.sysopPublicKey or comp.user.ready)
     var parsed: post.Parsed
     %*[
       if comp.sig != paths.sysopPublicKey:
@@ -297,21 +300,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             else:
               simpleeditor.toJson(comp.tagsField, "press enter to edit tags or esc to cancel", "edit-tags")
           else:
-            %[
-              if comp.user.value.valid.tags.value == "":
-                %[]
-              else:
-                % (" " & comp.user.value.valid.tags.value)
-              ,
-              %* {
-                "type": "button",
-                "text": "edit tags",
-                "action": "start-editing-tags",
-                "action-data": {
-                  "tags-sig": comp.user.value.valid.tags.sig,
-                },
-              }
-            ]
+            if comp.user.value.valid.tags.value == "":
+              %[]
+            else:
+              % (" " & comp.user.value.valid.tags.value)
       else:
         %[]
       ,
