@@ -132,6 +132,7 @@ proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+    "top-left": entity.tags,
     "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
@@ -679,9 +680,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       for child in node["children-after"]:
         var y = yStart + 1
         render(tb, child, x + 1, y, focusIndex, areas)
-    if node.hasKey("top-right-focused") and isFocused:
-      iw.write(tb, xEnd - node["top-right-focused"].str.runeLen, yStart, node["top-right-focused"].str)
-    elif node.hasKey("top-right"):
+    if node.hasKey("top-left"):
+      iw.write(tb, x + 1, yStart, node["top-left"].str)
+    if node.hasKey("top-right"):
       iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
     if node.hasKey("bottom-left-focused") and isFocused:
       iw.write(tb, x + 1, y, node["bottom-left-focused"].str)
