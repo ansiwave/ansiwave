@@ -413,7 +413,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "action-data": {},
     }
   of Drafts:
-    finishedLoading = true
+    finishedLoading = false # don't cache
     var json = JsonNode(kind: JArray)
     for filename in post.drafts():
       let newIdx = strutils.find(filename, ".new")
@@ -428,7 +428,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename)))
     json
   of Sent:
-    finishedLoading = true
+    finishedLoading = false # don't cache
     var json = %* [
       "These are your recently sent posts.",
       "They may take some time to appear on the board.",
@@ -518,7 +518,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "you will never be able to log back in!",
       ]
   of Message:
-    finishedLoading = true
+    finishedLoading = false # don't cache
     % comp.message
   of Search:
     finishedLoading = false # so the editor will always refresh

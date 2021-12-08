@@ -410,8 +410,6 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-const nonCachedPages = ["drafts", "sent", "message"].toHashSet
-
 proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
@@ -421,7 +419,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     view =
       if page.view == nil:
         let v = ui.toJson(page.data, finishedLoading)
-        if finishedLoading and page.sig notin nonCachedPages:
+        if finishedLoading:
           session.insert(page.id, View, v)
           var cmds: CommandTreesRef
           new cmds
