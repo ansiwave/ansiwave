@@ -555,11 +555,19 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           session.insertPage(if sig == user.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
-        let continueAction = proc () =
-          page.data.request.chan = nil
-          editor.setEditable(page.data.session, true)
+        let
+          continueAction = proc () =
+            page.data.request.chan = nil
+            editor.setEditable(page.data.session, true)
+          errorStr = page.data.request.value.error
         rightButtons.add((" continue editing ", continueAction))
-        errorLines = @["Error", page.data.request.value.error]
+        errorLines = @[
+          "error (don't worry, a draft is saved)",
+          if errorStr.len > constants.editorWidth:
+            errorStr[0 ..< constants.editorWidth]
+          else:
+            errorStr
+        ]
     else:
       let
         sendAction = proc () {.closure.} =
