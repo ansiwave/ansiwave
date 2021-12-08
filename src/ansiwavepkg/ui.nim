@@ -77,6 +77,8 @@ proc refresh*(clnt: client.Client, comp: Component) =
       comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
     if user.pubKey != "":
       myUser = client.queryUser(clnt, paths.db(paths.sysopPublicKey), user.pubKey)
+    comp.editTagsRequest.started = false
+    comp.tagsSig = ""
   of Search:
     if comp.showResults:
       comp.searchResults = client.search(clnt, paths.db(paths.sysopPublicKey), comp.searchKind, comp.searchTerm, comp.offset)
@@ -288,16 +290,17 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         else:
           if comp.tagsSig != "":
             finishedLoading = false # so the editor will always refresh
-            let text =
-              if comp.editTagsRequest.started:
-                client.get(comp.editTagsRequest)
-                if comp.editTagsRequest.ready:
-                  comp.tagsSig = ""
-                  comp.editTagsRequest.started = false
-                "editing tags..."
+            if comp.editTagsRequest.started:
+              client.get(comp.editTagsRequest)
+              if comp.editTagsRequest.ready:
+                if comp.editTagsRequest.value.kind == client.Error:
+                  %["error: " & comp.editTagsRequest.value.error, "refresh to continue"]
+                else:
+                  %["tags edited successfully (but they may take time to appear)", "refresh to continue"]
               else:
-                "press enter to edit tags or esc to cancel"
-            simpleeditor.toJson(comp.tagsField, text, "edit-tags")
+                %"editing tags..."
+            else:
+              simpleeditor.toJson(comp.tagsField, "press enter to edit tags or esc to cancel", "edit-tags")
           else:
             %[
               if comp.user.value.valid.tags.value == "":

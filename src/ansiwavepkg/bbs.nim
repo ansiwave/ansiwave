@@ -326,8 +326,8 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   of "start-editing-tags":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
-      page.data.tagsSig = actionData["tags-sig"].str
       refresh(session, clnt, page)
+      page.data.tagsSig = actionData["tags-sig"].str
   of "edit-tags":
     result = input.key notin {iw.Key.Up, iw.Key.Down}
     if result:
