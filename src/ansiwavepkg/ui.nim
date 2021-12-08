@@ -118,7 +118,7 @@ proc initMessage*(message: string): Component =
 proc initSearch*(): Component =
   Component(kind: Search, searchField: simpleeditor.init())
 
-proc toJson*(entity: entities.Post): JsonNode =
+proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies =
@@ -139,11 +139,11 @@ proc toJson*(entity: entities.Post): JsonNode =
     "top-right": replies,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
-    "action-data": {"type": "post", "sig": entity.content.sig},
+    "action-data": {"type": kind, "sig": entity.content.sig},
     "action-accessible-text": replies,
   }
 
-proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string): JsonNode =
+proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string, kind: string = "post"): JsonNode =
   result = JsonNode(kind: JArray)
   if offset > 0:
     result.add:
@@ -155,7 +155,7 @@ proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string): Jso
       }
   if posts.len > 0:
     for post in posts:
-      result.elems.add(toJson(post))
+      result.elems.add(toJson(post, kind))
   else:
     result.elems.add(%noResultsText)
   if posts.len == entities.limit:
@@ -531,7 +531,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
       {
         "type": "tabs",
-        "text": ["all posts", "users"],
+        "text": ["posts", "users"],
         "index": comp.searchKind.ord,
         "action": "change-search-type",
         "action-data": {},
@@ -543,7 +543,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         elif comp.searchResults.value.kind == client.Error:
           %"failed to fetch search results"
         else:
-          toJson(comp.searchResults.value.valid, comp.offset, "no results")
+          let kind =
+            case comp.searchKind:
+            of entities.Posts:
+              "post"
+            of entities.Users:
+              "user"
+          toJson(comp.searchResults.value.valid, comp.offset, "no results", kind)
       else:
         %""
     ]
