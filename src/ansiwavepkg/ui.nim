@@ -132,7 +132,7 @@ proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
-    "top-right": replies,
+    "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
     "action-data": {"type": kind, "sig": entity.content.sig},
