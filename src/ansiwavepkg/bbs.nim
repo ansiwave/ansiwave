@@ -470,7 +470,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         focusIndex = 0
       else:
         focusIndex = focusIndex + 1
-    of iw.Key.CtrlT:
+    of iw.Key.CtrlG:
       if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
         let sig = page.data.user.value.valid.tags.sig
         refresh(sess, clnt, page)
