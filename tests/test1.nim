@@ -1,8 +1,7 @@
 import unittest
 from ./ansiwave import nil
 from ./ansiwavepkg/codes import nil
-from ./ansiwavepkg/post import nil
-import strutils, sequtils
+import strutils
 
 import ./ansiwavepkg/ansi
 const content = staticRead("luke-and-yoda.ans")
@@ -25,46 +24,6 @@ test "Dedupe RGB codes correctly":
   const text2 = "\e[0;38;2;4;6;8;48;2;114;129;163;38;2;114;129;163m"
   let newText2 = codes.dedupeCodes(text2)
   check newText2.escape == "\e[0;48;2;114;129;163;38;2;114;129;163m".escape
-
-from ./wavecorepkg/wavescript import nil
-
-proc parseAnsiwave(lines: ref seq[ref string]): seq[wavescript.CommandTree] =
-  var scriptContext = waveScript.initContext()
-  let
-    cmds = wavescript.extract(sequtils.map(lines[], codes.stripCodesIfCommand))
-    treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
-  wavescript.parseOperatorCommands(treesTemp)
-
-test "Parse commands":
-  const hello = staticRead("hello.ansiwave")
-  let lines = post.splitLines(hello)
-  let trees = parseAnsiwave(lines)
-  check trees.len == 2
-
-test "Parse operators":
-  let lines = post.splitLines("/rock-organ c#+3 /octave 3 d-,c /2 1/2 c,d c+")
-  let trees = parseAnsiwave(lines)
-  check trees.len == 1
-
-test "Parse broken symbol":
-  let lines = post.splitLines("/instrument -hello-world")
-  let trees = parseAnsiwave(lines)
-  check trees.len == 1
-
-test "/,":
-  let text = post.splitLines("""
-/banjo /octave 3 /16 b c+ /8 d+ b c+ a b g a
-/,
-/guitar /octave 3 /16 r r /8 g r d r g g d
-""")
-  let trees = parseAnsiwave(text)
-  check trees.len == 3
-
-test "variables":
-  const text = staticRead("variables.ansiwave")
-  let lines = post.splitLines(text)
-  let trees = parseAnsiwave(lines)
-  check trees.len == 4
 
 from zippy import nil
 from base64 import nil
