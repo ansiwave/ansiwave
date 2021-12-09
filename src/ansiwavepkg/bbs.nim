@@ -19,6 +19,7 @@ from wavecorepkg/common import nil
 from ./post import CommandTreesRef
 from times import nil
 from ./midi import nil
+from ./sound import nil
 from strutils import nil
 
 when defined(emscripten):
@@ -622,13 +623,12 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
                 discard post.compileAndPlayAll(page.viewCommands[])
               else:
                 let midiResult = post.compileAndPlayAll(page.viewCommands[])
-                if midiResult.secs > 0:
-                  let currTime = times.epochTime()
-                  var progress: MidiProgressType
-                  new progress
-                  progress.midiResult = midiResult
-                  progress.time = (currTime, currTime + midiResult.secs)
-                  sess.insert(page.id, MidiProgress, progress)
+                let currTime = times.epochTime()
+                var progress: MidiProgressType
+                new progress
+                progress.midiResult = midiResult
+                progress.time = (currTime, currTime + midiResult.secs)
+                sess.insert(page.id, MidiProgress, progress)
             except Exception as ex:
               discard
         leftButtons.add((" ♫ play ", playAction))
@@ -669,15 +669,31 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           s
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
     else:
-      let currTime = times.epochTime()
-      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
-        midi.stop(page.midiProgress[].midiResult.playResult.addrs)
-        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+      if page.midiProgress[].midiResult.playResult.kind == sound.Error:
+        let
+          continueAction = proc () =
+            sess.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+          errorStr = page.midiProgress[].midiResult.playResult.message
+        var rightButtons: seq[(string, proc ())]
+        rightButtons.add((" continue ", continueAction))
+        let errorLines = @[
+          "error",
+          if errorStr.len > constants.editorWidth:
+            errorStr[0 ..< constants.editorWidth]
+          else:
+            errorStr
+        ]
+        navbar.render(result, 0, 0, input, [], errorLines, rightButtons, focusIndex)
       else:
-        let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
-        iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
-        iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
-        iw.write(result, 0, 1, "press tab to stop playing")
+        let currTime = times.epochTime()
+        if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
+          midi.stop(page.midiProgress[].midiResult.playResult.addrs)
+          session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+        else:
+          let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
+          iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
+          iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
+          iw.write(result, 0, 1, "press tab to stop playing")
 
   # update values if necessary
   if focusIndex != page.focusIndex:

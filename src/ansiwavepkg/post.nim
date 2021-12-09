@@ -172,10 +172,11 @@ proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.Command
 proc play*(events: seq[paramidi.Event]): midi.PlayResult =
   if iw.gIllwillInitialised:
     let
-      (secs, playResult) = midi.play(events)
+      midiResult = midi.play(events)
+      (secs, playResult) = midiResult
       startTime = times.epochTime()
     if playResult.kind == sound.Error:
-      return
+      return midiResult
     var tb = iw.newTerminalBuffer(iw.terminalWidth(), iw.terminalHeight())
     while true:
       let currTime = times.epochTime() - startTime
@@ -190,11 +191,10 @@ proc play*(events: seq[paramidi.Event]): midi.PlayResult =
         break
       os.sleep(constants.sleepMsecs)
     midi.stop(playResult.addrs)
+    return midiResult
   else:
     let currentTime = times.epochTime()
-    let res = midi.play(events)
-    if res.playResult.kind == sound.Valid:
-      return res
+    return midi.play(events)
 
 proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]): midi.PlayResult =
   var

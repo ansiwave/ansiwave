@@ -48,9 +48,11 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
   when defined(emscripten):
     client.get(response)
     if not response.ready:
-      return (0.0, sound.PlayResult(kind: sound.Error, message: "Still fetching soundfont! Try again soon."))
+      return (0.0, sound.PlayResult(kind: sound.Error, message: "Still fetching soundfont...try again soon."))
     elif response.value.kind == client.Error:
       return (0.0, sound.PlayResult(kind: sound.Error, message: response.value.error))
+    elif response.value.valid.code != 200:
+      return (0.0, sound.PlayResult(kind: sound.Error, message: "Failed to fetch soundfont"))
     let soundfont = response.value.valid.body
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   elif defined(release):
