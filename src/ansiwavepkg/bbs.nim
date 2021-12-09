@@ -709,6 +709,14 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       if y != page.viewHeight:
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
 
+proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int] =
+  session.fireRules
+  let
+    globals = session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
+    return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
+
 proc main*() =
   vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
