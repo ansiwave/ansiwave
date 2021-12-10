@@ -38,6 +38,12 @@ proc init*(): EditorSession =
   result.insert(Editor, CursorY, 0)
   result.insert(Editor, Line, "")
 
+proc setContent*(session: var EditorSession, content: string) =
+  session.insert(Editor, CursorX, 0)
+  session.insert(Editor, CursorY, 0)
+  session.insert(Editor, Line, content)
+  session.fireRules
+
 proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
   case key:
   of iw.Key.Backspace:

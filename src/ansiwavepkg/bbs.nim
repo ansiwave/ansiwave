@@ -476,9 +476,10 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         focusIndex = focusIndex + 1
     of iw.Key.CtrlG:
       if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
-        let sig = page.data.user.value.valid.tags.sig
+        let tags = page.data.user.value.valid.tags
         refresh(sess, clnt, page)
-        page.data.tagsSig = sig
+        simpleeditor.setContent(page.data.tagsField, tags.value)
+        page.data.tagsSig = tags.sig
     else:
       if not isPlaying and input.key == iw.Key.Escape:
         backAction()
