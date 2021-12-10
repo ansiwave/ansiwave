@@ -213,7 +213,6 @@ proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: 
       break
   if cmdIndex >= 0:
     cmdsRef[].delete(cmdIndex)
-    session.insert(bufferId, ValidCommands, cmdsRef)
   var errIndex = -1
   for i in 0 ..< errsRef[].len:
     if errsRef[0].line == line:
@@ -225,8 +224,6 @@ proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: 
   errsRef[].add(wavescript.CommandTree(kind: wavescript.Error, line: line, message: message))
   if goToError:
     link.callback()
-  session.insert(bufferId, InvalidCommands, errsRef)
-  session.insert(bufferId, Links, linksRef)
 
 proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
   var
@@ -446,6 +443,7 @@ let rules* =
         session.insert(id, Links, linksRef)
     rule updateErrors(Fact):
       what:
+        (Global, SelectedBuffer, Errors)
         (Editor, CursorY, cursorY)
         (Editor, InvalidCommands, errors)
       then:
@@ -657,6 +655,9 @@ proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: 
   session.insert(id, InsertMode, false)
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
+  session.insert(id, ValidCommands, cast[RefCommands](nil))
+  session.insert(id, InvalidCommands, cast[RefCommands](nil))
+  session.insert(id, Links, cast[RefLinks](nil))
 
 proc saveBuffer*(f: File | StringStream, lines: RefStrings) =
   let lineCount = lines[].len
