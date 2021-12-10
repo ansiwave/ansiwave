@@ -697,10 +697,8 @@ proc getContent*(session: EditorSession): string =
   post.joinLines(buffer.lines)
 
 proc getCursorY*(session: EditorSession): int =
-  let
-    globals = session.query(rules.getGlobals)
-    selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
-  selectedBuffer.wrappedCursorY
+  let globals = session.query(rules.getGlobals)
+  globals.buffers[globals.selectedBuffer].wrappedCursorY
 
 proc isEmpty*(session: EditorSession): bool =
   let
@@ -1335,7 +1333,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
   let
     termWindow = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
-    selectedBuffer = session.query(rules.getBuffer, id = globals.selectedBuffer)
+    selectedBuffer = globals.buffers[globals.selectedBuffer]
     currentTime = times.epochTime()
     input: tuple[key: iw.Key, codepoint: uint32] =
       if globals.midiProgress != nil:
@@ -1405,7 +1403,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     let
       titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", termX + 1, termY, input.key, proc () = discard)
       copyLinkCallback = proc () =
-        let buffer = sess.query(rules.getBuffer, id = Editor)
+        let buffer = globals.buffers[Editor.ord]
         copyLink(initLink(post.joinLines(buffer.lines)))
         iw.setDoubleBuffering(false)
         var
@@ -1425,7 +1423,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
   if selectedBuffer.prompt != StopPlaying:
     var sess = session
     let
-      editor = session.query(rules.getBuffer, id = Editor)
+      editor = globals.buffers[Editor.ord]
       errorCount = editor.errors[].len
       choices = [
         (id: Editor.ord, label: "editor", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
