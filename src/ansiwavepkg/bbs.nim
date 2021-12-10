@@ -464,7 +464,10 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
   if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData, focusIndex):
     case input.key:
     of iw.Key.Up:
-      if focusIndex >= 0:
+      if focusIndex == 0:
+        if page.scrollY == 0:
+          focusIndex = focusIndex - 1
+      elif focusIndex > 0:
         focusIndex = focusIndex - 1
     of iw.Key.Down:
       if focusIndex < 0:
