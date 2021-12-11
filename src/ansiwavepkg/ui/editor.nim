@@ -728,7 +728,7 @@ proc copyLine(buffer: tuple) =
     copyLines(@[buffer.lines[buffer.cursorY][].stripCodes])
 
 proc pasteLines(session: var EditorSession, buffer: tuple) =
-  if buffer.cursorY < buffer.lines[].len:
+  if clipboard.len > 0 and buffer.cursorY < buffer.lines[].len:
     var newLines: RefStrings
     new newLines
     newLines[] = buffer.lines[][0 ..< buffer.cursorY]
