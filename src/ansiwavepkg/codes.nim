@@ -105,6 +105,11 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
       var style = iw.getStyle(tb)
       style.incl(iw.Style(param))
       iw.setStyle(tb, style)
+    elif param == 22:
+      var style = iw.getStyle(tb)
+      style.excl(iw.Style(1))
+      style.excl(iw.Style(2))
+      iw.setStyle(tb, style)
     elif param >= 30 and param <= 37:
       iw.setForegroundColor(tb, iw.ForegroundColor(param))
     elif param >= 40 and param <= 47:
