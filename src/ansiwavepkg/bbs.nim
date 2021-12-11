@@ -486,7 +486,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
         let area = page.viewFocusAreas[focusIndex]
         if area.copyableText.len > 0:
-          editor.clipboard = area.copyableText
+          editor.copyLines(area.copyableText)
     else:
       if not isPlaying and input.key == iw.Key.Escape:
         backAction()

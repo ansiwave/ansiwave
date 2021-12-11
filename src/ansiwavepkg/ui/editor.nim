@@ -714,11 +714,18 @@ proc isPlaying*(session: EditorSession): bool =
 proc setEditable*(session: var EditorSession, editable: bool) =
   session.insert(Editor, Editable, editable)
 
-var clipboard*: seq[string]
+var
+  clipboard*: seq[string]
+  copyCallback*: proc (lines: seq[string])
+
+proc copyLines*(lines: seq[string]) =
+  clipboard = lines
+  if copyCallback != nil:
+    copyCallback(lines)
 
 proc copyLine(buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
-    clipboard = @[buffer.lines[buffer.cursorY][].stripCodes]
+    copyLines(@[buffer.lines[buffer.cursorY][].stripCodes])
 
 proc pasteLines(session: var EditorSession, buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
