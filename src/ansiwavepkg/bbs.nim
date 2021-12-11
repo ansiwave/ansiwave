@@ -304,12 +304,20 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   of "change-search-type":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Left, iw.Key.Right}
     if result:
-      let diff =
-        if input.key == iw.Key.Left:
-          -1
-        else:
-          1
-      page.data.searchKind = entities.SearchKind(abs(page.data.searchKind.ord + diff) mod (entities.SearchKind.high.ord + 1))
+      let
+        newIndex =
+          if input.key == iw.Key.Left:
+            page.data.searchKind.ord - 1
+          else:
+           page.data.searchKind.ord + 1
+        newKind =
+          if newIndex == -1:
+            entities.SearchKind(page.data.searchKind.high.ord)
+          elif newIndex > page.data.searchKind.high.ord:
+            entities.SearchKind(0)
+          else:
+            entities.SearchKind(newIndex)
+      page.data.searchKind = newKind
       page.data.offset = 0
       refresh(session, clnt, page)
   of "edit":

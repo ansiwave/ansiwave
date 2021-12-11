@@ -520,7 +520,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
       {
         "type": "tabs",
-        "text": ["posts", "users"],
+        "text": ["posts", "users", "tags"],
         "index": comp.searchKind.ord,
         "action": "change-search-type",
         "action-data": {},
@@ -536,7 +536,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             case comp.searchKind:
             of entities.Posts:
               "post"
-            of entities.Users:
+            of entities.Users, entities.UserTags:
               "user"
           toJson(comp.searchResults.value.valid, comp.offset, "no results", kind)
       else:
