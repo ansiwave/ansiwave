@@ -111,10 +111,11 @@ proc convertToWav(opts: editor.Options) =
       discard
 
 proc convert(opts: editor.Options) =
-  if uri.isAbsolute(uri.parseUri(opts.input)): # a url
+  let parsedUri = uri.parseUri(opts.input)
+  if uri.isAbsolute(parsedUri): # a url
     let outputExt = os.splitFile(opts.output).ext
     if outputExt == ".ansiwave":
-      let link = editor.parseLink(opts.input)
+      let link = editor.parseHash(parsedUri.anchor)
       var f: File
       if open(f, opts.output, fmWrite):
         editor.saveBuffer(f, post.splitLines(link["data"]))
@@ -196,30 +197,36 @@ proc main*() =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
-  # render BBS if no input or if the input is a BBS uri
-  var hash: Table[string, string]
-  if uri.isAbsolute(uri.parseUri(opts.input)):
-    hash = editor.parseLink(opts.input)
-  if opts.input == "" or hash.hasKey("board"):
-    bbs.main(hash)
-    quit(0)
-  # enter the main render loop
-  var session: editor.EditorSession
-  try:
-    session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)
-  except Exception as ex:
-    exitClean(ex.msg)
-  var tickCount = 0
-  while true:
-    var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
-    # save if necessary
-    # don't render every tick because it's wasteful
-    if tickCount mod 5 == 0:
-      iw.display(tb)
-    session.fireRules
-    saveEditor(session, opts)
-    os.sleep(sleepMsecs)
-    tickCount.inc
+  var
+    parsedUri: uri.Uri
+    hash: Table[string, string]
+  if opts.input != "":
+    # parse link if necessary
+    parsedUri = uri.parseUri(opts.input)
+    let isUri = uri.isAbsolute(parsedUri)
+    if isUri:
+      hash = editor.parseHash(parsedUri.anchor)
+    # single player mode
+    if not isUri or hash.hasKey("data"):
+      var session: editor.EditorSession
+      try:
+        session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)
+      except Exception as ex:
+        exitClean(ex.msg)
+      var tickCount = 0
+      while true:
+        var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
+        # save if necessary
+        # don't render every tick because it's wasteful
+        if tickCount mod 5 == 0:
+          iw.display(tb)
+        session.fireRules
+        saveEditor(session, opts)
+        os.sleep(sleepMsecs)
+        tickCount.inc
+      quit(0)
+  ## start the BBS
+  bbs.main(parsedUri, hash)
 
 when isMainModule:
   main()

@@ -761,12 +761,6 @@ proc parseHash*(hash: string): Table[string, string] =
         else:
           keyVal[1]
 
-proc parseLink*(link: string): Table[string, string] =
-  let hashIndex = link.find('#')
-  if hashIndex >= 0:
-    let hash = link[hashIndex+1 ..< link.len]
-    return parseHash(hash)
-
 proc copyLink*(link: string) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()

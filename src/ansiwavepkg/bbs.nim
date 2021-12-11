@@ -22,6 +22,7 @@ from times import nil
 from ./midi import nil
 from ./sound import nil
 from strutils import nil
+from uri import nil
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
@@ -626,7 +627,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     else:
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
-          editor.copyLink("https://ansiwave.net/#" & globals.hash)
+          editor.copyLink(paths.address & "#" & globals.hash)
           # redraw ui without double buffering so everything is visible again
           iw.setDoubleBuffering(false)
           var finishedLoading: bool
@@ -736,8 +737,16 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
   if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
     return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
 
-proc main*(hash: Table[string, string]) =
-  vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
+proc main*(parsedUri: uri.Uri, hash: Table[string, string]) =
+  when not defined(emscripten):
+    if uri.isAbsolute(parsedUri):
+      var newUri = parsedUri
+      newUri.anchor = ""
+      let s = uri.`$`(newUri)
+      paths.address = s
+      paths.postAddress = s
+
+  vfs.readUrl = paths.address & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address, paths.postAddress)
   client.start(clnt)
