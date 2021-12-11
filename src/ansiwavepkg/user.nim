@@ -143,7 +143,7 @@ proc createImage*(privateKey: ed25519.PrivateKey): seq[uint8] =
   for pair in pairs:
     if pair[1].len > 0:
       fragments.add(pair[0] & ":" & pair[1])
-  let address = "https://ansiwave.net/#" & strutils.join(fragments, ",")
+  let address = paths.address & (if strutils.endsWith(paths.address, "/"): "" else: "/") & "#" & strutils.join(fragments, ",")
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
   var tempBuffer: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
