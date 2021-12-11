@@ -51,7 +51,7 @@ type
       showResults*: bool
     of Drafts, Sent, Login, Logout:
       discard
-  ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode]]
+  ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode], copyableText: seq[string]]
   Draft = object
     target: string
     content: string
@@ -132,6 +132,7 @@ proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
   %*{
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+    "copyable-text": lines,
     "top-left": entity.tags,
     "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if lines.len > maxLines: "see more" else: "",
@@ -175,6 +176,7 @@ proc toJson*(draft: Draft): JsonNode =
     {
       "type": "rect",
       "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+      "copyable-text": lines,
       "bottom-left": if lines.len > maxLines: "see more" else: "",
       "action": "show-editor",
       "action-data": {
@@ -197,6 +199,7 @@ proc toJson*(recent: Recent): JsonNode =
   %* {
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+    "copyable-text": lines,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
     "action-data": {"type": "post", "sig": recent.sig},
@@ -217,9 +220,11 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if parsed.kind == post.Error:
           %"failed to load post"
         else:
+          let lines = strutils.splitLines(parsed.content)
           %*{
             "type": "rect",
-            "children": post.wrapLines(strutils.splitLines(parsed.content)),
+            "children": post.wrapLines(lines),
+            "copyable-text": lines,
           }
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
@@ -325,6 +330,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             %*{
               "type": "rect",
               "children": lines,
+              "copyable-text": lines,
             }
       ,
       if comp.userContent.ready and parsed.kind != post.Error:
@@ -688,6 +694,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       iw.write(tb, x + 1, y, node["bottom-left-focused"].str)
     elif node.hasKey("bottom-left"):
       iw.write(tb, x + 1, y, node["bottom-left"].str)
+    if isFocused:
+      const copyText = "copy with ctrl k"
+      iw.write(tb, xEnd - copyText.runeLen, y, copyText)
     y += 1
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len + 1)
@@ -732,6 +741,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     if node.hasKey("action"):
       area.action = node["action"].str
       area.actionData = node["action-data"].fields
+    if node.hasKey("copyable-text"):
+      for line in node["copyable-text"]:
+        area.copyableText.add(line.str)
     areas.add(area)
 
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =

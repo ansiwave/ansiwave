@@ -714,23 +714,21 @@ proc isPlaying*(session: EditorSession): bool =
 proc setEditable*(session: var EditorSession, editable: bool) =
   session.insert(Editor, Editable, editable)
 
-var clipboard = ""
-
-proc toClipboard*(s: string) =
-  clipboard = s
-
-proc fromClipboard*(): string =
-  clipboard
+var clipboard*: seq[string]
 
 proc copyLine(buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
-    buffer.lines[buffer.cursorY][].stripCodes.toClipboard
+    clipboard = @[buffer.lines[buffer.cursorY][].stripCodes]
 
-proc pasteLine(session: var EditorSession, buffer: tuple) =
+proc pasteLines(session: var EditorSession, buffer: tuple) =
   if buffer.cursorY < buffer.lines[].len:
-    var lines = buffer.lines
-    post.set(lines, buffer.cursorY, strutils.splitLines(fromClipboard())[0])
-    session.insert(buffer.id, Lines, lines)
+    var newLines: RefStrings
+    new newLines
+    newLines[] = buffer.lines[][0 ..< buffer.cursorY]
+    for line in clipboard:
+      post.add(newLines, line)
+    newLines[] &= buffer.lines[][buffer.cursorY + 1 ..< buffer.lines[].len]
+    session.insert(buffer.id, Lines, newLines)
     # force cursor to refresh in case it is out of bounds
     session.insert(buffer.id, CursorX, buffer.cursorX)
 
@@ -884,7 +882,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     copyLine(buffer)
   of iw.Key.CtrlL:
     if editable:
-      pasteLine(session, buffer)
+      pasteLines(session, buffer)
   else:
     return false
   true
@@ -1385,7 +1383,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
       if selectedBuffer.mode == 0:
         discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
-        discard renderButton(session, tb, "↨ paste line", termX + x, termY + 1, input.key, proc () = pasteLine(sess, selectedBuffer), (key: {}, hint: "hint: paste line with ctrl l"))
+        discard renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl l"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, input.key, termX + x + 1, termY)
     elif not globals.options.bbsMode:
