@@ -1369,7 +1369,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     if selectedBuffer.editable:
       let titleX =
         when defined(emscripten):
-          renderButton(session, tb, "+ file", termX + 1, termY + 0, input.key, proc () = browseImage(sess, selectedBuffer), (key: {iw.Key.CtrlG}, hint: "hint: import file with ctrl g"))
+          renderButton(session, tb, "+ file", termX + 1, termY + 0, input.key, proc () = browseImage(sess, selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
         else:
           renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", termX + 1, termY + 0, input.key, proc () = discard)
       var x = max(titleX, playX)
