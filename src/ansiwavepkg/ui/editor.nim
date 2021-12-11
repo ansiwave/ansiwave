@@ -19,7 +19,6 @@ from json import nil
 from zippy import nil
 from wavecorepkg/paths import nil
 import streams
-from uri import nil
 import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
@@ -1296,14 +1295,14 @@ when defined(emscripten):
     currentSession.insert(buffer.id, CursorY, buffer.cursorY + ansiLines.len)
     currentSession.fireRules
 
-proc init*(opts: Options, width: int, height: int): EditorSession =
-  let isUri = uri.isAbsolute(uri.parseUri(opts.input))
+proc init*(opts: Options, width: int, height: int, hash: Table[string, string] = initTable[string, string]()): EditorSession =
+  var
+    editorText: string
+    isDataUri = false
 
-  var editorText: string
-
-  if isUri:
-    let link = parseLink(opts.input)
-    editorText = link["data"]
+  if hash.hasKey("data"):
+    editorText = hash["data"]
+    isDataUri = true
   elif opts.input != "" and os.fileExists(opts.input):
     editorText = readFile(opts.input)
   else:
@@ -1316,7 +1315,7 @@ proc init*(opts: Options, width: int, height: int): EditorSession =
   const
     tutorialText = staticRead("../assets/tutorial.ansiwave")
     publishText = staticRead("../assets/publish.ansiwave")
-  insertBuffer(result, Editor, 0, 2, not isUri, editorText)
+  insertBuffer(result, Editor, 0, 2, not isDataUri, editorText)
   insertBuffer(result, Errors, 0, 1, false, "")
   insertBuffer(result, Tutorial, 0, 1, false, tutorialText)
   if not opts.bbsMode:

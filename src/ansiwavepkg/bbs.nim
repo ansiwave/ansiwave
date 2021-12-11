@@ -189,8 +189,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
 
-proc routeHash(session: var auto, clnt: client.Client, hash: string) =
-  let parts = editor.parseHash(hash)
+proc routeHash(session: var auto, clnt: client.Client, parts: Table[string, string]) =
   if parts.hasKey("board"):
     if parts.hasKey("type") and parts.hasKey("id"):
       if sigToPageId.hasKey(parts["id"]):
@@ -221,6 +220,9 @@ proc routeHash(session: var auto, clnt: client.Client, hash: string) =
         session.insertPage(ui.initUser(clnt, user.pubKey), user.pubKey)
     else:
       session.insertPage(ui.initMessage("You must log out of your existing account before logging in to a new one."), "message")
+
+proc routeHash(session: var auto, clnt: client.Client, hash: string) =
+  routeHash(session, clnt, editor.parseHash(hash))
 
 proc insertHash*(session: var auto, hash: string) =
   session.insert(Global, Hash, hash)
@@ -728,7 +730,7 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
   if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
     return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
 
-proc main*() =
+proc main*(hash: Table[string, string]) =
   vfs.readUrl = "http://localhost:" & $paths.port & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
   vfs.register()
   var clnt = client.initClient(paths.address, paths.postAddress)
@@ -738,6 +740,9 @@ proc main*() =
 
   # create session
   var session = initSession(clnt)
+
+  if hash.hasKey("board"):
+    routeHash(session, clnt, hash)
 
   # start loop
   while true:

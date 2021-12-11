@@ -196,14 +196,17 @@ proc main*() =
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   iw.hideCursor()
-  # render home if no args are passed
-  if opts.input == "":
-    bbs.main()
-    return
+  # render BBS if no input or if the input is a BBS uri
+  var hash: Table[string, string]
+  if uri.isAbsolute(uri.parseUri(opts.input)):
+    hash = editor.parseLink(opts.input)
+  if opts.input == "" or hash.hasKey("board"):
+    bbs.main(hash)
+    quit(0)
   # enter the main render loop
   var session: editor.EditorSession
   try:
-    session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight())
+    session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)
   except Exception as ex:
     exitClean(ex.msg)
   var tickCount = 0
