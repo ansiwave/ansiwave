@@ -739,7 +739,7 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
 
 proc main*(parsedUri: uri.Uri, hash: Table[string, string]) =
   when not defined(emscripten):
-    if uri.isAbsolute(parsedUri):
+    if uri.isAbsolute(parsedUri) and parsedUri.hostname != uri.parseUri(paths.address).hostname:
       var newUri = parsedUri
       newUri.anchor = ""
       let s = uri.`$`(newUri)
