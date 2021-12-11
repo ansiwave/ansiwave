@@ -16,6 +16,7 @@ from ./user import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
 from wavecorepkg/common import nil
+from wavecorepkg/wavescript import nil
 from ./post import CommandTreesRef
 from times import nil
 from ./midi import nil
@@ -421,7 +422,12 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           session.insert(page.id, View, v)
           var cmds: CommandTreesRef
           new cmds
-          cmds[] = post.linesToTrees(strutils.splitLines(ui.getContent(page.data)))
+          for tree in post.linesToTrees(strutils.splitLines(ui.getContent(page.data))):
+            case tree.kind:
+            of wavescript.Valid:
+              cmds[].add(tree)
+            of wavescript.Error, wavescript.Discard:
+              discard
           session.insert(page.id, ViewCommands, cmds)
         v
       else:
