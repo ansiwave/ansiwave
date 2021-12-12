@@ -220,10 +220,14 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if parsed.kind == post.Error:
           %"failed to load post"
         else:
-          let lines = strutils.splitLines(parsed.content)
+          let
+            lines = strutils.splitLines(parsed.content)
+            wrappedLines = post.wrapLines(lines)
+            animatedLines = post.animateLines(wrappedLines, comp.postContent.readyTime)
+          finishedLoading = finishedLoading and animatedLines == wrappedLines
           %*{
             "type": "rect",
-            "children": post.wrapLines(lines),
+            "children": animatedLines,
             "copyable-text": lines,
           }
       ,
@@ -323,13 +327,17 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           else:
             %""
         else:
-          let lines = post.wrapLines(strutils.splitLines(parsed.content))
+          let lines = strutils.splitLines(parsed.content)
           if comp.sig == user.pubKey and lines.len == 1 and lines[0] == "":
             %"Your banner will be here. Put something about yourself...or not."
           else:
+            let
+              wrappedLines = post.wrapLines(lines)
+              animatedLines = post.animateLines(wrappedLines, comp.userContent.readyTime)
+            finishedLoading = finishedLoading and animatedLines == lines
             %*{
               "type": "rect",
-              "children": lines,
+              "children": animatedLines,
               "copyable-text": lines,
             }
       ,

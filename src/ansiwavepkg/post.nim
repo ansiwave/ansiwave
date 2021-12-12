@@ -135,6 +135,22 @@ proc joinLines*(lines: RefStrings): string =
       result &= "\n"
     i.inc
 
+proc animateLines*(lines: seq[string], startTime: float): seq[string] =
+  const totalSecs = 0.4
+  let lineCount = int(lines.len.float * min(1f, (times.epochTime() - startTime) / totalSecs))
+  result = lines
+  if lineCount < lines.len:
+    let offset = int(float(constants.editorWidth) * (1f - (lineCount.float / lines.len.float)))
+    for i in 0 ..< lineCount:
+      result[i] = result[i].stripCodes
+      if i mod 2 == 0:
+        let line = result[i] & strutils.repeat(' ', constants.editorWidth)
+        result[i] = line[offset ..< line.len]
+      else:
+        result[i] = strutils.repeat(' ', offset) & result[i]
+    for i in lineCount ..< lines.len:
+      result[i] = ""
+
 proc add*(lines: var RefStrings, line: string) =
   var s: ref string
   new s
