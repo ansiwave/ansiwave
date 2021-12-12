@@ -193,6 +193,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
 
 proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, string]) =
   if "board" notin hash:
+    session.insertPage(ui.initMessage("Can't navigate to this page"), "message")
     return
   session.insert(Global, Board, hash["board"])
   client.setReadUrl(clnt, paths.address & "/" & paths.boardsDir & "/" & hash["board"] & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename)
