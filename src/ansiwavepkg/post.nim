@@ -266,10 +266,10 @@ proc parseAnsiwave*(ansiwave: string, parsed: var Parsed) =
   try:
     let
       (commands, headersAndContent, content) = common.parseAnsiwave(ansiwave)
-      key = commands["/head.key"]
-      sig = commands["/head.sig"]
-      target = commands["/head.target"]
-      time = commands["/head.time"]
+      key = commands["/key"]
+      sig = commands["/sig"]
+      target = commands["/target"]
+      time = commands["/time"]
     parsed.key = key
     parsed.sig = sig
     parsed.target = target
