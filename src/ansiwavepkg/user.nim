@@ -193,3 +193,10 @@ proc createUser*(privateKeyStr: string, algo: string): bool =
   except Exception as ex:
     false
 
+proc genLoginKey*(): seq[uint8] =
+  let
+    keyPair = ed25519.initKeyPair()
+    pubKey = paths.encode(keyPair.public)
+  echo pubKey
+  createImage(keyPair.private)
+

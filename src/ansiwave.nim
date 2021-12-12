@@ -12,6 +12,7 @@ from ./ansiwavepkg/codes import stripCodes
 from ./ansiwavepkg/chafa import nil
 from ./ansiwavepkg/bbs import nil
 from ./ansiwavepkg/post import nil
+from ./ansiwavepkg/user import nil
 import ./ansiwavepkg/constants
 from paramidi import Context
 from json import nil
@@ -188,9 +189,15 @@ proc main*() =
   terminal.enableTrueColors()
   # parse options
   var opts = parseOptions()
-  if opts.output != "":
+  if "gen-login-key" in opts.args:
+    let path = os.expandTilde(opts.args["gen-login-key"])
+    if os.fileExists(path):
+      quit("File already exists")
+    writeFile(path, user.genLoginKey())
+    quit(0)
+  elif opts.output != "":
     if opts.input == opts.output:
-      raise newException(Exception, "Input and output cannot be the same")
+      quit("Input and output cannot be the same")
     convert(opts)
     quit(0)
   # initialize illwill
