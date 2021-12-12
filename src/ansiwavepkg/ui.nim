@@ -128,10 +128,12 @@ proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
           "1 reply"
         else:
           $entity.reply_count & " replies"
-    lines = post.wrapLines(common.splitAfterHeaders(entity.content.value.uncompressed))
+    lines = common.splitAfterHeaders(entity.content.value.uncompressed)
+    wrappedLines = post.wrapLines(lines)
+    truncatedLines = if lines.len > maxLines: lines[0 ..< maxLines] else: lines
   %*{
     "type": "rect",
-    "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
+    "children": truncatedLines,
     "copyable-text": lines,
     "top-left": entity.tags,
     "top-right": (if kind == "post": replies else: ""),
