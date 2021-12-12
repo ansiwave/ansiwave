@@ -618,8 +618,15 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
     let
-      homeAction = proc () {.closure.} =
-        sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
+      upAction = proc () {.closure.} =
+        if page.data.kind == ui.Post and
+            page.data.post.ready and
+            page.data.post.value.kind != client.Error:
+          let sig = page.data.post.value.valid.parent
+          if sig == page.data.post.value.valid.public_key:
+            sess.insertPage(ui.initUser(clnt, globals.board, sig), sig)
+          else:
+            sess.insertPage(ui.initPost(clnt, globals.board, sig), sig)
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
@@ -627,8 +634,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
-    if page.sig != globals.board:
-      leftButtons &= @[(" ≈ home ", homeAction)]
+    if page.data.kind == ui.Post and finishedLoading:
+      leftButtons &= @[(" ↑ ", upAction)]
     if page.sig != "search":
       leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
