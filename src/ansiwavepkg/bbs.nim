@@ -472,6 +472,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
               info.y >= navbar.height:
             action = (area.action, area.actionData)
             focusIndex = i
+            ui.showPasteText = false
             break
     elif focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
       let area = page.viewFocusAreas[focusIndex]
@@ -486,11 +487,13 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           focusIndex = focusIndex - 1
       elif focusIndex > 0:
         focusIndex = focusIndex - 1
+      ui.showPasteText = false
     of iw.Key.Down:
       if focusIndex < 0:
         focusIndex = 0
       else:
         focusIndex = focusIndex + 1
+      ui.showPasteText = false
     of iw.Key.CtrlR:
       refresh(sess, clnt, page)
     of iw.Key.CtrlG:
@@ -501,6 +504,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         page.data.tagsSig = tags.sig
     of iw.Key.CtrlK:
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
+        ui.showPasteText = true
         let area = page.viewFocusAreas[focusIndex]
         if area.copyableText.len > 0:
           editor.copyLines(area.copyableText)

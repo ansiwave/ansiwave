@@ -666,6 +666,8 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   codes.write(tb, x, y, $runes)
   y += 1
 
+var showPasteText*: bool
+
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea])
 
 proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =
@@ -695,8 +697,12 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     elif node.hasKey("bottom-left"):
       iw.write(tb, x + 1, y, node["bottom-left"].str)
     if isFocused:
-      const copyText = "copy with ctrl k"
-      iw.write(tb, xEnd - copyText.runeLen, y, copyText)
+      let bottomRightText =
+        if showPasteText:
+          "now you can paste in the editor with ctrl l"
+        else:
+          "copy with ctrl k"
+      iw.write(tb, xEnd - bottomRightText.runeLen, y, bottomRightText)
     y += 1
   of "button":
     xStart = max(x, editorWidth - node["text"].str.len + 1)
