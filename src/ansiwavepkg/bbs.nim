@@ -502,7 +502,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         refresh(sess, clnt, page)
         simpleeditor.setContent(page.data.tagsField, tags.value)
         page.data.tagsSig = tags.sig
-    of iw.Key.CtrlK:
+    of iw.Key.CtrlK, iw.Key.CtrlC:
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
         ui.showPasteText = true
         let area = page.viewFocusAreas[focusIndex]

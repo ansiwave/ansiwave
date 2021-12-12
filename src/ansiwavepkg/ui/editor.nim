@@ -878,9 +878,9 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     if not editable:
       return false
     session.insert(buffer.id, InsertMode, not buffer.insertMode)
-  of iw.Key.CtrlK:
+  of iw.Key.CtrlK, iw.Key.CtrlC:
     copyLine(buffer)
-  of iw.Key.CtrlL:
+  of iw.Key.CtrlL, iw.Key.CtrlV:
     if editable:
       pasteLines(session, buffer)
   else:
@@ -1382,8 +1382,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       x = renderColors(session, tb, selectedBuffer, input, termX + x + 1, termY)
 
       if selectedBuffer.mode == 0:
-        discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
-        discard renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl l"))
+        discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwillInitialised: "k" else: "c")))
+        discard renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, input.key, termX + x + 1, termY)
     elif not globals.options.bbsMode:

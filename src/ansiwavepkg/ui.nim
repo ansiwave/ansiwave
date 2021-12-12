@@ -713,9 +713,9 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
     if isFocused:
       let bottomRightText =
         if showPasteText:
-          " now you can paste in the editor with ctrl l "
+          " now you can paste in the editor with ctrl " & (if iw.gIllwillInitialised: "l" else: "v") & " "
         else:
-          " copy with ctrl k "
+          " copy with ctrl " & (if iw.gIllwillInitialised: "k" else: "c") & " "
       iw.write(tb, xEnd - bottomRightText.runeLen, y, bottomRightText)
     y += 1
   of "button":
