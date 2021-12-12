@@ -443,8 +443,8 @@ let rules* =
     rule updateErrors(Fact):
       what:
         (Global, SelectedBuffer, Errors)
-        (Editor, CursorY, cursorY)
-        (Editor, InvalidCommands, errors)
+        (Editor, CursorY, cursorY, then = false)
+        (Editor, InvalidCommands, errors, then = false)
       then:
         var newLines: RefStrings
         var linksRef: RefLinks
