@@ -103,7 +103,7 @@ let rules =
         session.insert(Global, HasSent, post.recents(user.pubKey).len > 0)
     rule updateHashWhenPageChanges(Fact):
       what:
-        (Global, Board, board)
+        (Global, Board, board, then = false)
         (Global, Hash, hash, then = false)
         (Global, SelectedPage, selectedPage)
         (Global, AllPages, pages, then = false)
@@ -118,7 +118,7 @@ let rules =
             session.insert(Global, Hash, newHash)
     rule updatePageWhenHashChanges(Fact):
       what:
-        (Global, Board, board)
+        (Global, Board, board, then = false)
         (Global, Hash, hash)
         (Global, Client, client)
         (Global, SelectedPage, selectedPage, then = false)
@@ -191,37 +191,40 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
 
-proc routeHash(session: var auto, clnt: client.Client, parts: Table[string, string]) =
-  if parts.hasKey("board"):
-    if parts.hasKey("type") and parts.hasKey("id"):
-      if sigToPageId.hasKey(parts["id"]):
-        session.goToPage(parts["id"])
-      else:
-        if parts["type"] == "user":
-          session.insertPage(ui.initUser(clnt, parts["id"]), parts["id"])
-        else:
-          session.insertPage(ui.initPost(clnt, parts["id"]), parts["id"])
-    elif parts.hasKey("type"):
-      case parts["type"]:
-      of "drafts":
-        session.insertPage(ui.initDrafts(clnt), "drafts")
-      of "sent":
-        session.insertPage(ui.initSent(clnt), "sent")
-      of "search":
-        session.insertPage(ui.initSearch(), "search")
-      else:
-        discard
+proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, string]) =
+  if "board" notin hash:
+    return
+  session.insert(Global, Board, hash["board"])
+  client.setReadUrl(clnt, paths.address & "/" & paths.boardsDir & "/" & hash["board"] & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename)
+  if "type" in hash and "id" in hash:
+    if sigToPageId.hasKey(hash["id"]):
+      session.goToPage(hash["id"])
     else:
-      if sigToPageId.hasKey(parts["board"]):
-        session.goToPage(parts["board"])
+      if hash["type"] == "user":
+        session.insertPage(ui.initUser(clnt, hash["board"], hash["id"]), hash["id"])
       else:
-        session.insertPage(ui.initUser(clnt, parts["board"]), parts["board"])
-  elif parts.hasKey("key") and parts.hasKey("algo"):
+        session.insertPage(ui.initPost(clnt, hash["board"], hash["id"]), hash["id"])
+  elif "type" in hash:
+    case hash["type"]:
+    of "drafts":
+      session.insertPage(ui.initDrafts(clnt, hash["board"]), "drafts")
+    of "sent":
+      session.insertPage(ui.initSent(clnt, hash["board"]), "sent")
+    of "search":
+      session.insertPage(ui.initSearch(hash["board"]), "search")
+    else:
+      discard
+  elif "key" in hash and "algo" in hash:
     if user.pubKey == "":
-      if user.createUser(parts["key"], parts["algo"]):
-        session.insertPage(ui.initUser(clnt, user.pubKey), user.pubKey)
+      if user.createUser(hash["key"], hash["algo"]):
+        session.insertPage(ui.initUser(clnt, hash["board"], user.pubKey), user.pubKey)
     else:
       session.insertPage(ui.initMessage("You must log out of your existing account before logging in to a new one."), "message")
+  else:
+    if hash["board"] in sigToPageId:
+      session.goToPage(hash["board"])
+    else:
+      session.insertPage(ui.initUser(clnt, hash["board"], hash["board"]), hash["board"])
 
 proc routeHash(session: var auto, clnt: client.Client, hash: string) =
   routeHash(session, clnt, editor.parseHash(hash))
@@ -230,11 +233,10 @@ proc insertHash*(session: var auto, hash: string) =
   session.insert(Global, Hash, hash)
   session.fireRules
 
-proc initSession*(clnt: client.Client): auto =
+proc initSession*(clnt: client.Client, hash: Table[string, string]): auto =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
-  result.insert(Global, Board, paths.sysopPublicKey)
   result.insert(Global, Client, clnt)
   result.insert(Global, Hash, "")
   result.insert(Global, SelectedPage, "")
@@ -244,20 +246,14 @@ proc initSession*(clnt: client.Client): auto =
   result.insert(Global, PageBreadcrumbsIndex, -1)
   result.insert(Global, HasDrafts, false)
   result.insert(Global, HasSent, false)
-  var hash =
-    when defined(emscripten):
-      emscripten.getHash()
-    else:
-      ""
-  if hash == "":
-    hash = "board:" & paths.sysopPublicKey
   result.routeHash(clnt, hash)
   result.fireRules
 
 proc refresh(session: var auto, clnt: client.Client, page: Page) =
   session.insert(page.id, ScrollY, 0)
   session.insert(page.id, View, cast[JsonNode](nil))
-  ui.refresh(clnt, page.data)
+  let globals = session.query(rules.getGlobals)
+  ui.refresh(clnt, page.data, globals.board)
 
 proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
   case actionName:
@@ -270,9 +266,9 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         globals = session.query(rules.getGlobals)
         comp =
           if typ == "user" or sig == user.pubKey:
-            ui.initUser(clnt, sig)
+            ui.initUser(clnt, globals.board, sig)
           else:
-            ui.initPost(clnt, sig)
+            ui.initPost(clnt, globals.board, sig)
       session.insertPage(comp, sig)
   of "change-page":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
@@ -294,7 +290,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
       else:
         if storage.get(sig) == "" and actionData.hasKey("content"):
           discard storage.set(sig, actionData["content"].str)
-        session.insertPage(ui.initEditor(width, height, sig, headers), sig)
+        session.insertPage(ui.initEditor(width, height, globals.board, sig, headers), sig)
   of "toggle-user-posts":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter, iw.Key.Left, iw.Key.Right}
     if result:
@@ -343,7 +339,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         page.data.tagsSig = ""
       elif input.key == iw.Key.Enter:
         let
-          headers = common.headers(user.pubKey, page.data.tagsSig, common.Tags)
+          headers = common.headers(user.pubKey, page.data.tagsSig, common.Tags, page.data.board)
           (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.tagsField))
         page.data.editTagsRequest = client.submit(clnt, "ansiwave", body)
       else:
@@ -585,7 +581,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             else:
               page.data.requestSig
         if storage.set(sig & ".ansiwave", page.data.requestBody):
-          session.insertPage(if sig == user.pubKey: ui.initUser(clnt, sig) else: ui.initPost(clnt, sig), sig)
+          session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
       else:
         let
@@ -624,7 +620,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
-        sess.insertPage(ui.initSearch(), "search")
+        sess.insertPage(ui.initSearch(globals.board), "search")
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
@@ -687,11 +683,11 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         else:
           let
             draftsAction = proc () {.closure.} =
-              sess.insertPage(ui.initDrafts(clnt), "drafts")
+              sess.insertPage(ui.initDrafts(clnt, globals.board), "drafts")
             sentAction = proc () {.closure.} =
-              sess.insertPage(ui.initSent(clnt), "sent")
+              sess.insertPage(ui.initSent(clnt, globals.board), "sent")
             myPageAction = proc () {.closure.} =
-              sess.insertPage(ui.initUser(clnt, user.pubKey), user.pubKey)
+              sess.insertPage(ui.initUser(clnt, globals.board, user.pubKey), user.pubKey)
           var s: seq[(string, proc ())]
           if globals.hasDrafts and page.sig != "drafts":
             s.add((" drafts ", draftsAction))
@@ -749,7 +745,7 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
   if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
     return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
 
-proc main*(parsedUri: uri.Uri, hash: Table[string, string]) =
+proc main*(parsedUri: uri.Uri, origHash: Table[string, string]) =
   when not defined(emscripten):
     if uri.isAbsolute(parsedUri) and parsedUri.hostname != uri.parseUri(paths.address).hostname:
       var newUri = parsedUri
@@ -758,7 +754,10 @@ proc main*(parsedUri: uri.Uri, hash: Table[string, string]) =
       paths.address = s
       paths.postAddress = s
 
-  vfs.readUrl = paths.address & "/" & paths.boardsDir & "/" & paths.sysopPublicKey & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename
+  var hash = origHash
+  if "board" notin origHash:
+    hash["board"] = paths.defaultBoard
+
   vfs.register()
   var clnt = client.initClient(paths.address, paths.postAddress)
   client.start(clnt)
@@ -766,10 +765,7 @@ proc main*(parsedUri: uri.Uri, hash: Table[string, string]) =
   init()
 
   # create session
-  var session = initSession(clnt)
-
-  if hash.hasKey("board"):
-    routeHash(session, clnt, hash)
+  var session = initSession(clnt, hash)
 
   # start loop
   while true:

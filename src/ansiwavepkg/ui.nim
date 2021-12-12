@@ -21,6 +21,7 @@ type
   ComponentKind* = enum
     Post, User, Editor, Drafts, Sent, Login, Logout, Message, Search,
   Component* = ref object
+    board*: string
     sig: string
     offset*: int
     case kind*: ComponentKind
@@ -60,47 +61,47 @@ type
     content: string
     sig: string
 
-proc refresh*(clnt: client.Client, comp: Component) =
+proc refresh*(clnt: client.Client, comp: Component, board: string) =
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
-    comp.replies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, false, comp.offset)
+    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
+    comp.replies = client.queryPostChildren(clnt, paths.db(board), comp.sig, false, comp.offset)
   of User:
-    comp.userContent = client.query(clnt, paths.ansiwavez(paths.sysopPublicKey, comp.sig))
+    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     if comp.showAllPosts:
-      comp.userReplies = client.queryUserPosts(clnt, paths.db(paths.sysopPublicKey), comp.sig, comp.offset)
+      comp.userReplies = client.queryUserPosts(clnt, paths.db(board), comp.sig, comp.offset)
     else:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(paths.sysopPublicKey), comp.sig, true, comp.offset)
-    if comp.sig != paths.sysopPublicKey:
-      comp.user = client.queryUser(clnt, paths.db(paths.sysopPublicKey), comp.sig)
+      comp.userReplies = client.queryPostChildren(clnt, paths.db(board), comp.sig, true, comp.offset)
+    if comp.sig != board:
+      comp.user = client.queryUser(clnt, paths.db(board), comp.sig)
     comp.editTagsRequest.started = false
     comp.tagsSig = ""
   of Search:
     if comp.showResults:
-      comp.searchResults = client.search(clnt, paths.db(paths.sysopPublicKey), comp.searchKind, comp.searchTerm, comp.offset)
+      comp.searchResults = client.search(clnt, paths.db(board), comp.searchKind, comp.searchTerm, comp.offset)
   of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
-proc initPost*(clnt: client.Client, sig: string): Component =
-  result = Component(kind: Post, sig: sig)
-  refresh(clnt, result)
+proc initPost*(clnt: client.Client, board: string, sig: string): Component =
+  result = Component(kind: Post, board: board, sig: sig)
+  refresh(clnt, result, board)
 
-proc initUser*(clnt: client.Client, key: string): Component =
-  result = Component(kind: User, sig: key, tagsField: simpleeditor.init())
-  refresh(clnt, result)
+proc initUser*(clnt: client.Client, board: string, key: string): Component =
+  result = Component(kind: User, board: board, sig: key, tagsField: simpleeditor.init())
+  refresh(clnt, result, board)
 
-proc initEditor*(width: int, height: int, sig: string, headers: string): Component =
-  result = Component(kind: Editor)
+proc initEditor*(width: int, height: int, board: string, sig: string, headers: string): Component =
+  result = Component(kind: Editor, board: board)
   result.headers = headers
   result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
 
-proc initDrafts*(clnt: client.Client): Component =
-  result = Component(kind: Drafts)
-  refresh(clnt, result)
+proc initDrafts*(clnt: client.Client, board: string): Component =
+  result = Component(kind: Drafts, board: board)
+  refresh(clnt, result, board)
 
-proc initSent*(clnt: client.Client): Component =
-  result = Component(kind: Sent)
-  refresh(clnt, result)
+proc initSent*(clnt: client.Client, board: string): Component =
+  result = Component(kind: Sent, board: board)
+  refresh(clnt, result, board)
 
 proc initLogin*(): Component =
   Component(kind: Login)
@@ -111,14 +112,14 @@ proc initLogout*(): Component =
 proc initMessage*(message: string): Component =
   Component(kind: Message, message: message)
 
-proc initSearch*(): Component =
-  Component(kind: Search, searchField: simpleeditor.init())
+proc initSearch*(board: string): Component =
+  Component(kind: Search, board: board, searchField: simpleeditor.init())
 
-proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
+proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies =
-      if entity.parent == paths.sysopPublicKey:
+      if entity.parent == board:
         if entity.reply_count == 1:
           "1 post"
         else:
@@ -143,7 +144,7 @@ proc toJson*(entity: entities.Post, kind: string = "post"): JsonNode =
     "action-accessible-text": replies,
   }
 
-proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string, kind: string = "post"): JsonNode =
+proc toJson*(board: string, posts: seq[entities.Post], offset: int, noResultsText: string, kind: string = "post"): JsonNode =
   result = JsonNode(kind: JArray)
   if offset > 0:
     result.add:
@@ -155,7 +156,7 @@ proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string, kind
       }
   if posts.len > 0:
     for post in posts:
-      result.elems.add(toJson(post, kind))
+      result.elems.add(toJson(board, post, kind))
   else:
     result.elems.add(%noResultsText)
   if posts.len == entities.limit:
@@ -167,7 +168,7 @@ proc toJson*(posts: seq[entities.Post], offset: int, noResultsText: string, kind
         "action-data": {"offset-change": entities.limit},
       }
 
-proc toJson*(draft: Draft): JsonNode =
+proc toJson*(draft: Draft, board: string): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     lines = post.wrapLines(strutils.splitLines(draft.content))
@@ -183,7 +184,7 @@ proc toJson*(draft: Draft): JsonNode =
       "action": "show-editor",
       "action-data": {
         "sig": draft.sig,
-        "headers": common.headers(user.pubKey, draft.target, if isNew: common.New else: common.Edit),
+        "headers": common.headers(user.pubKey, draft.target, if isNew: common.New else: common.Edit, board),
       },
     },
     {
@@ -238,7 +239,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           %* {
             "type": "button",
             "text":
-              if parsed.key == paths.sysopPublicKey:
+              if parsed.key == comp.board:
                 "edit subboard"
               else:
                 "edit post"
@@ -247,10 +248,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, common.Edit),
+              "headers": common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
             },
           }
-        elif parsed.key != paths.sysopPublicKey:
+        elif parsed.key != comp.board:
           %* {
             "type": "button",
             "text": "see user",
@@ -271,7 +272,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, common.New),
+            "headers": common.headers(user.pubKey, comp.sig, common.New, comp.board),
           },
         }
       ,
@@ -281,7 +282,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-       toJson(comp.replies.value.valid, comp.offset, "no posts")
+       toJson(comp.board, comp.replies.value.valid, comp.offset, "no posts")
     ]
   of User:
     client.get(comp.userContent)
@@ -289,10 +290,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading =
       comp.userContent.ready and
       comp.userReplies.ready and
-      (comp.sig == paths.sysopPublicKey or comp.user.ready)
+      (comp.sig == comp.board or comp.user.ready)
     var parsed: post.Parsed
     %*[
-      if comp.sig != paths.sysopPublicKey:
+      if comp.sig != comp.board:
         client.get(comp.user)
         if not comp.user.ready or
             comp.user.value.kind == client.Error:
@@ -352,7 +353,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
               "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, common.Edit),
+              "headers": common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
             },
           }
         else:
@@ -364,7 +365,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & "." & comp.sig & ".edit",
-            "headers": common.headers(user.pubKey, user.pubKey, common.Edit),
+            "headers": common.headers(user.pubKey, user.pubKey, common.Edit, comp.board),
           },
         }
       else:
@@ -374,7 +375,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %* {
           "type": "button",
           "text":
-            if comp.sig == paths.sysopPublicKey:
+            if comp.sig == comp.board:
               "create new subboard"
             else:
               "write new journal post"
@@ -382,13 +383,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, common.New),
+            "headers": common.headers(user.pubKey, comp.sig, common.New, comp.board),
           },
         }
       else:
         %[]
       ,
-      if comp.sig == paths.sysopPublicKey:
+      if comp.sig == comp.board:
         %[]
       else:
         %* {
@@ -405,7 +406,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userReplies.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.userReplies.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
+        toJson(comp.board, comp.userReplies.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
@@ -420,14 +421,14 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     for filename in post.drafts():
       let newIdx = strutils.find(filename, ".new")
       if newIdx != -1:
-        json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename)))
+        json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename), comp.board))
       else:
         let editIdx = strutils.find(filename, ".edit")
         if editIdx != -1:
           # filename is: original-sig.last-sig.edit
           let parts = strutils.split(filename, '.')
           if parts.len == 3:
-            json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename)))
+            json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename), comp.board))
     json
   of Sent:
     finishedLoading = false # don't cache
@@ -548,7 +549,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               "post"
             of entities.Users, entities.UserTags:
               "user"
-          toJson(comp.searchResults.value.valid, comp.offset, "no results", kind)
+          toJson(comp.board, comp.searchResults.value.valid, comp.offset, "no results", kind)
       else:
         %""
     ]
