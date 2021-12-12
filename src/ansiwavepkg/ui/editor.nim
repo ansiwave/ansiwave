@@ -442,32 +442,25 @@ let rules* =
         session.insert(id, Links, linksRef)
     rule updateErrors(Fact):
       what:
-        (Global, SelectedBuffer, Errors)
-        (Editor, CursorY, cursorY, then = false)
-        (Editor, InvalidCommands, errors, then = false)
+        (Editor, InvalidCommands, errors)
       then:
         var newLines: RefStrings
         var linksRef: RefLinks
         new newLines
         new linksRef
-        for error in errors[]:
-          var sess = session
-          let line = error.line
-          sugar.capture cursorY, line:
-            let cb =
-              proc () =
-                sess.insert(Global, SelectedBuffer, Editor)
-                sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
-                if cursorY != line:
-                  sess.insert(Editor, CursorX, 0)
+        if errors != nil:
+          for error in errors[]:
+            var sess = session
+            let line = error.line
+            sugar.capture line:
+              let cb =
+                proc () =
+                  sess.insert(Global, SelectedBuffer, Editor)
+                  sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
                   sess.insert(Editor, CursorY, line)
-            linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
-          post.add(newLines, error.message)
+              linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
+            post.add(newLines, error.message)
         session.insert(Errors, Lines, newLines)
-        session.insert(Errors, CursorX, 0)
-        session.insert(Errors, CursorY, 0)
-        session.insert(Errors, ValidCommands, cast[RefCommands](nil))
-        session.insert(Errors, InvalidCommands, cast[RefCommands](nil))
         session.insert(Errors, Links, linksRef)
     rule updateHistory(Fact):
       what:
