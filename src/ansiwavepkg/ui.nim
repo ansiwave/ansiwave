@@ -28,6 +28,7 @@ type
     of Post:
       postContent: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
+      post*: client.ChannelValue[entities.Post]
     of User:
       showAllPosts*: bool
       tagsField*: simpleeditor.EditorSession
@@ -66,6 +67,7 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(board), comp.sig, false, comp.offset)
+    comp.post = client.queryPost(clnt, paths.db(board), comp.sig)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     if comp.showAllPosts:
@@ -213,7 +215,8 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   of Post:
     client.get(comp.postContent)
     client.get(comp.replies)
-    finishedLoading = comp.postContent.ready and comp.replies.ready
+    client.get(comp.post)
+    finishedLoading = comp.postContent.ready and comp.replies.ready and comp.post.ready
     var parsed: post.Parsed
     %*[
       if not comp.postContent.ready:
@@ -227,11 +230,17 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             lines = strutils.splitLines(parsed.content)
             wrappedLines = post.wrapLines(lines)
             animatedLines = post.animateLines(wrappedLines, comp.postContent.readyTime)
+            tags =
+              if comp.post.ready and comp.post.value.kind != client.Error:
+                comp.post.value.valid.tags
+              else:
+                ""
           finishedLoading = finishedLoading and animatedLines == wrappedLines
           %*{
             "type": "rect",
             "children": animatedLines,
             "copyable-text": lines,
+            "top-left": tags,
           }
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
