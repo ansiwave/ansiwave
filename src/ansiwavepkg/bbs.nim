@@ -618,6 +618,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, focusIndex, areas)
     let
+      homeAction = proc () {.closure.} =
+        sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
@@ -625,6 +627,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
+    if page.sig != globals.board:
+      leftButtons &= @[(" ≈ home ", homeAction)]
     if page.sig != "search":
       leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
