@@ -688,20 +688,24 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       for child in node["children-after"]:
         var y = yStart + 1
         render(tb, child, x + 1, y, focusIndex, areas)
-    if node.hasKey("top-left"):
-      iw.write(tb, x + 1, yStart, node["top-left"].str)
-    if node.hasKey("top-right"):
-      iw.write(tb, xEnd - node["top-right"].str.runeLen, yStart, node["top-right"].str)
-    if node.hasKey("bottom-left-focused") and isFocused:
-      iw.write(tb, x + 1, y, node["bottom-left-focused"].str)
-    elif node.hasKey("bottom-left"):
-      iw.write(tb, x + 1, y, node["bottom-left"].str)
+    if node.hasKey("top-left") and node["top-left"].str != "":
+      let text = " " & node["top-left"].str & " "
+      iw.write(tb, x + 1, yStart, text)
+    if node.hasKey("top-right") and node["top-right"].str != "":
+      let text = " " & node["top-right"].str & " "
+      iw.write(tb, xEnd - text.runeLen, yStart, text)
+    if isFocused and node.hasKey("bottom-left-focused") and node["bottom-left-focused"].str != "":
+      let text = " " & node["bottom-left-focused"].str & " "
+      iw.write(tb, x + 1, y, text)
+    elif node.hasKey("bottom-left") and node["bottom-left"].str != "":
+      let text = " " & node["bottom-left"].str & " "
+      iw.write(tb, x + 1, y, text)
     if isFocused:
       let bottomRightText =
         if showPasteText:
-          "now you can paste in the editor with ctrl l"
+          " now you can paste in the editor with ctrl l "
         else:
-          "copy with ctrl k"
+          " copy with ctrl k "
       iw.write(tb, xEnd - bottomRightText.runeLen, y, bottomRightText)
     y += 1
   of "button":
