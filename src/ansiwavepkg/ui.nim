@@ -67,7 +67,7 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(board), comp.sig, false, comp.offset)
-    comp.post = client.queryPost(clnt, paths.db(board), comp.sig)
+    comp.post = client.queryPost(clnt, paths.db(board), comp.sig, false)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     if comp.showAllPosts:
