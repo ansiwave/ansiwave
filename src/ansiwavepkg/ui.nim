@@ -19,7 +19,7 @@ from ./ui/simpleeditor import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Sent, Login, Logout, Message, Search,
+    Post, User, Editor, Drafts, Sent, Replies, Login, Logout, Message, Search,
   Component* = ref object
     board*: string
     sig: string
@@ -36,13 +36,15 @@ type
       editTagsRequest*: client.ChannelValue[client.Response]
       user*: client.ChannelValue[entities.User]
       userContent: client.ChannelValue[client.Response]
-      userReplies: client.ChannelValue[seq[entities.Post]]
+      userPosts: client.ChannelValue[seq[entities.Post]]
     of Editor:
       headers*: string
       session*: editor.EditorSession
       request*: client.ChannelValue[client.Response]
       requestBody*: string
       requestSig*: string
+    of Replies:
+      userReplies: client.ChannelValue[seq[entities.Post]]
     of Message:
       message: string
     of Search:
@@ -71,13 +73,15 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     if comp.showAllPosts:
-      comp.userReplies = client.queryUserPosts(clnt, paths.db(board), comp.sig, comp.offset)
+      comp.userPosts = client.queryUserPosts(clnt, paths.db(board), comp.sig, comp.offset)
     else:
-      comp.userReplies = client.queryPostChildren(clnt, paths.db(board), comp.sig, true, comp.offset)
+      comp.userPosts = client.queryPostChildren(clnt, paths.db(board), comp.sig, true, comp.offset)
     if comp.sig != board:
       comp.user = client.queryUser(clnt, paths.db(board), comp.sig)
     comp.editTagsRequest.started = false
     comp.tagsSig = ""
+  of Replies:
+    comp.userReplies = client.queryUserReplies(clnt, paths.db(board), user.pubKey, comp.offset)
   of Search:
     if comp.showResults:
       comp.searchResults = client.search(clnt, paths.db(board), comp.searchKind, comp.searchTerm, comp.offset)
@@ -103,6 +107,10 @@ proc initDrafts*(clnt: client.Client, board: string): Component =
 
 proc initSent*(clnt: client.Client, board: string): Component =
   result = Component(kind: Sent, board: board)
+  refresh(clnt, result, board)
+
+proc initReplies*(clnt: client.Client, board: string): Component =
+  result = Component(kind: Replies, board: board)
   refresh(clnt, result, board)
 
 proc initLogin*(): Component =
@@ -295,10 +303,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     ]
   of User:
     client.get(comp.userContent)
-    client.get(comp.userReplies)
+    client.get(comp.userPosts)
     finishedLoading =
       comp.userContent.ready and
-      comp.userReplies.ready and
+      comp.userPosts.ready and
       (comp.sig == comp.board or comp.user.ready)
     var parsed: post.Parsed
     %*[
@@ -410,12 +418,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         }
       ,
       "", # spacer
-      if not comp.userReplies.ready:
+      if not comp.userPosts.ready:
         %"loading posts"
-      elif comp.userReplies.value.kind == client.Error:
+      elif comp.userPosts.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.board, comp.userReplies.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
+        toJson(comp.board, comp.userPosts.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
@@ -453,6 +461,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         let parts = strutils.split(filename, '.')
         json.elems.add(toJson(Recent(content: parsed.content, sig: parts[0])))
     json
+  of Replies:
+    client.get(comp.userReplies)
+    finishedLoading = false # don't cache
+    %*[
+      "These are replies to any of your posts.",
+      "", # space
+      if not comp.userReplies.ready:
+        %"loading replies"
+      elif comp.userReplies.value.kind == client.Error:
+        %"failed to load replies"
+      else:
+        toJson(comp.board, comp.userReplies.value.valid, comp.offset, "no replies")
+    ]
   of Login:
     finishedLoading = true
     %*[
@@ -623,19 +644,15 @@ proc toHtml*(comp: Component): string =
   comp.toJson(finishedLoading).toHtml
 
 proc toHash*(comp: Component, board: string): string =
-  var fragments: seq[string]
-  case comp.kind:
-  of Post:
-    let pairs = {
-      "type": "post",
-      "id": comp.sig,
-      "board": board,
-    }
-    for pair in pairs:
-      if pair[1].len > 0:
-        fragments.add(pair[0] & ":" & pair[1])
-  of User:
-    let pairs =
+  let pairs =
+    case comp.kind:
+    of Post:
+      @{
+        "type": "post",
+        "id": comp.sig,
+        "board": board,
+      }
+    of User:
       if comp.sig == board:
         @{
           "board": board,
@@ -646,38 +663,32 @@ proc toHash*(comp: Component, board: string): string =
           "id": comp.sig,
           "board": board,
         }
-    for pair in pairs:
-      if pair[1].len > 0:
-        fragments.add(pair[0] & ":" & pair[1])
-  of Drafts:
-    let pairs =
-      {
+    of Drafts:
+      @{
         "type": "drafts",
         "board": board,
       }
-    for pair in pairs:
-      if pair[1].len > 0:
-        fragments.add(pair[0] & ":" & pair[1])
-  of Sent:
-    let pairs =
-      {
+    of Sent:
+      @{
         "type": "sent",
         "board": board,
       }
-    for pair in pairs:
-      if pair[1].len > 0:
-        fragments.add(pair[0] & ":" & pair[1])
-  of Search:
-    let pairs =
-      {
+    of Replies:
+      @{
+        "type": "replies",
+        "board": board,
+      }
+    of Search:
+      @{
         "type": "search",
         "board": board,
       }
-    for pair in pairs:
-      if pair[1].len > 0:
-        fragments.add(pair[0] & ":" & pair[1])
-  of Editor, Login, Logout, Message:
-    discard
+    of Editor, Login, Logout, Message:
+      newSeq[(string, string)]()
+  var fragments: seq[string]
+  for pair in pairs:
+    if pair[1].len > 0:
+      fragments.add(pair[0] & ":" & pair[1])
   strutils.join(fragments, ",")
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =

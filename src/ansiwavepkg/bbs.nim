@@ -211,6 +211,8 @@ proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, strin
       session.insertPage(ui.initDrafts(clnt, hash["board"]), "drafts")
     of "sent":
       session.insertPage(ui.initSent(clnt, hash["board"]), "sent")
+    of "replies":
+      session.insertPage(ui.initReplies(clnt, hash["board"]), "replies")
     of "search":
       session.insertPage(ui.initSearch(hash["board"]), "search")
     else:
@@ -698,6 +700,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
               sess.insertPage(ui.initDrafts(clnt, globals.board), "drafts")
             sentAction = proc () {.closure.} =
               sess.insertPage(ui.initSent(clnt, globals.board), "sent")
+            repliesAction = proc () {.closure.} =
+              sess.insertPage(ui.initReplies(clnt, globals.board), "replies")
             myPageAction = proc () {.closure.} =
               sess.insertPage(ui.initUser(clnt, globals.board, user.pubKey), user.pubKey)
           var s: seq[(string, proc ())]
@@ -705,6 +709,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             s.add((" drafts ", draftsAction))
           if globals.hasSent and page.sig != "sent":
             s.add((" sent ", sentAction))
+          if user.pubKey != "" and page.sig != "replies":
+            s.add((" replies ", repliesAction))
           s.add((" my page ", myPageAction))
           s
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
