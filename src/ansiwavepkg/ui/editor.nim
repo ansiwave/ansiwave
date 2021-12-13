@@ -221,6 +221,7 @@ proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: 
     errsRef[].delete(errIndex)
   let link = setErrorLink(session, linksRef, line, errsRef[].len)
   errsRef[].add(wavescript.CommandTree(kind: wavescript.Error, line: line, message: message))
+  session.insert(bufferId, InvalidCommands, errsRef)
   if goToError:
     link.callback()
 
