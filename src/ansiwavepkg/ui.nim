@@ -127,6 +127,13 @@ proc initMessage*(message: string): Component =
 proc initSearch*(board: string): Component =
   Component(kind: Search, board: board, searchField: simpleeditor.init())
 
+proc createHash(pairs: seq[(string, string)]): string =
+  var fragments: seq[string]
+  for pair in pairs:
+    if pair[1].len > 0:
+      fragments.add(pair[0] & ":" & pair[1])
+  strutils.join(fragments, ",")
+
 proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
@@ -153,7 +160,8 @@ proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonN
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
     "action-data": {"type": kind, "sig": entity.content.sig},
-    "action-accessible-text": replies,
+    "accessible-text": replies,
+    "accessible-hash": createHash(@{"type": kind, "id": entity.content.sig, "board": board}),
   }
 
 proc toJson*(board: string, posts: seq[entities.Post], offset: int, noResultsText: string, kind: string = "post"): JsonNode =
@@ -650,21 +658,19 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
     result &= "<div title='Post'>"
     for child in node["children"]:
       result &= toHtml(child)
-    if node.hasKey("action") and node.hasKey("action-accessible-text"):
-      # TODO: make this link go somewhere
-      result &= "<br/><a href=''>" & node["action-accessible-text"].str & "</a>"
+    if "accessible-text" in node and "accessible-hash" in node:
+      result &= "<br/><a href='#" & node["accessible-hash"].str & "'>" & node["accessible-text"].str & "</a>"
     result &= "</div>"
-  of "button":
-    result &= "<button>" & node["text"].str & "</button>"
-  of "editor":
-    result &= "<div>Editor not supported in HTML version for now</div>"
   else:
     discard
+
+proc escapeHtml(s: string): string =
+  strutils.multiReplace(s, ("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"), ("\"", "&quot;"), ("'", "&apos;"))
 
 proc toHtml(node: JsonNode): string =
   case node.kind:
   of JString:
-    result = node.str.stripCodes & "\n"
+    result = node.str.stripCodes.escapeHtml & "\n"
   of JObject:
     result = toHtml(node.fields)
   of JArray:
@@ -719,11 +725,7 @@ proc toHash*(comp: Component, board: string): string =
       }
     of Editor, Login, Logout, Message:
       newSeq[(string, string)]()
-  var fragments: seq[string]
-  for pair in pairs:
-    if pair[1].len > 0:
-      fragments.add(pair[0] & ":" & pair[1])
-  strutils.join(fragments, ",")
+  createHash(pairs)
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
