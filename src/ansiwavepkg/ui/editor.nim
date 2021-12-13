@@ -497,12 +497,13 @@ let rules* =
           history[] = history[0 .. newIndex]
           history[newIndex] = Snapshot(lines: lines[], cursorX: x, cursorY: y, time: currTime)
         session.insert(id, UndoHistory, history)
-        session.insert(id, UndoIndex, newIndex)
+        if newIndex != undoIndex:
+          session.insert(id, UndoIndex, newIndex)
     rule undoIndexChanged(Fact):
       what:
         (id, Lines, lines, then = false)
         (id, UndoIndex, undoIndex)
-        (id, UndoHistory, history)
+        (id, UndoHistory, history, then = false)
       cond:
         undoIndex >= 0
         undoIndex < history[].len
