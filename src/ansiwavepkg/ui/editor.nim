@@ -448,19 +448,20 @@ let rules* =
         var linksRef: RefLinks
         new newLines
         new linksRef
-        if errors != nil:
-          for error in errors[]:
-            var sess = session
-            let line = error.line
-            sugar.capture line:
-              let cb =
-                proc () =
-                  sess.insert(Global, SelectedBuffer, Editor)
-                  sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
-                  sess.insert(Editor, CursorY, line)
-              linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
-            post.add(newLines, error.message)
+        for error in errors[]:
+          var sess = session
+          let line = error.line
+          sugar.capture line:
+            let cb =
+              proc () =
+                sess.insert(Global, SelectedBuffer, Editor)
+                sess.insert(Editor, SelectedMode, 0) # force it to be write mode so the cursor is visible
+                sess.insert(Editor, CursorY, line)
+            linksRef[newLines[].len] = Link(icon: "!".runeAt(0), callback: cb, error: true)
+          post.add(newLines, error.message)
         session.insert(Errors, Lines, newLines)
+        session.insert(Errors, CursorX, 0)
+        session.insert(Errors, CursorY, 0)
         session.insert(Errors, Links, linksRef)
     rule updateHistory(Fact):
       what:
@@ -647,9 +648,14 @@ proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: 
   session.insert(id, InsertMode, false)
   session.insert(id, LastEditTime, 0.0)
   session.insert(id, LastSaveTime, 0.0)
-  session.insert(id, ValidCommands, cast[RefCommands](nil))
-  session.insert(id, InvalidCommands, cast[RefCommands](nil))
-  session.insert(id, Links, cast[RefLinks](nil))
+  var cmdsRef, errsRef: RefCommands
+  var linksRef: RefLinks
+  new cmdsRef
+  new errsRef
+  new linksRef
+  session.insert(id, ValidCommands, cmdsRef)
+  session.insert(id, InvalidCommands, errsRef)
+  session.insert(id, Links, linksRef)
 
 proc saveBuffer*(f: File | StringStream, lines: RefStrings) =
   let lineCount = lines[].len
