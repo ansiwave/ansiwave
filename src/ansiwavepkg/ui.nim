@@ -16,6 +16,7 @@ from ./storage import nil
 from wavecorepkg/paths import nil
 from ./post import nil
 from ./ui/simpleeditor import nil
+from algorithm import nil
 
 type
   ComponentKind* = enum
@@ -63,6 +64,7 @@ type
   Recent = object
     content: string
     sig: string
+    time: int
 
 proc refresh*(clnt: client.Client, comp: Component, board: string) =
   case comp.kind:
@@ -206,17 +208,41 @@ proc toJson*(draft: Draft, board: string): JsonNode =
     "" # spacer
   ]
 
-proc toJson*(recent: Recent): JsonNode =
+proc toJson*(post: Recent): JsonNode =
   const maxLines = int(editorWidth / 4f)
-  let lines = strutils.splitLines(recent.content)
+  let lines = strutils.splitLines(post.content)
   %* {
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "copyable-text": lines,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
-    "action-data": {"type": "post", "sig": recent.sig},
+    "action-data": {"type": "post", "sig": post.sig},
   }
+
+proc toJson*(posts: seq[Recent], offset: int): JsonNode =
+  result = JsonNode(kind: JArray)
+  if offset > 0:
+    result.add:
+      %* {
+        "type": "button",
+        "text": "previous page",
+        "action": "change-page",
+        "action-data": {"offset-change": -entities.limit},
+      }
+  if posts.len > 0:
+    for post in posts:
+      result.elems.add(toJson(post))
+  else:
+    result.elems.add(%"no posts")
+  if posts.len == entities.limit:
+    result.add:
+      %* {
+        "type": "button",
+        "text": "next page",
+        "action": "change-page",
+        "action-data": {"offset-change": entities.limit},
+      }
 
 proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
   case comp.kind:
@@ -449,18 +475,26 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     json
   of Sent:
     finishedLoading = false # don't cache
-    var json = %* [
-      "These are your recently sent posts.",
-      "They may take some time to appear on the board.",
-      "",
-    ]
+    var recents: seq[Recent]
     for filename in post.recents(user.pubKey):
       var parsed = post.Parsed(kind: post.Local)
       post.parseAnsiwave(storage.get(filename), parsed)
       if parsed.kind != post.Error:
         let parts = strutils.split(filename, '.')
-        json.elems.add(toJson(Recent(content: parsed.content, sig: parts[0])))
-    json
+        recents.add(Recent(content: parsed.content, sig: parts[0], time: post.getTime(parsed)))
+    recents = algorithm.sorted(recents,
+      proc (x, y: Recent): int =
+        if x.time < y.time: 1
+        elif x.time > y.time: -1
+        else: 0
+    )
+    recents = recents[comp.offset ..< min(comp.offset + entities.limit, recents.len)]
+    %* [
+      "These are your recently sent posts.",
+      "They may take some time to appear on the board.",
+      "",
+      toJson(recents, comp.offset),
+    ]
   of Replies:
     client.get(comp.userReplies)
     finishedLoading = false # don't cache
