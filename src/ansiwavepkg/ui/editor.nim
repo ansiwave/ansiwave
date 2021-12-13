@@ -277,8 +277,9 @@ proc cursorChanged(session: var auto, id: int, cursorX: int, cursorY: int, lines
   elif cursorY >= lines[].len:
     session.insert(id, if wrapped: WrappedCursorY else: CursorY, lines[].len - 1)
   else:
-    if cursorX > lines[cursorY][].stripCodes.runeLen:
-      session.insert(id, if wrapped: WrappedCursorX else: CursorX, lines[cursorY][].stripCodes.runeLen)
+    let lastCol = lines[cursorY][].stripCodes.runeLen
+    if cursorX > lastCol:
+      session.insert(id, if wrapped: WrappedCursorX else: CursorX, lastCol)
     elif cursorX < 0:
       session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
 
