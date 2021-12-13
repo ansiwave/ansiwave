@@ -490,7 +490,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     of iw.Key.Down:
       if focusIndex < 0:
         focusIndex = 0
-      else:
+      elif page.viewFocusAreas.len > focusIndex + 1:
         focusIndex = focusIndex + 1
       ui.showPasteText = false
     of iw.Key.CtrlR:
