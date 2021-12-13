@@ -278,12 +278,16 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 ""
           finishedLoading = finishedLoading and animatedLines == wrappedLines
-          %*{
+          var json = %*{
             "type": "rect",
             "children": animatedLines,
             "copyable-text": lines,
             "top-left": tags,
           }
+          if parsed.key != comp.board:
+            json["accessible-text"] = %"see user"
+            json["accessible-hash"] = %createHash(@{"type": "user", "id": parsed.key, "board": comp.board})
+          json
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
         if parsed.key == user.pubKey:
