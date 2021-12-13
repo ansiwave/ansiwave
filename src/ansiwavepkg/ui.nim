@@ -734,7 +734,7 @@ proc toHash*(comp: Component, board: string): string =
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
   codes.deleteAfter(runes, editorWidth - 1)
-  codes.write(tb, x, y, $runes)
+  codes.writeMaybe(tb, x, y, $runes)
   y += 1
 
 var showPasteText*: bool
@@ -791,7 +791,7 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
       tabX = 0
       tabIndex = 0
     for tab in node["text"]:
-      codes.write(tb, xStart + tabX, y+1, tab.str)
+      codes.writeMaybe(tb, xStart + tabX, y+1, tab.str)
       if tabIndex == node["index"].num:
         iw.drawRect(tb, xStart + tabX - 1, yStart, xStart + tabX + tab.str.runeLen, y+2, doubleStyle = isFocused)
       tabX += tab.str.runeLen + 2

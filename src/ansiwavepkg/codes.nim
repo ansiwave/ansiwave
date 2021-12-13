@@ -164,6 +164,12 @@ proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
   iw.setCursorXPos(tb, currX)
   iw.setCursorYPos(tb, y)
 
+proc writeMaybe*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
+  try:
+    write(tb, x, y, s)
+  except Exception as ex:
+    discard
+
 proc stripCodes*(line: seq[Rune]): seq[Rune] =
   var codes: seq[string]
   for ch in line:
