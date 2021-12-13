@@ -45,10 +45,15 @@ proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key
   for (text, cb) in leftButtons:
     x = renderButton(tb, text, x, pageY, input.key, cb, buttonFocus == focusIndex)
     buttonFocus -= 1
+  var leftButtonWidth = 0
+  for (text, cb) in leftButtons:
+    leftButtonWidth += text.runeLen + 2
   var rightButtonWidth = 0
   for (text, cb) in rightButtons:
     rightButtonWidth += text.runeLen + 2
   x = (constants.editorWidth + 2) - rightButtonWidth
+  if x < leftButtonWidth:
+    x = leftButtonWidth
   for (text, cb) in rightButtons:
     x = renderButton(tb, text, x, pageY, input.key, cb, buttonFocus == focusIndex)
     buttonFocus -= 1
