@@ -3,7 +3,7 @@ from wavecorepkg/db/vfs import nil
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from os import nil
-from ./ui import nil
+from ./ui import Component
 from ./ui/editor import nil
 from ./ui/simpleeditor import nil
 from ./ui/navbar import nil
@@ -36,7 +36,6 @@ type
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
     HasDrafts, HasSent,
-  Component = ui.Component
   ViewFocusAreaSeq = seq[ui.ViewFocusArea]
   Page = tuple
     id: int
