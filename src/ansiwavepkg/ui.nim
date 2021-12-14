@@ -461,7 +461,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userPosts.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.board, comp.userPosts.value.valid, comp.offset, (if comp.showAllPosts: "no posts" else: "no journal posts"))
+        toJson(comp.board, comp.userPosts.value.valid, comp.offset, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
