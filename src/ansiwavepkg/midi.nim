@@ -14,7 +14,6 @@ when defined(emscripten):
 
   proc fetchSoundfont*() =
     var clnt = client.initClient("")
-    client.start(clnt)
     response = client.query(clnt, "soundfont.sf2")
 
 type
