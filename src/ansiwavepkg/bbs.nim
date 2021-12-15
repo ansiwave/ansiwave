@@ -213,7 +213,7 @@ proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, strin
     of "replies":
       session.insertPage(ui.initReplies(clnt, hash["board"]), "replies")
     of "search":
-      session.insertPage(ui.initSearch(hash["board"]), "search")
+      session.insertPage(ui.initSearch(clnt, hash["board"]), "search")
     else:
       discard
   elif "key" in hash and "algo" in hash:
@@ -631,7 +631,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
       searchAction = proc () {.closure.} =
-        sess.insertPage(ui.initSearch(globals.board), "search")
+        sess.insertPage(ui.initSearch(clnt, globals.board), "search")
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]

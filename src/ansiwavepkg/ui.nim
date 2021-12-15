@@ -22,9 +22,11 @@ type
   ComponentKind* = enum
     Post, User, Editor, Drafts, Sent, Replies, Login, Logout, Message, Search,
   Component* = ref object
+    client: client.Client
     board*: string
     sig: string
     offset*: int
+    cache: Table[string, client.ChannelValue[client.Response]]
     case kind*: ComponentKind
     of Post:
       postContent: client.ChannelValue[client.Response]
@@ -67,11 +69,12 @@ type
     time: int
 
 proc refresh*(clnt: client.Client, comp: Component, board: string) =
+  comp.cache = initTable[string, client.ChannelValue[client.Response]]()
   case comp.kind:
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     comp.replies = client.queryPostChildren(clnt, paths.db(board), comp.sig, false, comp.offset)
-    comp.post = client.queryPost(clnt, paths.db(board), comp.sig, false)
+    comp.post = client.queryPost(clnt, paths.db(board), comp.sig)
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
     if comp.showAllPosts:
@@ -91,11 +94,11 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     discard
 
 proc initPost*(clnt: client.Client, board: string, sig: string): Component =
-  result = Component(kind: Post, board: board, sig: sig)
+  result = Component(kind: Post, client: clnt, board: board, sig: sig)
   refresh(clnt, result, board)
 
 proc initUser*(clnt: client.Client, board: string, key: string): Component =
-  result = Component(kind: User, board: board, sig: key, tagsField: simpleeditor.init())
+  result = Component(kind: User, client: clnt, board: board, sig: key, tagsField: simpleeditor.init())
   refresh(clnt, result, board)
 
 proc initEditor*(width: int, height: int, board: string, sig: string, headers: string): Component =
@@ -104,15 +107,15 @@ proc initEditor*(width: int, height: int, board: string, sig: string, headers: s
   result.session = editor.init(editor.Options(bbsMode: true, sig: sig), width, height - navbar.height)
 
 proc initDrafts*(clnt: client.Client, board: string): Component =
-  result = Component(kind: Drafts, board: board)
+  result = Component(kind: Drafts, client: clnt, board: board)
   refresh(clnt, result, board)
 
 proc initSent*(clnt: client.Client, board: string): Component =
-  result = Component(kind: Sent, board: board)
+  result = Component(kind: Sent, client: clnt, board: board)
   refresh(clnt, result, board)
 
 proc initReplies*(clnt: client.Client, board: string): Component =
-  result = Component(kind: Replies, board: board)
+  result = Component(kind: Replies, client: clnt, board: board)
   refresh(clnt, result, board)
 
 proc initLogin*(): Component =
@@ -124,8 +127,8 @@ proc initLogout*(): Component =
 proc initMessage*(message: string): Component =
   Component(kind: Message, message: message)
 
-proc initSearch*(board: string): Component =
-  Component(kind: Search, board: board, searchField: simpleeditor.init())
+proc initSearch*(clnt: client.Client, board: string): Component =
+  Component(kind: Search, client: clnt, board: board, searchField: simpleeditor.init())
 
 proc createHash(pairs: seq[(string, string)]): string =
   var fragments: seq[string]
@@ -134,7 +137,7 @@ proc createHash(pairs: seq[(string, string)]): string =
       fragments.add(pair[0] & ":" & pair[1])
   strutils.join(fragments, ",")
 
-proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonNode =
+proc toJson*(entity: entities.Post, content: string, board: string, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies =
@@ -148,7 +151,7 @@ proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonN
           "1 reply"
         else:
           $entity.reply_count & " replies"
-    lines = common.splitAfterHeaders(entity.content.value.uncompressed)
+    lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
     truncatedLines = if lines.len > maxLines: lines[0 ..< maxLines] else: lines
   %*{
@@ -164,9 +167,9 @@ proc toJson*(board: string, entity: entities.Post, kind: string = "post"): JsonN
     "accessible-hash": createHash(@{"type": kind, "id": entity.content.sig, "board": board}),
   }
 
-proc toJson*(board: string, posts: seq[entities.Post], offset: int, noResultsText: string, kind: string = "post"): JsonNode =
+proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string, kind: string = "post"): JsonNode =
   result = JsonNode(kind: JArray)
-  if offset > 0:
+  if comp.offset > 0:
     result.add:
       %* {
         "type": "button",
@@ -176,7 +179,14 @@ proc toJson*(board: string, posts: seq[entities.Post], offset: int, noResultsTex
       }
   if posts.len > 0:
     for post in posts:
-      result.elems.add(toJson(board, post, kind))
+      if post.content.sig notin comp.cache:
+        comp.cache[post.content.sig] = client.query(comp.client, paths.ansiwavez(comp.board, post.content.sig))
+      client.get(comp.cache[post.content.sig])
+      if comp.cache[post.content.sig].ready:
+        if comp.cache[post.content.sig].value.kind != client.Error:
+          result.elems.add(toJson(post, comp.cache[post.content.sig].value.valid.body, comp.board, kind))
+      else:
+        finishedLoading = false
   else:
     result.elems.add(%noResultsText)
   if posts.len == entities.limit:
@@ -337,7 +347,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-       toJson(comp.board, comp.replies.value.valid, comp.offset, "no posts")
+       toJson(comp.replies.value.valid, comp, finishedLoading, "no posts")
     ]
   of User:
     client.get(comp.userContent)
@@ -461,7 +471,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userPosts.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.board, comp.userPosts.value.valid, comp.offset, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
+        toJson(comp.userPosts.value.valid, comp, finishedLoading, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
@@ -518,7 +528,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userReplies.value.kind == client.Error:
         %"failed to load replies"
       else:
-        toJson(comp.board, comp.userReplies.value.valid, comp.offset, "no replies")
+        toJson(comp.userReplies.value.valid, comp, finishedLoading, "no replies")
     ]
   of Login:
     finishedLoading = true
@@ -625,7 +635,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               "post"
             of entities.Users, entities.UserTags:
               "user"
-          toJson(comp.board, comp.searchResults.value.valid, comp.offset, "no results", kind)
+          toJson(comp.searchResults.value.valid, comp, finishedLoading, "no results", kind)
       else:
         %""
     ]
