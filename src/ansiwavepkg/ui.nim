@@ -80,7 +80,7 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     if comp.showAllPosts:
       comp.userPosts = client.queryUserPosts(clnt, paths.db(board), comp.sig, comp.offset)
     else:
-      comp.userPosts = client.queryPostChildren(clnt, paths.db(board), comp.sig, true, comp.offset)
+      comp.userPosts = client.queryPostChildren(clnt, paths.db(board), comp.sig, comp.sig != board, comp.offset)
     if comp.sig != board:
       comp.user = client.queryUser(clnt, paths.db(board), comp.sig)
     comp.editTagsRequest.started = false
