@@ -195,7 +195,7 @@ proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, strin
     session.insertPage(ui.initMessage("Can't navigate to this page"), "message")
     return
   session.insert(Global, Board, hash["board"])
-  client.setReadUrl(clnt, paths.address & "/" & paths.boardsDir & "/" & hash["board"] & "/" & paths.gitDir & "/" & paths.dbDir & "/" & paths.dbFilename)
+  client.setReadUrl(clnt, paths.address & "/" & paths.boardsDir & "/" & hash["board"] & "/" & paths.dbDir & "/" & paths.dbFilename)
   if "type" in hash and "id" in hash:
     if sigToPageId.hasKey(hash["id"]):
       session.goToPage(hash["id"])
