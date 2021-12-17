@@ -641,7 +641,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
       let content = ui.getContent(page.data)
-      if content != "":
+      if content != "" and page.sig != globals.board:
         let viewHtmlAction = proc () {.closure.} =
           emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
         leftButtons.add((" plain view ", viewHtmlAction))
