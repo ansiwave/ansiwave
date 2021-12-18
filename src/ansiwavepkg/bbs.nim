@@ -763,20 +763,29 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
     return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
 
 proc main*(parsedUri: uri.Uri, origHash: Table[string, string]) =
-  when not defined(emscripten):
-    if uri.isAbsolute(parsedUri) and parsedUri.hostname != uri.parseUri(paths.address).hostname:
-      var newUri = parsedUri
-      newUri.anchor = ""
-      let s = uri.`$`(newUri)
-      paths.address = s
-      paths.postAddress = s
-
   var hash = origHash
   if "board" notin origHash:
     hash["board"] = paths.defaultBoard
 
   vfs.register()
-  var clnt = client.initClient(paths.address, paths.postAddress)
+
+  var clnt: client.Client
+
+  when not defined(emscripten):
+    # offline board
+    if parsedUri.path != "" and os.dirExists(parsedUri.path):
+      clnt = client.Client(kind: client.Offline, path: parsedUri.path, postAddress: paths.postAddress)
+    # opening a url
+    elif uri.isAbsolute(parsedUri) and parsedUri.hostname != uri.parseUri(paths.address).hostname:
+      var newUri = parsedUri
+      newUri.anchor = ""
+      let s = uri.`$`(newUri)
+      paths.address = s
+      paths.postAddress = s
+      clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
+  else:
+    clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
+
   client.start(clnt)
 
   init()

@@ -213,8 +213,11 @@ proc main*() =
     let isUri = uri.isAbsolute(parsedUri)
     if isUri:
       hash = editor.parseHash(parsedUri.anchor)
-    # single player mode
-    if not isUri or hash.hasKey("data"):
+    # an offline board
+    if not isUri and os.dirExists(opts.input):
+      discard
+    # a file or a url
+    elif not isUri or hash.hasKey("data"):
       var session: editor.EditorSession
       try:
         session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)

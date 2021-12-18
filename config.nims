@@ -8,3 +8,4 @@ when defined(linux):
 
 --threads:on
 --define:staticSqlite
+--define:multiplexSqlite
