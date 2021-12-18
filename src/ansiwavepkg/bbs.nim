@@ -772,17 +772,18 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   when not defined(emscripten):
-    # offline board
-    if parsedUrl.path != "" and os.dirExists(parsedUrl.path):
-      clnt = client.Client(kind: client.Offline, path: parsedUrl.path, postAddress: paths.postAddress)
-    # opening a url
-    elif parsedUrl.scheme != "" and parsedUrl.hostname != urlly.parseUrl(paths.address).hostname:
-      var newUrl = parsedUrl
-      newUrl.fragment = ""
-      let s = $ newUrl
-      paths.address = s
-      paths.postAddress = s
-      clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
+    if parsedUrl != nil:
+      # offline board
+      if parsedUrl.path != "" and os.dirExists(parsedUrl.path):
+        clnt = client.Client(kind: client.Offline, path: parsedUrl.path, postAddress: paths.postAddress)
+      # opening a url
+      elif parsedUrl.scheme != "" and parsedUrl.hostname != urlly.parseUrl(paths.address).hostname:
+        var newUrl = parsedUrl
+        newUrl.fragment = ""
+        let s = $ newUrl
+        paths.address = s
+        paths.postAddress = s
+        clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   client.start(clnt)
 
