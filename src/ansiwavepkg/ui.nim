@@ -17,6 +17,7 @@ from wavecorepkg/paths import nil
 from ./post import nil
 from ./ui/simpleeditor import nil
 from algorithm import nil
+from chrono import nil
 
 type
   ComponentKind* = enum
@@ -137,20 +138,22 @@ proc createHash(pairs: seq[(string, string)]): string =
       fragments.add(pair[0] & ":" & pair[1])
   strutils.join(fragments, ",")
 
+proc replyText(post: entities.Post, board: string): string =
+  if post.parent == board:
+    if post.reply_count == 1:
+      "1 post"
+    else:
+      $post.reply_count & " posts"
+  else:
+    if post.reply_count == 1:
+      "1 reply"
+    else:
+      $post.reply_count & " replies"
+
 proc toJson*(entity: entities.Post, content: string, board: string, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
-    replies =
-      if entity.parent == board:
-        if entity.reply_count == 1:
-          "1 post"
-        else:
-          $entity.reply_count & " posts"
-      else:
-        if entity.reply_count == 1:
-          "1 reply"
-        else:
-          $entity.reply_count & " replies"
+    replies = replyText(entity, board)
     lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
     truncatedLines = if lines.len > maxLines: lines[0 ..< maxLines] else: lines
@@ -271,6 +274,18 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = comp.postContent.ready and comp.replies.ready and comp.post.ready
     var parsed: post.Parsed
     %*[
+      if comp.sig != comp.board and
+          comp.post.ready and
+          comp.post.value.kind != client.Error and
+          comp.post.value.valid.parent != comp.board:
+        % " $1$2$3".format(
+          comp.post.value.valid.tags,
+          if comp.post.value.valid.tags.len > 0: " | " else: "",
+          chrono.format(chrono.Timestamp(comp.post.value.valid.ts), "{year/4}-{month/2}-{day/2}"),
+        )
+      else:
+        %[]
+      ,
       if not comp.postContent.ready:
         %"loading..."
       else:
@@ -282,17 +297,11 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             lines = strutils.splitLines(parsed.content)
             wrappedLines = post.wrapLines(lines)
             animatedLines = post.animateLines(wrappedLines, comp.postContent.readyTime)
-            tags =
-              if comp.post.ready and comp.post.value.kind != client.Error:
-                comp.post.value.valid.tags
-              else:
-                ""
           finishedLoading = finishedLoading and animatedLines == wrappedLines
           var json = %*{
             "type": "rect",
             "children": animatedLines,
             "copyable-text": lines,
-            "top-left": tags,
           }
           if parsed.key != comp.board:
             json["accessible-text"] = %"see user"
@@ -340,6 +349,15 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "headers": common.headers(user.pubKey, comp.sig, common.New, comp.board),
           },
         }
+      ,
+      "", # spacer
+      if comp.sig != comp.board:
+        if comp.post.ready and comp.post.value.kind != client.Error:
+          % (" " & replyText(comp.post.value.valid, comp.board))
+        else:
+          %[]
+      else:
+        %[]
       ,
       "", # spacer
       if not comp.replies.ready:
