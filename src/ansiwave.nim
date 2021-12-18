@@ -19,7 +19,7 @@ from json import nil
 from parseopt import nil
 from zippy import nil
 import streams
-from uri import nil
+from urlly import `$`
 from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
 from wavecorepkg/wavescript import CommandTree
@@ -112,11 +112,11 @@ proc convertToWav(opts: editor.Options) =
       discard
 
 proc convert(opts: editor.Options) =
-  let parsedUri = uri.parseUri(opts.input)
-  if uri.isAbsolute(parsedUri): # a url
+  let parsedUrl = urlly.parseUrl(opts.input)
+  if parsedUrl.scheme != "": # a url
     let outputExt = os.splitFile(opts.output).ext
     if outputExt == ".ansiwave":
-      let link = editor.parseHash(parsedUri.anchor)
+      let link = editor.parseHash(parsedUrl.fragment)
       var f: File
       if open(f, opts.output, fmWrite):
         editor.saveBuffer(f, post.splitLines(link["data"]))
@@ -205,14 +205,14 @@ proc main*() =
   setControlCHook(exitClean)
   iw.hideCursor()
   var
-    parsedUri: uri.Uri
+    parsedUrl: urlly.Url
     hash: Table[string, string]
   if opts.input != "":
     # parse link if necessary
-    parsedUri = uri.parseUri(opts.input)
-    let isUri = uri.isAbsolute(parsedUri)
+    parsedUrl = urlly.parseUrl(opts.input)
+    let isUri = parsedUrl.scheme != ""
     if isUri:
-      hash = editor.parseHash(parsedUri.anchor)
+      hash = editor.parseHash(parsedUrl.fragment)
     # an offline board
     if not isUri and os.dirExists(opts.input):
       discard
@@ -236,7 +236,7 @@ proc main*() =
         tickCount.inc
       quit(0)
   ## start the BBS
-  bbs.main(parsedUri, hash)
+  bbs.main(parsedUrl, hash)
 
 when isMainModule:
   main()

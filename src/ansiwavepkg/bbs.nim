@@ -22,7 +22,7 @@ from times import nil
 from ./midi import nil
 from ./sound import nil
 from strutils import nil
-from uri import nil
+from urlly import `$`
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
@@ -762,7 +762,7 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
   if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
     return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
 
-proc main*(parsedUri: uri.Uri, origHash: Table[string, string]) =
+proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var hash = origHash
   if "board" notin origHash:
     hash["board"] = paths.defaultBoard
@@ -773,13 +773,13 @@ proc main*(parsedUri: uri.Uri, origHash: Table[string, string]) =
 
   when not defined(emscripten):
     # offline board
-    if parsedUri.path != "" and os.dirExists(parsedUri.path):
-      clnt = client.Client(kind: client.Offline, path: parsedUri.path, postAddress: paths.postAddress)
+    if parsedUrl.path != "" and os.dirExists(parsedUrl.path):
+      clnt = client.Client(kind: client.Offline, path: parsedUrl.path, postAddress: paths.postAddress)
     # opening a url
-    elif uri.isAbsolute(parsedUri) and parsedUri.hostname != uri.parseUri(paths.address).hostname:
-      var newUri = parsedUri
-      newUri.anchor = ""
-      let s = uri.`$`(newUri)
+    elif parsedUrl.scheme != "" and parsedUrl.hostname != urlly.parseUrl(paths.address).hostname:
+      var newUrl = parsedUrl
+      newUrl.fragment = ""
+      let s = $ newUrl
       paths.address = s
       paths.postAddress = s
       clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
