@@ -769,7 +769,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
 
   vfs.register()
 
-  var clnt: client.Client
+  var clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   when not defined(emscripten):
     # offline board
@@ -783,8 +783,6 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
       paths.address = s
       paths.postAddress = s
       clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
-  else:
-    clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   client.start(clnt)
 
