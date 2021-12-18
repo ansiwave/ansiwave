@@ -365,7 +365,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-       toJson(comp.replies.value.valid, comp, finishedLoading, "no posts")
+       toJson(comp.replies.value.valid, comp, finishedLoading, "")
     ]
   of User:
     client.get(comp.userContent)
