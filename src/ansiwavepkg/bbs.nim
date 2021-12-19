@@ -782,8 +782,8 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   when not defined(emscripten):
     if parsedUrl != nil:
       # offline board
-      if parsedUrl.path != "" and os.dirExists(parsedUrl.path):
-        clnt = client.Client(kind: client.Offline, path: parsedUrl.path, postAddress: paths.postAddress)
+      if parsedUrl.scheme == "" and os.dirExists($parsedUrl):
+        clnt = client.Client(kind: client.Offline, path: $parsedUrl, postAddress: paths.postAddress)
       # opening a url
       elif parsedUrl.scheme != "" and parsedUrl.hostname != urlly.parseUrl(paths.address).hostname:
         var newUrl = parsedUrl
