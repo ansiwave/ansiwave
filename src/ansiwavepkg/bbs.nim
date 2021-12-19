@@ -529,6 +529,10 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             scrollY = limit
           if page.viewFocusAreas[focusIndex].bottom < scrollY:
             focusIndex += 1
+        # if we're at the top of the first focus area, make sure scrollY is 0
+        # since there could be non-focusable text that is still not visible
+        elif focusIndex == 0:
+          scrollY = 0
       of iw.Key.Down:
         if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
           scrollY = page.viewFocusAreas[focusIndex].bottom - height
