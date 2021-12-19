@@ -402,7 +402,7 @@ proc init*() =
   try:
     user.loadKey()
   except Exception as ex:
-    echo ex.msg
+    discard
 
   when defined(emscripten):
     midi.fetchSoundfont()
