@@ -284,7 +284,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           chrono.format(chrono.Timestamp(comp.post.value.valid.ts), "{year/4}-{month/2}-{day/2}"),
         )
       else:
-        %[]
+        %""
       ,
       if not comp.postContent.ready:
         %"loading..."
@@ -355,11 +355,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if comp.post.ready and comp.post.value.kind != client.Error:
           % (" " & replyText(comp.post.value.valid, comp.board))
         else:
-          %[]
+          %""
       else:
-        %[]
+        %""
       ,
-      "", # spacer
       if not comp.replies.ready:
         %"loading posts"
       elif comp.replies.value.kind == client.Error:
