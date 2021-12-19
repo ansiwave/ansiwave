@@ -767,9 +767,9 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
 
 var showPasteText*: bool
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea])
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea])
 
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =
+proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea]) =
   let
     isFocused = focusIndex == areas.len
     yStart = y
@@ -781,12 +781,12 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   of "rect":
     y += 1
     for child in node["children"]:
-      render(tb, child, x + 1, y, focusIndex, areas)
+      render(tb, child, x + 1, y, yOffset, focusIndex, areas)
     iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
     if node.hasKey("children-after"):
       for child in node["children-after"]:
         var y = yStart + 1
-        render(tb, child, x + 1, y, focusIndex, areas)
+        render(tb, child, x + 1, y, yOffset, focusIndex, areas)
     if node.hasKey("top-left") and node["top-left"].str != "":
       let text = " " & node["top-left"].str & " "
       iw.write(tb, x + 1, yStart, text)
@@ -843,8 +843,8 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
   const focusables = ["rect", "button", "tabs", "editor"].toHashSet
   if nodeType in focusables:
     var area: ViewFocusArea
-    area.top = yStart
-    area.bottom = y
+    area.top = yStart - yOffset
+    area.bottom = y - yOffset
     area.left = xStart
     area.right = xEnd
     if node.hasKey("action"):
@@ -855,15 +855,15 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
         area.copyableText.add(line.str)
     areas.add(area)
 
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, focusIndex: int, areas: var seq[ViewFocusArea]) =
+proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea]) =
   case node.kind:
   of JString:
     render(tb, node.str, x, y)
   of JObject:
-    render(tb, node.fields, x, y, focusIndex, areas)
+    render(tb, node.fields, x, y, yOffset, focusIndex, areas)
   of JArray:
     for item in node.elems:
-      render(tb, item, x, y, focusIndex, areas)
+      render(tb, item, x, y, yOffset, focusIndex, areas)
   else:
     raise newException(Exception, "Unhandled JSON type")
 

@@ -465,8 +465,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           let area = page.viewFocusAreas[i]
           if info.x >= area.left and
               info.x <= area.right and
-              info.y + scrollY >= area.top and
-              info.y + scrollY <= area.bottom - 1 and
+              info.y + scrollY - navbar.height >= area.top and
+              info.y + scrollY - navbar.height <= area.bottom - 1 and
               info.y >= navbar.height:
             action = (area.action, area.actionData)
             focusIndex = i
@@ -522,8 +522,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       # only scroll maxScroll rows and update the focusIndex.
       case input.key:
       of iw.Key.Up:
-        if page.viewFocusAreas[focusIndex].top < page.scrollY + navbar.height:
-          scrollY = page.viewFocusAreas[focusIndex].top - navbar.height
+        if page.viewFocusAreas[focusIndex].top < page.scrollY:
+          scrollY = page.viewFocusAreas[focusIndex].top
           let limit = page.scrollY - maxScroll
           if scrollY < limit:
             scrollY = limit
@@ -531,16 +531,21 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
             focusIndex += 1
         # if we're at the top of the first focus area, make sure scrollY is 0
         # since there could be non-focusable text that is still not visible
-        elif focusIndex == 0:
+        elif focusIndex == 0 and scrollY > 0:
           scrollY = 0
       of iw.Key.Down:
-        if page.viewFocusAreas[focusIndex].bottom > page.scrollY + height:
-          scrollY = page.viewFocusAreas[focusIndex].bottom - height
+        let contentHeight = height - navbar.height
+        if page.viewFocusAreas[focusIndex].bottom > page.scrollY + contentHeight:
+          scrollY = page.viewFocusAreas[focusIndex].bottom - contentHeight
           let limit = page.scrollY + maxScroll
           if scrollY > limit:
             scrollY = limit
-          if page.viewFocusAreas[focusIndex].top > scrollY + height:
+          if page.viewFocusAreas[focusIndex].top > scrollY + contentHeight:
             focusIndex -= 1
+        # if we're at the bottom of the last focus area, make sure scrollY is at the max
+        # since there could be non-focusable text that is still not visible
+        elif focusIndex + 1 == page.viewFocusAreas.len and scrollY + height < page.viewHeight:
+          scrollY = page.viewHeight - height
       else:
         discard
 
@@ -563,7 +568,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       else:
         (iw.Key.None, 0'u32)
     editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, filteredInput, focusIndex == 0, finishedLoading)
-    ui.render(result, view, 0, y, focusIndex, areas)
+    ui.render(result, view, 0, y, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
     var errorLines: seq[string]
     if page.data.request.chan != nil:
@@ -621,7 +626,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     editor.saveToStorage(page.data.session, page.sig)
   else:
     result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
-    ui.render(result, view, 0, y, focusIndex, areas)
+    ui.render(result, view, 0, y, y, focusIndex, areas)
     let
       upAction = proc () {.closure.} =
         if page.data.kind == ui.Post and
@@ -749,10 +754,9 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     session.insert(page.id, FocusIndex, focusIndex)
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
-  # we can't update view info after scrolling, or the y values will be incorrect
-  if scrollY == 0 and (page.viewFocusAreas != areas or page.viewHeight != y):
+  if page.viewFocusAreas != areas or page.viewHeight != scrollY + y:
     session.insert(page.id, ViewFocusAreas, areas)
-    session.insert(page.id, ViewHeight, y)
+    session.insert(page.id, ViewHeight, scrollY + y)
     # if the view height has changed, emscripten needs to render again
     when defined(emscripten):
       if y != page.viewHeight:
@@ -764,7 +768,7 @@ proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int]
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
   if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
-    return (page.viewFocusAreas[page.focusIndex].top, page.viewFocusAreas[page.focusIndex].bottom)
+    return (page.viewFocusAreas[page.focusIndex].top + navbar.height, page.viewFocusAreas[page.focusIndex].bottom + navbar.height)
 
 proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var hash = origHash
