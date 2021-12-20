@@ -443,7 +443,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           for tree in post.linesToTrees(strutils.splitLines(ui.getContent(page.data))):
             case tree.kind:
             of wavescript.Valid:
-              cmds[].add(tree)
+              if tree.name notin wavescript.stringCommands:
+                cmds[].add(tree)
             of wavescript.Error, wavescript.Discard:
               discard
           session.insert(page.id, ViewCommands, cmds)
