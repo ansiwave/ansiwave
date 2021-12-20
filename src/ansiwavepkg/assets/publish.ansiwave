@@ -16,5 +16,5 @@ ansiwave hello.ansiwave hello.wav
 To convert an ans file (old-school ANSI art) into an ansiwave:
 ansiwave hello.ans hello.ansiwave --width=80
 
-To convert an ansiwave.net link back into an ansiwave:
-ansiwave https://ansiwave.net/... hello.ansiwave
+To convert an ansiwave.net "view" link back into an ansiwave:
+ansiwave http://bbs.ansiwave.net/view/... hello.ansiwave

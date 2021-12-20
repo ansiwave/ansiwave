@@ -669,7 +669,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     else:
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
-          editor.copyLink(paths.address & "#" & globals.hash)
+          editor.copyLink(paths.initUrl(paths.address, "#" & globals.hash))
           iw.setDoubleBuffering(false)
         leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:

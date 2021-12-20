@@ -757,7 +757,7 @@ proc initLink*(ansiwave: string): string =
   for pair in pairs:
     if pair[1].len > 0:
       fragments.add(pair[0] & ":" & pair[1])
-  "https://ansiwave.net/view/#" & strutils.join(fragments, ",")
+  paths.initUrl(paths.address, "view/#" & strutils.join(fragments, ","))
 
 proc parseHash*(hash: string): Table[string, string] =
   let pairs = strutils.split(hash, ",")
