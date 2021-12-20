@@ -407,34 +407,41 @@ let rules* =
         for tree in trees:
           case tree.kind:
           of wavescript.Valid:
-            # set the play button in the gutter to play the line
-            let treeLocal = tree
-            sugar.capture cmdsRef, errsRef, linksRef, id, treeLocal, midiContext:
-              let cb =
-                proc () =
-                  var ctx = midiContext
-                  ctx.time = 0
-                  new ctx.events
-                  let res =
-                    try:
-                      midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
-                    except Exception as e:
-                      midi.CompileResult(kind: midi.Error, message: e.msg)
-                  case res.kind:
-                  of midi.Valid:
-                    play(sess, res.events, id, @[])
-                  of midi.Error:
-                    if id == Editor.ord:
-                      setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
-              linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
-            cmdsRef[].add(tree)
-            # compile the line so the context object updates
-            # this is important so attributes changed by previous lines
-            # affect the play button
-            try:
-              discard paramidi.compile(midiContext, wavescript.toJson(tree))
-            except:
-              discard
+            if tree.name in wavescript.stringCommands:
+              let ch =
+                case tree.name:
+                of "/section": "§"
+                else: "→"
+              linksRef[tree.line] = Link(icon: ch.runeAt(0), callback: proc () = discard)
+            else:
+              # set the play button in the gutter to play the line
+              let treeLocal = tree
+              sugar.capture cmdsRef, errsRef, linksRef, id, treeLocal, midiContext:
+                let cb =
+                  proc () =
+                    var ctx = midiContext
+                    ctx.time = 0
+                    new ctx.events
+                    let res =
+                      try:
+                        midi.compileScore(ctx, wavescript.toJson(treeLocal), true)
+                      except Exception as e:
+                        midi.CompileResult(kind: midi.Error, message: e.msg)
+                    case res.kind:
+                    of midi.Valid:
+                      play(sess, res.events, id, @[])
+                    of midi.Error:
+                      if id == Editor.ord:
+                        setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
+                linksRef[treeLocal.line] = Link(icon: "♫".runeAt(0), callback: cb)
+              cmdsRef[].add(tree)
+              # compile the line so the context object updates
+              # this is important so attributes changed by previous lines
+              # affect the play button
+              try:
+                discard paramidi.compile(midiContext, wavescript.toJson(tree))
+              except:
+                discard
           of wavescript.Error, wavescript.Discard:
             if id == Editor.ord:
               discard setErrorLink(sess, linksRef, tree.line, errsRef[].len)

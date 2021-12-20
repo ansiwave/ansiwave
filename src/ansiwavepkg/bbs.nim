@@ -377,6 +377,17 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
         session.fireRules
         refresh(session, clnt, page)
+  of "go-to-url":
+    result = input.key in {iw.Key.Mouse, iw.Key.Enter}
+    if result:
+      let url = actionData["url"].str
+      if url != "":
+        when defined(emscripten):
+          emscripten.openNewTab(url)
+        else:
+          if iw.gIllwillInitialised:
+            editor.copyLink(url)
+            iw.setDoubleBuffering(false)
   else:
     discard
 
@@ -658,11 +669,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
           editor.copyLink(paths.address & "#" & globals.hash)
-          # redraw ui without double buffering so everything is visible again
           iw.setDoubleBuffering(false)
-          var finishedLoading: bool
-          discard tick(sess, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
-          iw.setDoubleBuffering(true)
         leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
       if page.viewCommands != nil and page.viewCommands[].len > 0:
@@ -748,6 +755,10 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
           iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
           iw.write(result, 0, 1, "press tab to stop playing")
+
+  # in case double buffering was temporarily disabled
+  if iw.gIllwillInitialised:
+    iw.setDoubleBuffering(true)
 
   # update values if necessary
   if focusIndex != page.focusIndex:

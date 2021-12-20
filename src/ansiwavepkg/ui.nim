@@ -18,6 +18,7 @@ from ./post import nil
 from ./ui/simpleeditor import nil
 from algorithm import nil
 from chrono import nil
+from urlly import nil
 
 type
   ComponentKind* = enum
@@ -201,6 +202,68 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
         "action-data": {"offset-change": entities.limit},
       }
 
+proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonNode =
+  let lines = strutils.splitLines(content)
+  var
+    i = 0
+    sectionLines: seq[string]
+    sectionTitle = ""
+  proc flush(sectionLines: var seq[string], sectionTitle: var string, res: JsonNode, finishedLoading: var bool) =
+    let
+      wrappedLines = post.wrapLines(sectionLines)
+      animatedLines = post.animateLines(wrappedLines, readyTime)
+    finishedLoading = finishedLoading and animatedLines == wrappedLines
+    if sectionLines.len > 0:
+      res.elems.add(%* {
+        "type": "rect",
+        "children": animatedLines,
+        "copyable-text": animatedLines,
+        "top-left": sectionTitle,
+      })
+      sectionLines = @[]
+      sectionTitle = ""
+  result = %[]
+  const maxTitleWidth = editorWidth - 2
+  for i in 0 ..< lines.len:
+    let strippedLine = lines[i].stripCodes
+    if strutils.startsWith(strippedLine, "/link "):
+      flush(sectionLines, sectionTitle, result, finishedLoading)
+      var
+        url = ""
+        parts = strutils.split(strippedLine, " ")
+        words: seq[string]
+      parts.delete(0)
+      for part in parts:
+        if urlly.parseUrl(part).scheme != "":
+          url = part
+        else:
+          words.add(part)
+      let
+        text = strutils.join(words, " ")
+        title =
+          if url.len > maxTitleWidth:
+            url[0 ..< maxTitleWidth]
+          else:
+            url
+      result.elems.add(%* {
+        "type": "rect",
+        "top-left": title,
+        "children": [text],
+        "copyable-text": [url],
+        "action": "go-to-url",
+        "action-data": {"url": url},
+      })
+    elif strutils.startsWith(strippedLine, "/section ") or strippedLine == "/section":
+      flush(sectionLines, sectionTitle, result, finishedLoading)
+      var parts = strutils.split(strippedLine, " ")
+      parts.delete(0)
+      sectionTitle = strutils.join(parts, " ")
+      if sectionTitle.len > maxTitleWidth:
+        sectionTitle = sectionTitle[0 ..< maxTitleWidth]
+    else:
+      sectionLines.add(lines[i])
+  flush(sectionLines, sectionTitle, result, finishedLoading)
+
 proc toJson*(draft: Draft, board: string): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
@@ -293,20 +356,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if parsed.kind == post.Error:
           %"failed to load post"
         else:
-          let
-            lines = strutils.splitLines(parsed.content)
-            wrappedLines = post.wrapLines(lines)
-            animatedLines = post.animateLines(wrappedLines, comp.postContent.readyTime)
-          finishedLoading = finishedLoading and animatedLines == wrappedLines
-          var json = %*{
-            "type": "rect",
-            "children": animatedLines,
-            "copyable-text": lines,
-          }
-          if parsed.key != comp.board:
-            json["accessible-text"] = %"see user"
-            json["accessible-hash"] = %createHash(@{"type": "user", "id": parsed.key, "board": comp.board})
-          json
+          toJson(parsed.content, comp.postContent.readyTime, finishedLoading)
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
         if parsed.key == user.pubKey:
@@ -331,6 +381,8 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             "text": "see user",
             "action": "show-post",
             "action-data": {"type": "user", "sig": parsed.key},
+            "accessible-text": "see user",
+            "accessible-hash": createHash(@{"type": "user", "id": parsed.key, "board": comp.board}),
           }
         else:
           %[]
@@ -692,6 +744,9 @@ proc toHtml(node: OrderedTable[string, JsonNode]): string =
     if "accessible-text" in node and "accessible-hash" in node:
       result &= "<br/><a href='#" & node["accessible-hash"].str & "'>" & node["accessible-text"].str & "</a>"
     result &= "</div>"
+  of "button":
+    if "accessible-text" in node and "accessible-hash" in node:
+      result &= "<br/><a href='#" & node["accessible-hash"].str & "'>" & node["accessible-text"].str & "</a>"
   else:
     discard
 
