@@ -187,8 +187,10 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
         comp.cache[post.content.sig] = client.query(comp.client, paths.ansiwavez(comp.board, post.content.sig))
       client.get(comp.cache[post.content.sig])
       if comp.cache[post.content.sig].ready:
-        if comp.cache[post.content.sig].value.kind != client.Error:
+        if comp.cache[post.content.sig].value.kind == client.Valid:
           result.elems.add(toJson(post, comp.cache[post.content.sig].value.valid.body, comp.board, kind))
+        else:
+          result.elems.add(toJson(post, "", comp.board, kind))
       else:
         finishedLoading = false
   else:
