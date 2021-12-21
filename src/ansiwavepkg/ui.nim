@@ -205,7 +205,6 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
 proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonNode =
   let lines = strutils.splitLines(content)
   var
-    i = 0
     sectionLines: seq[string]
     sectionTitle = ""
   proc flush(sectionLines: var seq[string], sectionTitle: var string, res: JsonNode, finishedLoading: var bool) =
@@ -223,7 +222,6 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
       sectionLines = @[]
       sectionTitle = ""
   result = %[]
-  const maxTitleWidth = editorWidth - 2
   for i in 0 ..< lines.len:
     let strippedLine = lines[i].stripCodes
     if strutils.startsWith(strippedLine, "/link "):
@@ -238,17 +236,11 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
           url = part
         else:
           words.add(part)
-      let
-        text = strutils.join(words, " ")
-        title =
-          if url.len > maxTitleWidth:
-            url[0 ..< maxTitleWidth]
-          else:
-            url
+      let text = strutils.join(words, " ")
       result.elems.add(%* {
         "type": "rect",
-        "top-left": title,
-        "children": [text],
+        "top-left": text,
+        "children": [url],
         "copyable-text": [url],
         "action": "go-to-url",
         "action-data": {"url": url},
@@ -258,8 +250,6 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
       var parts = strutils.split(strippedLine, " ")
       parts.delete(0)
       sectionTitle = strutils.join(parts, " ")
-      if sectionTitle.len > maxTitleWidth:
-        sectionTitle = sectionTitle[0 ..< maxTitleWidth]
     else:
       sectionLines.add(lines[i])
   flush(sectionLines, sectionTitle, result, finishedLoading)
