@@ -195,7 +195,7 @@ proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, strin
     session.insertPage(ui.initMessage("Can't navigate to this page"), "message")
     return
   session.insert(Global, Board, hash["board"])
-  client.setReadUrl(clnt, paths.address & "/" & paths.boardsDir & "/" & hash["board"] & "/" & paths.dbDir & "/" & paths.dbFilename)
+  client.setReadUrl(clnt, paths.initUrl(paths.address, paths.boardsDir & "/" & hash["board"] & "/" & paths.dbDir & "/" & paths.dbFilename))
   if "type" in hash and "id" in hash:
     if sigToPageId.hasKey(hash["id"]):
       session.goToPage(hash["id"])
@@ -669,7 +669,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     else:
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
-          editor.copyLink(paths.initUrl(paths.address, "#" & globals.hash))
+          editor.copyLink(paths.address & "#" & globals.hash)
           iw.setDoubleBuffering(false)
         leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
