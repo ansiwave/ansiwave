@@ -595,22 +595,28 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = true
     %*[
       "",
-      "If you don't have an account, create one by downloading your key.",
-      "You will need this to login later so keep it somewhere safe:",
       when defined(emscripten):
-        %* {
-          "type": "button",
-          "text": "download login key",
-          "action": "create-user",
-          "action-data": {},
-        }
+        %* [
+          "If you don't have an account, create one by downloading your key.",
+          "You will need this to login later so keep it somewhere safe:",
+          {
+            "type": "button",
+            "text": "download login key",
+            "action": "create-user",
+            "action-data": {},
+          },
+        ]
       else:
-        %* {
-          "type": "button",
-          "text": "create account",
-          "action": "create-user",
-          "action-data": {},
-        }
+        %* [
+          "If you don't have an account, create one here. This will generate",
+          storage.dataDir & "/login-key.png which you can use to login anywhere in the future.",
+          {
+            "type": "button",
+            "text": "create account",
+            "action": "create-user",
+            "action-data": {},
+          },
+        ]
       ,
       "",
       when defined(emscripten):
