@@ -24,6 +24,8 @@ from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
 from wavecorepkg/wavescript import CommandTree
 
+const version = "0.7.0"
+
 proc exitClean(ex: ref Exception) =
   iw.illwillDeinit()
   iw.showCursor()
@@ -189,7 +191,9 @@ proc main*() =
   terminal.enableTrueColors()
   # parse options
   var opts = parseOptions()
-  if "gen-login-key" in opts.args:
+  if "version" in opts.args:
+    quit version
+  elif "gen-login-key" in opts.args:
     let path = os.expandTilde(opts.args["gen-login-key"])
     if os.fileExists(path):
       quit("File already exists")
