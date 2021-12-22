@@ -456,19 +456,10 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           else:
             %""
         else:
-          let lines = strutils.splitLines(parsed.content)
-          if comp.sig == user.pubKey and lines.len == 1 and lines[0] == "":
+          if comp.sig == user.pubKey and parsed.content == "":
             %"Your banner will be here. Put something about yourself...or not."
           else:
-            let
-              wrappedLines = post.wrapLines(lines)
-              animatedLines = post.animateLines(wrappedLines, comp.userContent.readyTime)
-            finishedLoading = finishedLoading and animatedLines == lines
-            %*{
-              "type": "rect",
-              "children": animatedLines,
-              "copyable-text": lines,
-            }
+            toJson(parsed.content, comp.userContent.readyTime, finishedLoading)
       ,
       if comp.userContent.ready and parsed.kind != post.Error:
         if parsed.key == user.pubKey:
