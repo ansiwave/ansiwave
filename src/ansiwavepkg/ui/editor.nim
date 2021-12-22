@@ -172,6 +172,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
         if currTime >= time:
           lineTimesIdx.inc
           moveCursor(session, bufferId, 0, line)
+          session.fireRules
           tb = tick(session)
       # draw progress bar
       let termWindow = getTerminalWindow(session)
