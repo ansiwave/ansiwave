@@ -1119,9 +1119,9 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
 
 proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], colorX: int, colorY: int): int =
   const
-    colorFgDarkCodes    = ["", "\e[30m", "\e[31m", "\e[32m", "\e[33m", "\e[34m", "\e[35m", "\e[36m", "\e[37m"]
+    colorFgDarkCodes    = ["", "\e[30m", "\e[22;31m", "\e[22;32m", "\e[22;33m", "\e[22;34m", "\e[22;35m", "\e[22;36m", "\e[37m"]
     colorFgBrightCodes  = ["", "\e[30m", "\e[1;31m", "\e[1;32m", "\e[1;33m", "\e[1;34m", "\e[1;35m", "\e[1;36m", "\e[37m"]
-    colorBgDarkCodes    = ["", "\e[40m", "\e[41m", "\e[42m", "\e[43m", "\e[44m", "\e[45m", "\e[46m", "\e[47m"]
+    colorBgDarkCodes    = ["", "\e[40m", "\e[22;41m", "\e[22;42m", "\e[22;43m", "\e[22;44m", "\e[22;45m", "\e[22;46m", "\e[47m"]
     colorBgBrightCodes  = ["", "\e[40m", "\e[1;41m", "\e[1;42m", "\e[1;43m", "\e[1;44m", "\e[1;45m", "\e[1;46m", "\e[47m"]
     colorFgShortcuts    = ['x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w']
     colorFgShortcutsSet = {'x', 'k', 'r', 'g', 'y', 'b', 'm', 'c', 'w'}
