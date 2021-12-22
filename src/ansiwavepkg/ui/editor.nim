@@ -1098,7 +1098,7 @@ proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x
       yy = newY
   if not horiz:
     let labelWidths = sequtils.map(choices, proc (x: tuple): int = x.label.runeLen)
-    xx += labelWidths[sequtils.maxIndex(labelWidths)] + space * 2
+    xx += labelWidths[sequtils.maxIndex(labelWidths)] + space + 1
   return xx
 
 proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
@@ -1204,9 +1204,9 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
 
 proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int, brushY: int): int =
   const
-    brushChars        = ["█", "▓", "▒", "░", "▀", "▌",]
-    brushShortcuts    = ['1', '2', '3', '4', '5', '6',]
-    brushShortcutsSet = {'1', '2', '3', '4', '5', '6',}
+    brushChars        = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
+    brushShortcuts    = ['1', '2', '3', '4', '5', '6', '7', '8']
+    brushShortcutsSet = {'1', '2', '3', '4', '5', '6', '7', '8'}
   # make sure that all brush chars are treated as whitespace by wavescript
   static: assert brushChars.toHashSet < wavescript.whitespaceChars
   var brushCharsColored = ""
