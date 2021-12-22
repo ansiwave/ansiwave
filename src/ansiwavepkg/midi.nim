@@ -42,6 +42,8 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
   CompileResult(kind: Valid, events: compiledScore)
 
 proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
+  if events.len == 0:
+    return
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(emscripten):
