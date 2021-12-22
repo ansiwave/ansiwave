@@ -615,10 +615,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         rightButtons.add((" continue editing ", continueAction))
         errorLines = @[
           "error (don't worry, a draft is saved)",
-          if errorStr.len > constants.editorWidth:
-            errorStr[0 ..< constants.editorWidth]
-          else:
-            errorStr
+          errorStr
         ]
     else:
       let
@@ -740,10 +737,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         rightButtons.add((" continue ", continueAction))
         let errorLines = @[
           "error",
-          if errorStr.len > constants.editorWidth:
-            errorStr[0 ..< constants.editorWidth]
-          else:
-            errorStr
+          errorStr
         ]
         navbar.render(result, 0, 0, input, [], errorLines, rightButtons, focusIndex)
       else:

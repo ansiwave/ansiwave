@@ -37,9 +37,15 @@ proc render*(tb: var iw.TerminalBuffer, pageX: int, pageY: int, input: tuple[key
   iw.fill(tb, pageX, pageY, pageX + constants.editorWidth + 1, pageY + height - 1)
   var lineY = pageY
   for line in middleLines:
-    if unicode.validateUtf8(line) == -1:
-      iw.write(tb, max(pageX, int(constants.editorWidth.float / 2 - line.len / 2)), lineY, line)
-      lineY += 1
+    var s = ""
+    for ch in line:
+      # dumb/primitive way of filtering out invalid chars in error message
+      if ch in {'a'..'z', 'A'..'Z', '0'..'9', ' ', '\'', '(', ')', '<', '>', ','}:
+        s &= ch
+        if s.len == constants.editorWidth:
+          break
+    iw.write(tb, max(pageX, int(constants.editorWidth.float / 2 - s.len / 2)), lineY, s)
+    lineY += 1
   var buttonFocus = -1
   var x = pageX
   for (text, cb) in leftButtons:
