@@ -588,11 +588,11 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "",
       when defined(emscripten):
         %* [
-          "If you don't have an account, create one by downloading your key.",
+          "If you don't have an account, create one by saving your key.",
           "You will need this to login later so keep it somewhere safe:",
           {
             "type": "button",
-            "text": "download login key",
+            "text": "save login key",
             "action": "create-user",
             "action-data": {},
           },
