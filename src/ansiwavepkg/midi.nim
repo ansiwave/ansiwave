@@ -72,6 +72,7 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
   const sampleRate = 44100
   tsf_set_output(sf, TSF_MONO, sampleRate, 0)
   var res = render[cshort](events, sf, sampleRate)
+  tsf_close(sf)
   const maxSeconds = 60 * 60 * 1 # 1 hour
   if res.seconds > maxSeconds:
     return (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Error, message: "Audio exceeds max length"))
