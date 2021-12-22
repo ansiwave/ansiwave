@@ -151,6 +151,12 @@ proc replyText(post: entities.Post, board: string): string =
     else:
       $post.reply_count & " replies"
 
+proc truncate(s: string, maxLen: int): string =
+  if s.runeLen > maxLen:
+    $s.toRunes[0 ..< maxLen]
+  else:
+    s
+
 proc toJson*(entity: entities.Post, content: string, board: string, kind: string = "post"): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
@@ -219,7 +225,7 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
         "type": "rect",
         "children": animatedLines,
         "copyable-text": animatedLines,
-        "top-left": sectionTitle,
+        "top-left": truncate(sectionTitle, constants.editorWidth),
       })
       sectionLines = @[]
       sectionTitle = ""
@@ -241,8 +247,8 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
       let text = strutils.join(words, " ")
       result.elems.add(%* {
         "type": "rect",
-        "top-left": text,
-        "children": [url],
+        "top-left": truncate(text, constants.editorWidth - 2),
+        "children": [truncate(url, constants.editorWidth)],
         "copyable-text": [url],
         "action": "go-to-url",
         "action-data": {"url": url},
