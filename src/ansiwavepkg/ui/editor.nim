@@ -138,7 +138,7 @@ schema Fact(Id, Attr):
 type
   EditorSession* = Session[Fact, Vars[Fact]]
 
-const textWidth = editorWidth + 1
+const textWidth = editorWidth + 2
 
 proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
 proc tick*(session: var EditorSession): iw.TerminalBuffer
