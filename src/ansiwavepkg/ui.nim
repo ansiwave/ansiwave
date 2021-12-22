@@ -157,14 +157,14 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     replies = replyText(entity, board)
     lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
-    truncatedLines = if lines.len > maxLines: lines[0 ..< maxLines] else: lines
+    truncatedLines = if wrappedLines.len > maxLines: wrappedLines[0 ..< maxLines] else: wrappedLines
   %*{
     "type": "rect",
     "children": truncatedLines,
     "copyable-text": lines,
     "top-left": entity.tags,
     "top-right": (if kind == "post": replies else: ""),
-    "bottom-left": if lines.len > maxLines: "see more" else: "",
+    "bottom-left": if wrappedLines.len > maxLines: "see more" else: "",
     "action": "show-post",
     "action-data": {"type": kind, "sig": entity.content.sig},
     "accessible-text": replies,
