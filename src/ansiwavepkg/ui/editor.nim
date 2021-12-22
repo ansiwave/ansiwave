@@ -966,8 +966,8 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
           let info = iw.getMouse()
           if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
             if info.x == termX + buffer.x and info.y == termY + linkY:
-              session.insert(buffer.id, CursorX, 0)
-              session.insert(buffer.id, CursorY, i)
+              session.insert(buffer.id, WrappedCursorX, 0)
+              session.insert(buffer.id, WrappedCursorY, i)
               let hintText =
                 if buffer.links[i].error:
                   if buffer.id == Editor.ord:
