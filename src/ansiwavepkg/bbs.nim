@@ -632,8 +632,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       rightButtons.add((" send ", sendAction))
     if not isPlaying:
       var leftButtons: seq[(string, proc ())]
-      when not defined(emscripten):
-        leftButtons.add((" ← ", backAction))
+      leftButtons.add((" ← ", backAction))
       navbar.render(result, 0, 0, input, leftButtons, errorLines, rightButtons, focusIndex)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
