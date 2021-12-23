@@ -438,16 +438,6 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         let v = ui.toJson(page.data, finishedLoading)
         if finishedLoading:
           session.insert(page.id, View, v)
-          var cmds: CommandTreesRef
-          new cmds
-          for tree in post.linesToTrees(strutils.splitLines(ui.getContent(page.data))):
-            case tree.kind:
-            of wavescript.Valid:
-              if tree.name notin wavescript.stringCommands:
-                cmds[].add(tree)
-            of wavescript.Error, wavescript.Discard:
-              discard
-          session.insert(page.id, ViewCommands, cmds)
         v
       else:
         finishedLoading = true
@@ -457,6 +447,20 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         editor.isPlaying(page.data.session)
       else:
         page.midiProgress != nil
+
+  if page.viewCommands == nil:
+    let content = ui.getContent(page.data)
+    if content != "":
+      var cmds: CommandTreesRef
+      new cmds
+      for tree in post.linesToTrees(strutils.splitLines(content)):
+        case tree.kind:
+        of wavescript.Valid:
+          if tree.name notin wavescript.stringCommands:
+            cmds[].add(tree)
+        of wavescript.Error, wavescript.Discard:
+          discard
+      session.insert(page.id, ViewCommands, cmds)
 
   var sess = session
   let
