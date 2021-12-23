@@ -510,7 +510,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
       ui.showPasteText = false
     of iw.Key.CtrlR:
       refresh(sess, clnt, page)
-    of iw.Key.CtrlY:
+    of iw.Key.CtrlX:
       if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
         let tags = page.data.user.value.valid.tags
         simpleeditor.setContent(page.data.tagsField, tags.value)
