@@ -179,6 +179,8 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
 
 proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string, kind: string = "post"): JsonNode =
   result = JsonNode(kind: JArray)
+  if not finishedLoading:
+    result.add %"still loading"
   if comp.offset > 0:
     result.add:
       %* {
@@ -414,7 +416,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-       toJson(comp.replies.value.valid, comp, finishedLoading, "")
+        toJson(comp.replies.value.valid, comp, finishedLoading, "")
     ]
   of User:
     client.get(comp.userContent)
