@@ -6,6 +6,8 @@ ANSIWAVE BBS is a retro-futuristic bulletin board where you can have threaded di
 
 This repo contains the terminal client. You may also access it through the web portal. Find both [on the main page](https://ansiwave.net/) and watch [the screencast](https://www.youtube.com/watch?v=iOuCGyizPlk) for a demo.
 
+If the BBS ever has a bad day (and it will) you can also talk on [the subreddit](https://www.reddit.com/r/ANSIWAVE/).
+
 ## How to fire this puppy up and get 'er done
 
 There are [prebuilt binaries](https://ansiwave.net/) you can just run anywhere. If you want to build from source, [install Nim](https://nim-lang.org/install.html) and then do `nimble install ansiwave` (make sure `~/.nimble/bin` is on your PATH).
