@@ -4,7 +4,7 @@ The haters told me BBSes, ANSI art and MIDI music were dead so I combined them t
 
 ANSIWAVE BBS is a retro-futuristic bulletin board where you can have threaded discussions and share ANSI art and MIDI music. It is the glorious mashup that nobody asked for and everybody needs.
 
-This repo contains the terminal client. You may also access it through the web portal. Find both [on the main page](https://ansiwave.net/).
+This repo contains the terminal client. You may also access it through the web portal. Find both [on the main page](https://ansiwave.net/) and watch [the screencast](https://www.youtube.com/watch?v=iOuCGyizPlk) for a demo.
 
 ## How to fire this puppy up and get 'er done
 
