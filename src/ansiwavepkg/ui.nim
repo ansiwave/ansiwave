@@ -74,24 +74,24 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   comp.cache = initTable[string, client.ChannelValue[client.Response]]()
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
-    comp.replies = client.queryPostChildren(clnt, paths.db(board), comp.sig, false, comp.offset)
-    comp.post = client.queryPost(clnt, paths.db(board), comp.sig)
+    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
+    comp.replies = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, false, comp.offset)
+    comp.post = client.queryPost(clnt, paths.db(board, true), comp.sig)
   of User:
-    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig))
+    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
     if comp.showAllPosts:
-      comp.userPosts = client.queryUserPosts(clnt, paths.db(board), comp.sig, comp.offset)
+      comp.userPosts = client.queryUserPosts(clnt, paths.db(board, true), comp.sig, comp.offset)
     else:
-      comp.userPosts = client.queryPostChildren(clnt, paths.db(board), comp.sig, comp.sig != board, comp.offset)
+      comp.userPosts = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, comp.sig != board, comp.offset)
     if comp.sig != board:
-      comp.user = client.queryUser(clnt, paths.db(board), comp.sig)
+      comp.user = client.queryUser(clnt, paths.db(board, true), comp.sig)
     comp.editTagsRequest.started = false
     comp.tagsSig = ""
   of Replies:
-    comp.userReplies = client.queryUserReplies(clnt, paths.db(board), user.pubKey, comp.offset)
+    comp.userReplies = client.queryUserReplies(clnt, paths.db(board, true), user.pubKey, comp.offset)
   of Search:
     if comp.showResults:
-      comp.searchResults = client.search(clnt, paths.db(board), comp.searchKind, comp.searchTerm, comp.offset)
+      comp.searchResults = client.search(clnt, paths.db(board, true), comp.searchKind, comp.searchTerm, comp.offset)
   of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
@@ -190,7 +190,7 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
   if posts.len > 0:
     for post in posts:
       if post.content.sig notin comp.cache:
-        comp.cache[post.content.sig] = client.query(comp.client, paths.ansiwavez(comp.board, post.content.sig))
+        comp.cache[post.content.sig] = client.query(comp.client, paths.ansiwavez(comp.board, post.content.sig, true))
       client.get(comp.cache[post.content.sig])
       if comp.cache[post.content.sig].ready:
         if comp.cache[post.content.sig].value.kind == client.Valid:
