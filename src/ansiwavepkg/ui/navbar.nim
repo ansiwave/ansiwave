@@ -15,7 +15,7 @@ proc renderButton(tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: 
       if info.x >= x and
           info.x <= result and
           info.y >= y and
-          info.y <= endY:
+          info.y < endY:
         cb()
   elif (key == iw.Key.Enter and focused) or key in shortcut.key:
     cb()
