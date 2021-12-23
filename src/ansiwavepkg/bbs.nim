@@ -815,6 +815,9 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
     var finishedLoading = false
     var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
     # display and sleep
-    iw.display(tb)
+    try:
+      iw.display(tb)
+    except Exception as ex:
+      discard
     os.sleep(constants.sleepMsecs)
 
