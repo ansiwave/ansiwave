@@ -1247,6 +1247,7 @@ proc redo(session: var EditorSession, buffer: tuple) =
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
   from ansiwavepkg/chafa import nil
+  from ../ansi import nil
 
   var currentSession: EditorSession
 
