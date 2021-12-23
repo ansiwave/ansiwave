@@ -513,9 +513,9 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     of iw.Key.CtrlX:
       if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
         let tags = page.data.user.value.valid.tags
-        refresh(sess, clnt, page)
         simpleeditor.setContent(page.data.tagsField, tags.value)
         page.data.tagsSig = tags.sig
+        session.insert(page.id, View, cast[JsonNode](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
         ui.showPasteText = true
