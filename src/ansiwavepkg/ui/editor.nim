@@ -12,7 +12,6 @@ from wavecorepkg/wavescript import CommandTree
 from ../midi import nil
 from ../sound import nil
 from ../codes import stripCodes
-from ../ansi import nil
 import ../constants
 from paramidi import Context
 from json import nil

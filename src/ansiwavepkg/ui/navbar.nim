@@ -1,6 +1,5 @@
 from ../illwill as iw import `[]`, `[]=`
 from ../constants import nil
-from ./editor import nil
 import unicode
 
 const height* = 3

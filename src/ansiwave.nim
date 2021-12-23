@@ -1,7 +1,6 @@
 from ./ansiwavepkg/illwill as iw import `[]`, `[]=`
 import tables, sets
 import pararules
-import unicode
 from os import nil
 from strutils import format
 from sequtils import nil
