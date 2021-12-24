@@ -1,6 +1,6 @@
 # Package
 
-version       = "1.0.0"
+version       = "1.0.1"
 author        = "oakes"
 description   = "ANSI art + MIDI music"
 license       = "Public Domain"
@@ -25,5 +25,5 @@ requires "paramidi_soundfonts >= 0.2.0"
 requires "parasound >= 0.2.0"
 requires "zippy >= 0.5.5"
 requires "stb_image >= 2.5"
-requires "wavecore >= 0.1.0"
+requires "wavecore >= 0.1.1"
 requires "chrono >= 0.3.0"
