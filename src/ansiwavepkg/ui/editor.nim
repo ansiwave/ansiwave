@@ -883,7 +883,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
         session.insert(buffer.id, CursorY, newLines[].len - 1)
     else:
       discard
-  of iw.Key.Insert, iw.Key.CtrlY:
+  of iw.Key.Insert:
     if not editable:
       return false
     session.insert(buffer.id, InsertMode, not buffer.insertMode)
@@ -1050,7 +1050,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
   case buffer.prompt:
   of None:
     if buffer.mode == 0 and buffer.insertMode:
-      prompt = "press insert or ctrl y to turn off insert mode"
+      prompt = "press insert to turn off insert mode"
   of DeleteLine:
     if buffer.mode == 0:
       prompt = "press tab to delete the current line"
@@ -1393,7 +1393,9 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
       if selectedBuffer.mode == 0:
         discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwillInitialised: "k" else: "c")))
-        discard renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
+        x = renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
+        x -= 1
+        discard renderButton(session, tb, "↔ insert", termX + x, termY + 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, input.key, termX + x + 1, termY)
     elif not globals.options.bbsMode:
