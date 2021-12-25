@@ -177,9 +177,8 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     "accessible-hash": createHash(@{"type": kind, "id": entity.content.sig, "board": board}),
   }
 
-proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, stillLoadingText: string, noResultsText: string, kind: string = "post"): JsonNode =
+proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string, kind: string = "post"): JsonNode =
   result = JsonNode(kind: JArray)
-  result.add %(if not finishedLoading: stillLoadingText else: "")
   if comp.offset > 0:
     result.add:
       %* {
@@ -188,6 +187,7 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
         "action": "change-page",
         "action-data": {"offset-change": -entities.limit},
       }
+  var showStillLoading = false
   if posts.len > 0:
     for post in posts:
       if post.content.sig notin comp.cache:
@@ -200,6 +200,9 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
           result.elems.add(toJson(post, "", comp.board, kind))
       else:
         finishedLoading = false
+        showStillLoading = true
+    if showStillLoading:
+      result.elems.add(%"still loading")
   else:
     result.elems.add(%noResultsText)
   if posts.len == entities.limit:
@@ -415,7 +418,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.replies.value.kind == client.Error:
         %"failed to load replies"
       else:
-        toJson(comp.replies.value.valid, comp, finishedLoading, "still loading", "")
+       toJson(comp.replies.value.valid, comp, finishedLoading, "")
     ]
   of User:
     client.get(comp.userContent)
@@ -530,7 +533,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userPosts.value.kind == client.Error:
         %"failed to load posts"
       else:
-        toJson(comp.userPosts.value.valid, comp, finishedLoading, "still loading", (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
+        toJson(comp.userPosts.value.valid, comp, finishedLoading, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
     ]
   of Editor:
     finishedLoading = true
@@ -587,7 +590,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       elif comp.userReplies.value.kind == client.Error:
         %"failed to load replies"
       else:
-        toJson(comp.userReplies.value.valid, comp, finishedLoading, "", "no replies")
+        toJson(comp.userReplies.value.valid, comp, finishedLoading, "no replies")
     ]
   of Login:
     finishedLoading = true
@@ -700,7 +703,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               "post"
             of entities.Users, entities.UserTags:
               "user"
-          toJson(comp.searchResults.value.valid, comp, finishedLoading, "", "no results", kind)
+          toJson(comp.searchResults.value.valid, comp, finishedLoading, "no results", kind)
       else:
         %""
     ]
