@@ -1,6 +1,7 @@
 when defined(linux):
   when defined(musl):
-    switch("passL", "-static")
+    --dynlibOverride:curl
+    switch("passL", "-static libcurl.a libssl.a libcrypto.a")
     switch("gcc.exe", "musl-gcc")
     switch("gcc.linkerexe", "musl-gcc")
   else:
