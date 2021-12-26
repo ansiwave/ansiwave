@@ -310,8 +310,8 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
            page.data.searchKind.ord + 1
         newKind =
           if newIndex == -1:
-            entities.SearchKind(page.data.searchKind.high.ord)
-          elif newIndex > page.data.searchKind.high.ord:
+            entities.SearchKind(entities.SearchKind.high.ord)
+          elif newIndex > entities.SearchKind.high.ord:
             entities.SearchKind(0)
           else:
             entities.SearchKind(newIndex)
