@@ -50,7 +50,11 @@ proc parseOptions(): editor.Options =
     case p.kind:
     of parseopt.cmdEnd:
       break
-    of parseopt.cmdShortOption, parseopt.cmdLongOption:
+    of parseopt.cmdShortOption:
+      raise newException(Exception, "Unrecognized option: -" & p.key)
+    of parseopt.cmdLongOption:
+      if p.key notin ["width", "gen-login-key", "version"].toHashSet:
+        raise newException(Exception, "Unrecognized option: --" & p.key)
       result.args[p.key] = p.val
     of parseopt.cmdArgument:
       if result.args.len > 0:
