@@ -174,10 +174,18 @@ proc createImage*(privateKey: ed25519.PrivateKey): seq[uint8] =
   stego(data, $ %* {"private-key": privateKey, "algo": "ed25519"})
   stbiw.writePNG(width, height, 4, data)
 
+proc genKeys(): tuple[keyPair: ed25519.KeyPair, pubKey: string] =
+  # keys that start with - can be annoying to deal with when used as
+  # command line parameters because they will be interpreted as flags
+  while result.pubKey == "" or strutils.startsWith(result.pubKey, "-"):
+    result.keyPair = ed25519.initKeyPair()
+    result.pubKey = paths.encode(result.keyPair.public)
+
 proc createUser*() =
-  keyPair = ed25519.initKeyPair()
-  pubKey = paths.encode(keyPair.public)
-  let image = createImage(keyPair.private)
+  let keys = genKeys()
+  keyPair = keys.keyPair
+  pubKey = keys.pubKey
+  let image = createImage(keys.keyPair.private)
   discard storage.set(loginKeyName, image, isBinary = true)
   loadImage(image)
   when defined(emscripten):
@@ -194,9 +202,7 @@ proc createUser*(privateKeyStr: string, algo: string): bool =
     false
 
 proc genLoginKey*(): seq[uint8] =
-  let
-    keyPair = ed25519.initKeyPair()
-    pubKey = paths.encode(keyPair.public)
+  let (keyPair, pubKey) = genKeys()
   echo pubKey
   createImage(keyPair.private)
 
