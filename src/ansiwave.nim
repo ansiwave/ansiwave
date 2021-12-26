@@ -26,13 +26,15 @@ from wavecorepkg/wavescript import CommandTree
 const version = "1.0.1"
 
 proc exitClean(ex: ref Exception) =
-  iw.illwillDeinit()
-  iw.showCursor()
+  if iw.gIllwillInitialised:
+    iw.illwillDeinit()
+    iw.showCursor()
   raise ex
 
 proc exitClean(message: string) =
-  iw.illwillDeinit()
-  iw.showCursor()
+  if iw.gIllwillInitialised:
+    iw.illwillDeinit()
+    iw.showCursor()
   if message.len > 0:
     quit(message)
   else:
