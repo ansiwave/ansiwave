@@ -707,7 +707,7 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
               when defined(emscripten):
                 user.downloadImage()
           when defined(emscripten):
-            @[(" download login key ", downloadKeyAction), (" logout ", logoutAction)]
+            @[(" save login key ", downloadKeyAction), (" logout ", logoutAction)]
           else:
             @[(" logout ", logoutAction)]
         else:
