@@ -1116,6 +1116,8 @@ var
   gPrevTerminalBuffer {.threadvar.}: TerminalBuffer
   gCurrBg {.threadvar.}: BackgroundColor
   gCurrFg {.threadvar.}: ForegroundColor
+  gCurrBgTruecolor {.threadvar.}: RGB
+  gCurrFgTruecolor {.threadvar.}: RGB
   gCurrStyle {.threadvar.}: set[Style]
 
 proc setAttribs(c: TerminalChar) =
@@ -1123,25 +1125,25 @@ proc setAttribs(c: TerminalChar) =
     resetAttributes()
     gCurrBg = c.bg
     gCurrFg = c.fg
+    gCurrBgTruecolor = c.bgTruecolor
+    gCurrFgTruecolor = c.fgTruecolor
     gCurrStyle = c.style
-    if gCurrBg != bgNone:
-      if isTruecolorSupported() and c.bgTruecolor != rgbNone:
-        let rgb =
-          c.bgTruecolor.red.rotateLeftBits(16) +
-          c.bgTruecolor.green.rotateLeftBits(8) +
-          c.bgTruecolor.blue
-        setBackgroundColor(colors.Color(rgb))
-      else:
-        setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
-    if gCurrFg != fgNone:
-      if isTruecolorSupported() and c.fgTruecolor != rgbNone:
-        let rgb =
-          c.fgTruecolor.red.rotateLeftBits(16) +
-          c.fgTruecolor.green.rotateLeftBits(8) +
-          c.fgTruecolor.blue
-        setForegroundColor(colors.Color(rgb))
-      else:
-        setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
+    if isTruecolorSupported() and gCurrBgTruecolor != rgbNone:
+      let rgb =
+        c.bgTruecolor.red.rotateLeftBits(16) +
+        c.bgTruecolor.green.rotateLeftBits(8) +
+        c.bgTruecolor.blue
+      setBackgroundColor(colors.Color(rgb))
+    elif gCurrBg != bgNone:
+      setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
+    if isTruecolorSupported() and gCurrFgTruecolor != rgbNone:
+      let rgb =
+        c.fgTruecolor.red.rotateLeftBits(16) +
+        c.fgTruecolor.green.rotateLeftBits(8) +
+        c.fgTruecolor.blue
+      setForegroundColor(colors.Color(rgb))
+    elif gCurrFg != fgNone:
+      setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
     if gCurrStyle != {}:
       setStyle(gCurrStyle)
   else:
@@ -1173,7 +1175,7 @@ proc displayFull(tb: TerminalBuffer) =
     setPos(0, y)
     for x in 0..<tb.width:
       let c = tb[x,y]
-      if c.bg != gCurrBg or c.fg != gCurrFg or c.style != gCurrStyle:
+      if c.bg != gCurrBg or c.fg != gCurrFg or c.bgTruecolor != gCurrBgTruecolor or c.fgTruecolor != gCurrFgTruecolor or c.style != gCurrStyle:
         flushBuf()
         setAttribs(c)
       buf &= $c.ch
@@ -1206,7 +1208,7 @@ proc displayDiff(tb: TerminalBuffer) =
     for x in 0..<tb.width:
       let c = tb[x,y]
       if c != gPrevTerminalBuffer[x,y] or c.forceWrite:
-        if c.bg != gCurrBg or c.fg != gCurrFg or c.style != gCurrStyle:
+        if c.bg != gCurrBg or c.fg != gCurrFg or c.bgTruecolor != gCurrBgTruecolor or c.fgTruecolor != gCurrFgTruecolor or c.style != gCurrStyle:
           flushBuf()
           bufXPos = x
           setAttribs(c)
