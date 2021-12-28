@@ -338,14 +338,14 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
     result = input.key notin {iw.Key.Up, iw.Key.Down}
     if result:
       if input.key == iw.Key.Escape:
-        page.data.tagsSig = ""
+        page.data.editUserTags.sig = ""
       elif input.key == iw.Key.Enter:
         let
-          headers = common.headers(user.pubKey, page.data.tagsSig, common.Tags, page.data.board)
-          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.tagsField))
-        page.data.editTagsRequest = client.submit(clnt, "ansiwave", body)
+          headers = common.headers(user.pubKey, page.data.editUserTags.sig, common.Tags, page.data.board)
+          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.editUserTags.field))
+        page.data.editUserTags.request = client.submit(clnt, "ansiwave", body)
       else:
-        simpleeditor.onInput(page.data.tagsField, input)
+        simpleeditor.onInput(page.data.editUserTags.field, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -513,8 +513,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     of iw.Key.CtrlX:
       if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
         let tags = page.data.user.value.valid.tags
-        simpleeditor.setContent(page.data.tagsField, tags.value)
-        page.data.tagsSig = tags.sig
+        simpleeditor.setContent(page.data.editUserTags.field, tags.value)
+        page.data.editUserTags.sig = tags.sig
         session.insert(page.id, View, cast[JsonNode](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
