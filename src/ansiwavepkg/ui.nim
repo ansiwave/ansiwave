@@ -160,18 +160,13 @@ proc truncate(s: string, maxLen: int): string =
   else:
     s
 
-proc toJson*(entity: entities.Post, content: string, board: string, kind: string = "post"): JsonNode =
+proc toJson*(entity: entities.Post, content: string, board: string, kind: string, sig: string): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
     replies = replyText(entity, board)
     lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
     truncatedLines = if wrappedLines.len > maxLines: wrappedLines[0 ..< maxLines] else: wrappedLines
-    sig =
-      if kind == "user":
-        entity.public_key
-      else:
-        entity.content.sig
   %*{
     "type": "rect",
     "children": truncatedLines,
@@ -185,7 +180,7 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     "accessible-hash": createHash(@{"type": kind, "id": sig, "board": board}),
   }
 
-proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string, kind: string = "post"): JsonNode =
+proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string): JsonNode =
   result = JsonNode(kind: JArray)
   if comp.offset > 0:
     result.add:
@@ -198,19 +193,20 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
   var showStillLoading = false
   if posts.len > 0:
     for post in posts:
-      let sig =
-        if kind == "user":
-          post.public_key
-        else:
-          post.content.sig
+      let
+        (kind, sig) =
+          if post.content.sig == "":
+            ("user", post.public_key)
+          else:
+            ("post", post.content.sig)
       if sig notin comp.cache:
         comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, true))
       client.get(comp.cache[sig])
       if comp.cache[sig].ready:
         if comp.cache[sig].value.kind == client.Valid:
-          result.elems.add(toJson(post, comp.cache[sig].value.valid.body, comp.board, kind))
+          result.elems.add(toJson(post, comp.cache[sig].value.valid.body, comp.board, kind, sig))
         else:
-          result.elems.add(toJson(post, "", comp.board, kind))
+          result.elems.add(toJson(post, "", comp.board, kind, sig))
       else:
         finishedLoading = false
         showStillLoading = true
@@ -710,13 +706,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         elif comp.searchResults.value.kind == client.Error:
           %["failed to fetch search results", comp.searchResults.value.error]
         else:
-          let kind =
-            case comp.searchKind:
-            of entities.Posts:
-              "post"
-            of entities.Users, entities.UserTags:
-              "user"
-          toJson(comp.searchResults.value.valid, comp, finishedLoading, "no results", kind)
+          toJson(comp.searchResults.value.valid, comp, finishedLoading, "no results")
       else:
         %""
     ]
