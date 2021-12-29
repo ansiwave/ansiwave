@@ -203,19 +203,28 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
   if posts.len > 0:
     for post in posts:
       let
+        # this "post" is actually a user if there is no content sig
+        # (this happens in the search results when "user" is selected)
         (kind, sig) =
           if post.content.sig == "":
             ("user", post.public_key)
           else:
             ("post", post.content.sig)
-      if sig notin comp.cache:
-        comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, true))
-      client.get(comp.cache[sig])
-      if comp.cache[sig].ready:
-        if comp.cache[sig].value.kind == client.Valid:
-          result.elems.add(toJson(post, comp.cache[sig].value.valid.body, comp.board, kind, sig))
-        else:
-          result.elems.add(toJson(post, "", comp.board, kind, sig))
+        # if the content came from the db, no need to query it from the separate ansiwavez file
+        # (this happens when querying purgatory)
+        (ready, content) =
+          if post.content.value.uncompressed.len > 0:
+            (true, post.content.value.uncompressed)
+          else:
+            if sig notin comp.cache:
+              comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, true))
+            client.get(comp.cache[sig])
+            if comp.cache[sig].ready:
+              (true, if comp.cache[sig].value.kind == client.Valid: comp.cache[sig].value.valid.body else: "")
+            else:
+              (false, "")
+      if ready:
+        result.elems.add(toJson(post, content, comp.board, kind, sig))
       else:
         finishedLoading = false
         showStillLoading = true
