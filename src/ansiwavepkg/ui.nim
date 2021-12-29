@@ -708,7 +708,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         if not comp.searchResults.ready:
           %"searching"
         elif comp.searchResults.value.kind == client.Error:
-          %"failed to fetch search results"
+          %["failed to fetch search results", comp.searchResults.value.error]
         else:
           let kind =
             case comp.searchKind:
