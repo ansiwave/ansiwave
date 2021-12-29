@@ -167,6 +167,11 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
     truncatedLines = if wrappedLines.len > maxLines: wrappedLines[0 ..< maxLines] else: wrappedLines
+    sig =
+      if kind == "user":
+        entity.public_key
+      else:
+        entity.content.sig
   %*{
     "type": "rect",
     "children": truncatedLines,
@@ -175,9 +180,9 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if wrappedLines.len > maxLines: "see more" else: "",
     "action": "show-post",
-    "action-data": {"type": kind, "sig": entity.content.sig},
+    "action-data": {"type": kind, "sig": sig},
     "accessible-text": replies,
-    "accessible-hash": createHash(@{"type": kind, "id": entity.content.sig, "board": board}),
+    "accessible-hash": createHash(@{"type": kind, "id": sig, "board": board}),
   }
 
 proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string, kind: string = "post"): JsonNode =
@@ -193,12 +198,17 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
   var showStillLoading = false
   if posts.len > 0:
     for post in posts:
-      if post.content.sig notin comp.cache:
-        comp.cache[post.content.sig] = client.query(comp.client, paths.ansiwavez(comp.board, post.content.sig, true))
-      client.get(comp.cache[post.content.sig])
-      if comp.cache[post.content.sig].ready:
-        if comp.cache[post.content.sig].value.kind == client.Valid:
-          result.elems.add(toJson(post, comp.cache[post.content.sig].value.valid.body, comp.board, kind))
+      let sig =
+        if kind == "user":
+          post.public_key
+        else:
+          post.content.sig
+      if sig notin comp.cache:
+        comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, true))
+      client.get(comp.cache[sig])
+      if comp.cache[sig].ready:
+        if comp.cache[sig].value.kind == client.Valid:
+          result.elems.add(toJson(post, comp.cache[sig].value.valid.body, comp.board, kind))
         else:
           result.elems.add(toJson(post, "", comp.board, kind))
       else:
