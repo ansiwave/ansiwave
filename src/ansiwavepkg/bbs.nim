@@ -346,6 +346,18 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
         page.data.editTags.request = client.submit(clnt, "ansiwave", body)
       else:
         simpleeditor.onInput(page.data.editTags.field, input)
+  of "edit-extra-tags":
+    result = input.key notin {iw.Key.Up, iw.Key.Down}
+    if result:
+      if input.key == iw.Key.Escape:
+        page.data.editExtraTags.sig = ""
+      elif input.key == iw.Key.Enter:
+        let
+          headers = common.headers(user.pubKey, page.data.editExtraTags.sig, common.ExtraTags, page.data.board)
+          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.editExtraTags.field))
+        page.data.editExtraTags.request = client.submit(clnt, "ansiwave", body)
+      else:
+        simpleeditor.onInput(page.data.editExtraTags.field, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -511,11 +523,18 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
     of iw.Key.CtrlR:
       refresh(sess, clnt, page)
     of iw.Key.CtrlX:
-      if page.data.kind == ui.User and page.data.user.ready and page.data.user.value.kind != client.Error:
-        let tags = page.data.user.value.valid.tags
-        simpleeditor.setContent(page.data.editTags.field, tags.value)
-        page.data.editTags.sig = tags.sig
-        session.insert(page.id, View, cast[JsonNode](nil))
+      if page.data.kind == ui.User:
+        if page.data.user.ready and page.data.user.value.kind != client.Error:
+          let tags = page.data.user.value.valid.tags
+          simpleeditor.setContent(page.data.editTags.field, tags.value)
+          page.data.editTags.sig = tags.sig
+          session.insert(page.id, View, cast[JsonNode](nil))
+      elif page.data.kind == ui.Post:
+        if page.data.post.ready and page.data.post.value.kind != client.Error:
+          let tags = page.data.post.value.valid.extra_tags
+          simpleeditor.setContent(page.data.editExtraTags.field, tags.value)
+          page.data.editExtraTags.sig = tags.sig
+          session.insert(page.id, View, cast[JsonNode](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
       if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
         ui.showPasteText = true

@@ -80,6 +80,8 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
     comp.replies = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, false, comp.offset)
     comp.post = client.queryPost(clnt, paths.db(board, true), comp.sig)
+    comp.editExtraTags.request.started = false
+    comp.editExtraTags.sig = ""
   of User:
     comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
     if comp.showAllPosts:
@@ -99,7 +101,7 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     discard
 
 proc initPost*(clnt: client.Client, board: string, sig: string): Component =
-  result = Component(kind: Post, client: clnt, board: board, sig: sig)
+  result = Component(kind: Post, client: clnt, board: board, sig: sig, editExtraTags: TagState(field: simpleeditor.init()))
   refresh(clnt, result, board)
 
 proc initUser*(clnt: client.Client, board: string, key: string): Component =
@@ -160,6 +162,13 @@ proc truncate(s: string, maxLen: int): string =
   else:
     s
 
+proc separate(parts: openArray[string]): string =
+  for part in parts:
+    if part != "":
+      if result != "":
+        result &= " | "
+      result &= part
+
 proc toJson*(entity: entities.Post, content: string, board: string, kind: string, sig: string): JsonNode =
   const maxLines = int(editorWidth / 4f)
   let
@@ -171,7 +180,7 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     "type": "rect",
     "children": truncatedLines,
     "copyable-text": lines,
-    "top-left": entity.tags,
+    "top-left": separate([entity.tags, entity.extra_tags.value]),
     "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if wrappedLines.len > maxLines: "see more" else: "",
     "action": "show-post",
@@ -348,15 +357,34 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     finishedLoading = comp.postContent.ready and comp.replies.ready and comp.post.ready
     var parsed: post.Parsed
     %*[
-      if comp.sig != comp.board and
-          comp.post.ready and
-          comp.post.value.kind != client.Error and
-          comp.post.value.valid.parent != comp.board:
-        % " $1$2$3".format(
-          comp.post.value.valid.tags,
-          if comp.post.value.valid.tags.len > 0: " | " else: "",
-          chrono.format(chrono.Timestamp(comp.post.value.valid.ts), "{year/4}-{month/2}-{day/2}"),
-        )
+      if comp.sig != comp.board:
+        if not comp.post.ready or
+            comp.post.value.kind == client.Error:
+          %""
+        else:
+          if comp.editExtraTags.sig != "":
+            finishedLoading = false # so the editor will always refresh
+            if comp.editExtraTags.request.started:
+              client.get(comp.editExtraTags.request)
+              if comp.editExtraTags.request.ready:
+                if comp.editExtraTags.request.value.kind == client.Error:
+                  %["error: " & comp.editExtraTags.request.value.error, "refresh to continue"]
+                else:
+                  %["extra tags edited successfully (but they may take time to appear)", "refresh to continue"]
+              else:
+                %"editing extra tags..."
+            else:
+              simpleeditor.toJson(comp.editExtraTags.field, "press enter to edit extra tags or esc to cancel", "edit-extra-tags")
+          else:
+            if comp.post.value.valid.parent != comp.board:
+              let parts = [
+                comp.post.value.valid.tags,
+                comp.post.value.valid.extra_tags.value,
+                chrono.format(chrono.Timestamp(comp.post.value.valid.ts), "{year/4}-{month/2}-{day/2}"),
+              ]
+              % (" " & parts.separate)
+            else:
+              %""
       else:
         %""
       ,
