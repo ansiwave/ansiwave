@@ -34,13 +34,13 @@ type
       postContent: client.ChannelValue[client.Response]
       replies: client.ChannelValue[seq[entities.Post]]
       post*: client.ChannelValue[entities.Post]
-      editPostTags*: TagState
+      editExtraTags*: TagState
     of User:
       showAllPosts*: bool
       user*: client.ChannelValue[entities.User]
       userContent: client.ChannelValue[client.Response]
       userPosts: client.ChannelValue[seq[entities.Post]]
-      editUserTags*: TagState
+      editTags*: TagState
     of Editor:
       headers*: string
       session*: editor.EditorSession
@@ -88,8 +88,8 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
       comp.userPosts = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, comp.sig != board, comp.offset)
     if comp.sig != board:
       comp.user = client.queryUser(clnt, paths.db(board, true), comp.sig)
-    comp.editUserTags.request.started = false
-    comp.editUserTags.sig = ""
+    comp.editTags.request.started = false
+    comp.editTags.sig = ""
   of Replies:
     comp.userReplies = client.queryUserReplies(clnt, paths.db(board, true), user.pubKey, comp.offset)
   of Search:
@@ -103,7 +103,7 @@ proc initPost*(clnt: client.Client, board: string, sig: string): Component =
   refresh(clnt, result, board)
 
 proc initUser*(clnt: client.Client, board: string, key: string): Component =
-  result = Component(kind: User, client: clnt, board: board, sig: key, editUserTags: TagState(field: simpleeditor.init()))
+  result = Component(kind: User, client: clnt, board: board, sig: key, editTags: TagState(field: simpleeditor.init()))
   refresh(clnt, result, board)
 
 proc initEditor*(width: int, height: int, board: string, sig: string, headers: string): Component =
@@ -448,19 +448,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             comp.user.value.kind == client.Error:
           %[]
         else:
-          if comp.editUserTags.sig != "":
+          if comp.editTags.sig != "":
             finishedLoading = false # so the editor will always refresh
-            if comp.editUserTags.request.started:
-              client.get(comp.editUserTags.request)
-              if comp.editUserTags.request.ready:
-                if comp.editUserTags.request.value.kind == client.Error:
-                  %["error: " & comp.editUserTags.request.value.error, "refresh to continue"]
+            if comp.editTags.request.started:
+              client.get(comp.editTags.request)
+              if comp.editTags.request.ready:
+                if comp.editTags.request.value.kind == client.Error:
+                  %["error: " & comp.editTags.request.value.error, "refresh to continue"]
                 else:
                   %["tags edited successfully (but they may take time to appear)", "refresh to continue"]
               else:
                 %"editing tags..."
             else:
-              simpleeditor.toJson(comp.editUserTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
+              simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
           else:
             if comp.user.value.valid.tags.value == "":
               %[]
