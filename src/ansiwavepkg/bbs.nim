@@ -542,7 +542,10 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
         if area.copyableText.len > 0:
           editor.copyLines(area.copyableText)
     else:
-      if not isPlaying and input.key == iw.Key.Escape:
+      if not isPlaying and input.key == iw.Key.Escape and
+          # on windows the esc character seems to be inserted automatically
+          # sometimes while a page is loading, so we need to ignore it
+          (not defined(windows) or finishedLoading):
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
         return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
