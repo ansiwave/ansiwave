@@ -41,6 +41,7 @@ proc exitClean(message: string) =
     quit(0)
 
 proc exitClean() {.noconv.} =
+  setupForeignThreadGc()
   exitClean("")
 
 proc parseOptions(): editor.Options =
