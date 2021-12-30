@@ -1138,23 +1138,27 @@ proc setAttribs(c: TerminalChar) =
     if isTruecolorSupported() and c.bgTruecolor != rgbNone:
       if c.bgTruecolor != gCurrBgTruecolor:
         gCurrBgTruecolor = c.bgTruecolor
+        gCurrBg = bgNone
         let rgb =
           c.bgTruecolor.red.rotateLeftBits(16) +
           c.bgTruecolor.green.rotateLeftBits(8) +
           c.bgTruecolor.blue
         setBackgroundColor(colors.Color(rgb))
     elif c.bg != gCurrBg:
+      gCurrBgTruecolor = rgbNone
       gCurrBg = c.bg
       setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
     if isTruecolorSupported() and c.fgTruecolor != rgbNone:
       if c.fgTruecolor != gCurrFgTruecolor:
         gCurrFgTruecolor = c.fgTruecolor
+        gCurrFg = fgNone
         let rgb =
           c.fgTruecolor.red.rotateLeftBits(16) +
           c.fgTruecolor.green.rotateLeftBits(8) +
           c.fgTruecolor.blue
         setForegroundColor(colors.Color(rgb))
     elif c.fg != gCurrFg:
+      gCurrFgTruecolor = rgbNone
       gCurrFg = c.fg
       setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
     if c.style != gCurrStyle:
