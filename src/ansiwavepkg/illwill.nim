@@ -1121,36 +1121,40 @@ var
   gCurrStyle {.threadvar.}: set[Style]
 
 proc setAttribs(c: TerminalChar) =
-  if c.bg == bgNone or c.fg == fgNone or c.style == {}:
+  if (c.bgTruecolor == rgbNone and c.fgTruecolor == rgbNone) and (c.bg == bgNone or c.fg == fgNone or c.style == {}):
     resetAttributes()
     gCurrBg = c.bg
     gCurrFg = c.fg
     gCurrBgTruecolor = c.bgTruecolor
     gCurrFgTruecolor = c.fgTruecolor
     gCurrStyle = c.style
-    if isTruecolorSupported() and gCurrBgTruecolor != rgbNone:
-      let rgb =
-        c.bgTruecolor.red.rotateLeftBits(16) +
-        c.bgTruecolor.green.rotateLeftBits(8) +
-        c.bgTruecolor.blue
-      setBackgroundColor(colors.Color(rgb))
-    elif gCurrBg != bgNone:
+    if gCurrBg != bgNone:
       setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
-    if isTruecolorSupported() and gCurrFgTruecolor != rgbNone:
-      let rgb =
-        c.fgTruecolor.red.rotateLeftBits(16) +
-        c.fgTruecolor.green.rotateLeftBits(8) +
-        c.fgTruecolor.blue
-      setForegroundColor(colors.Color(rgb))
-    elif gCurrFg != fgNone:
+    if gCurrFg != fgNone:
       setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
     if gCurrStyle != {}:
       setStyle(gCurrStyle)
   else:
-    if c.bg != gCurrBg:
+    if isTruecolorSupported() and c.bgTruecolor != rgbNone:
+      if c.bgTruecolor != gCurrBgTruecolor:
+        gCurrBgTruecolor = c.bgTruecolor
+        let rgb =
+          c.bgTruecolor.red.rotateLeftBits(16) +
+          c.bgTruecolor.green.rotateLeftBits(8) +
+          c.bgTruecolor.blue
+        setBackgroundColor(colors.Color(rgb))
+    elif c.bg != gCurrBg:
       gCurrBg = c.bg
       setBackgroundColor(cast[terminal.BackgroundColor](gCurrBg))
-    if c.fg != gCurrFg:
+    if isTruecolorSupported() and c.fgTruecolor != rgbNone:
+      if c.fgTruecolor != gCurrFgTruecolor:
+        gCurrFgTruecolor = c.fgTruecolor
+        let rgb =
+          c.fgTruecolor.red.rotateLeftBits(16) +
+          c.fgTruecolor.green.rotateLeftBits(8) +
+          c.fgTruecolor.blue
+        setForegroundColor(colors.Color(rgb))
+    elif c.fg != gCurrFg:
       gCurrFg = c.fg
       setForegroundColor(cast[terminal.ForegroundColor](gCurrFg))
     if c.style != gCurrStyle:
