@@ -265,23 +265,24 @@ proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
     of midi.Error:
       discard
 
-proc cursorChanged(session: var auto, id: int, cursorX: int, cursorY: int, lines: RefStrings, wrapped: bool) =
+proc cursorChanged(session: var auto, id: int, cursorX: int, cursorY: int, lines: RefStrings): tuple[x: int, y: int] =
+  result = (cursorX, cursorY)
   if lines[].len == 0:
     if cursorX != 0:
-      session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
+      result.x = 0
     if cursorY != 0:
-      session.insert(id, if wrapped: WrappedCursorY else: CursorY, 0)
+      result.y = 0
     return
   if cursorY < 0:
-    session.insert(id, if wrapped: WrappedCursorY else: CursorY, 0)
+    result.y = 0
   elif cursorY >= lines[].len:
-    session.insert(id, if wrapped: WrappedCursorY else: CursorY, lines[].len - 1)
+    result.y = lines[].len - 1
   else:
     let lastCol = lines[cursorY][].stripCodes.runeLen
     if cursorX > lastCol:
-      session.insert(id, if wrapped: WrappedCursorX else: CursorX, lastCol)
+      result.x = lastCol
     elif cursorX < 0:
-      session.insert(id, if wrapped: WrappedCursorX else: CursorX, 0)
+      result.x = 0
 
 proc unwrapLines(wrappedLines: RefStrings, toUnwrapped: ToUnwrappedTable): RefStrings =
   new result
@@ -360,20 +361,6 @@ let rules* =
           session.insert(id, ScrollY, cursorY)
         elif cursorY > scrollBottom and cursorY < lines[].len:
           session.insert(id, ScrollY, scrollY + (cursorY - scrollBottom))
-    rule cursorChanged(Fact):
-      what:
-        (id, CursorX, cursorX)
-        (id, CursorY, cursorY)
-        (id, Lines, lines, then = false)
-      then:
-        session.cursorChanged(id, cursorX, cursorY, lines, false)
-    rule wrappedCursorChanged(Fact):
-      what:
-        (id, WrappedCursorX, cursorX)
-        (id, WrappedCursorY, cursorY)
-        (id, WrappedLines, lines, then = false)
-      then:
-        session.cursorChanged(id, cursorX, cursorY, lines, true)
     rule addClearToBeginningOfEveryLine(Fact):
       what:
         (id, Lines, lines)
@@ -548,34 +535,46 @@ let rules* =
         (id, WrappedCursorY, cursorY)
       then:
         session.insert(id, WrappedCursor, (cursorX, cursorY))
-    rule wrapCursor(Fact):
+    rule cursorChanged(Fact):
       what:
         (id, Cursor, cursor)
+        (id, Lines, lines, then = false)
         (id, WrappedCursorX, wrappedCursorX, then = false)
         (id, WrappedCursorY, wrappedCursorY, then = false)
         (id, ToWrapped, toWrapped, then = false)
       then:
-        if toWrapped.hasKey(cursor.y):
-          for (wrappedLineNum, startCol, endCol) in toWrapped[cursor.y]:
-            if cursor.x >= startCol and cursor.x <= endCol:
+        let (newCursorX, newCursorY) = session.cursorChanged(id, cursor.x, cursor.y, lines)
+        if newCursorX != cursor.x:
+          session.insert(id, CursorX, newCursorX)
+        if newCursorY != cursor.y:
+          session.insert(id, CursorY, newCursorY)
+        if toWrapped.hasKey(newCursorY):
+          for (wrappedLineNum, startCol, endCol) in toWrapped[newCursorY]:
+            if newCursorX >= startCol and newCursorX <= endCol:
               let
-                newWrappedCursorX = cursor.x - startCol
+                newWrappedCursorX = newCursorX - startCol
                 newWrappedCursorY = wrappedLineNum
               if newWrappedCursorX != wrappedCursorX:
                 session.insert(id, WrappedCursorX, newWrappedCursorX)
               if newWrappedCursorY != wrappedCursorY:
                 session.insert(id, WrappedCursorY, newWrappedCursorY)
-    rule unwrapCursor(Fact):
+    rule wrappedCursorChanged(Fact):
       what:
+        (id, WrappedCursor, wrappedCursor)
+        (id, WrappedLines, lines, then = false)
         (id, CursorX, cursorX, then = false)
         (id, CursorY, cursorY, then = false)
-        (id, WrappedCursor, wrappedCursor)
         (id, ToUnwrapped, toUnwrapped, then = false)
       then:
-        if toUnwrapped.hasKey(wrappedCursor.y):
+        let (newWrappedCursorX, newWrappedCursorY) = session.cursorChanged(id, wrappedCursor.x, wrappedCursor.y, lines)
+        if newWrappedCursorX != wrappedCursor.x:
+          session.insert(id, WrappedCursorX, newWrappedCursorX)
+        if newWrappedCursorY != wrappedCursor.y:
+          session.insert(id, WrappedCursorY, newWrappedCursorY)
+        if toUnwrapped.hasKey(newWrappedCursorY):
           let
-            (lineNum, startCol, endCol) = toUnwrapped[wrappedCursor.y]
-            newCursorX = wrappedCursor.x + startCol
+            (lineNum, startCol, endCol) = toUnwrapped[newWrappedCursorY]
+            newCursorX = newWrappedCursorX + startCol
             newCursorY = lineNum
           if newCursorX != cursorX:
             session.insert(id, CursorX, newCursorX)
