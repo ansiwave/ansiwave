@@ -586,6 +586,8 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
           scrollY = page.viewHeight - height
       else:
         discard
+    if focusIndex > 0 and focusIndex > page.viewFocusAreas.len - 1:
+      focusIndex = page.viewFocusAreas.len - 1
 
   # render
   var
