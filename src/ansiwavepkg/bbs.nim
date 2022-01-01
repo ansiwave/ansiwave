@@ -788,18 +788,6 @@ proc tick*(session: var auto, clnt: client.Client, width: int, height: int, inpu
   if page.viewFocusAreas != areas or page.viewHeight != scrollY + y:
     session.insert(page.id, ViewFocusAreas, areas)
     session.insert(page.id, ViewHeight, scrollY + y)
-    # if the view height has changed, emscripten needs to render again
-    when defined(emscripten):
-      if y != page.viewHeight:
-        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
-
-proc getCurrentFocusArea*(session: var BbsSession): tuple[top: int, bottom: int] =
-  session.fireRules
-  let
-    globals = session.query(rules.getGlobals)
-    page = globals.pages[globals.selectedPage]
-  if page.focusIndex >= 0 and page.focusIndex < page.viewFocusAreas.len:
-    return (page.viewFocusAreas[page.focusIndex].top + navbar.height, page.viewFocusAreas[page.focusIndex].bottom + navbar.height)
 
 proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var hash = origHash
