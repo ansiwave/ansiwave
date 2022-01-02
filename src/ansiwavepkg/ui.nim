@@ -321,16 +321,16 @@ proc toJson*(draft: Draft, board: string): JsonNode =
     "" # spacer
   ]
 
-proc toJson*(post: Recent): JsonNode =
+proc toJson*(recent: Recent): JsonNode =
   const maxLines = int(editorWidth / 4f)
-  let lines = strutils.splitLines(post.content)
+  let lines = post.wrapLines(strutils.splitLines(recent.content))
   %* {
     "type": "rect",
     "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
     "copyable-text": lines,
     "bottom-left": if lines.len > maxLines: "see more" else: "",
     "action": "show-post",
-    "action-data": {"type": "post", "sig": post.sig},
+    "action-data": {"type": "post", "sig": recent.sig},
   }
 
 proc toJson*(posts: seq[Recent], offset: int): JsonNode =
