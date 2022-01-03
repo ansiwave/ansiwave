@@ -305,8 +305,30 @@ proc removeWrappedLines(lines: var seq[ref string], toUnwrapped: ToUnwrappedTabl
     else:
       lines[i] = empty
 
+# the wasm binary gets too big if we use defineSessionWithRules,
+# so make the emscripten version define rules the normal way
+import macros
+when defined(emscripten):
+  type FactMatch = Table[string, Fact]
+
+  macro defSessionWithRules(arg: untyped): untyped =
+    quote:
+      let rules =
+        ruleset:
+          `arg`
+      (initSession:
+        proc (): Session[Fact, FactMatch] =
+          initSession(Fact, autoFire = false)
+       ,
+       rules: rules)
+else:
+  macro defSessionWithRules(arg: untyped): untyped =
+    quote:
+      defineSessionWithRules(Fact, FactMatch, autoFire = false):
+        `arg`
+
 let (initSession, rules*) =
-  defineSessionWithRules(Fact, FactMatch, autoFire = false):
+  defSessionWithRules:
     rule getGlobals(Fact):
       what:
         (Global, SelectedBuffer, selectedBuffer)
