@@ -75,13 +75,10 @@ schema Fact(Id, Attr):
   ViewFocusAreas: ViewFocusAreaSeq
   MidiProgress: MidiProgressType
 
-type
-  BbsSession* = Session[Fact, Vars[Fact]]
-
 proc routeHash(session: var auto, clnt: client.Client, hash: string)
 
-let rules =
-  ruleset:
+let (initSession, rules) =
+  defineSessionWithRules(Fact, FactMatch, autoFire = false):
     rule getGlobals(Fact):
       what:
         (Global, Board, board)
@@ -147,7 +144,10 @@ let rules =
           t[page.sig] = page
         session.insert(Global, AllPages, t)
 
-proc goToPage(session: var auto, sig: string) =
+type
+  BbsSession* = Session[Fact, FactMatch]
+
+proc goToPage(session: var BbsSession, sig: string) =
   let globals = session.query(rules.getGlobals)
   var
     breadcrumbs = globals.breadcrumbs
@@ -169,7 +169,7 @@ var
   nextPageId = Id.high.ord + 1
   sigToPageId: Table[string, int]
 
-proc insertPage(session: var auto, comp: ui.Component, sig: string) =
+proc insertPage(session: var BbsSession, comp: ui.Component, sig: string) =
   let id =
     if sigToPageId.hasKey(sig):
       sigToPageId[sig]
@@ -190,7 +190,7 @@ proc insertPage(session: var auto, comp: ui.Component, sig: string) =
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
 
-proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, string]) =
+proc routeHash(session: var BbsSession, clnt: client.Client, hash: Table[string, string]) =
   if "board" notin hash:
     session.insertPage(ui.initMessage("Can't navigate to this page"), "message")
     return
@@ -231,12 +231,12 @@ proc routeHash(session: var auto, clnt: client.Client, hash: Table[string, strin
 proc routeHash(session: var auto, clnt: client.Client, hash: string) =
   routeHash(session, clnt, editor.parseHash(hash))
 
-proc insertHash*(session: var auto, hash: string) =
+proc insertHash*(session: var BbsSession, hash: string) =
   session.insert(Global, Hash, hash)
   session.fireRules
 
-proc initSession*(clnt: client.Client, hash: Table[string, string]): auto =
-  result = initSession(Fact, autoFire = false)
+proc initBbsSession*(clnt: client.Client, hash: Table[string, string]): BbsSession =
+  result = initSession()
   for r in rules.fields:
     result.add(r)
   result.insert(Global, Client, clnt)
@@ -251,13 +251,13 @@ proc initSession*(clnt: client.Client, hash: Table[string, string]): auto =
   result.routeHash(clnt, hash)
   result.fireRules
 
-proc refresh(session: var auto, clnt: client.Client, page: Page) =
+proc refresh(session: var BbsSession, clnt: client.Client, page: Page) =
   session.insert(page.id, ScrollY, 0)
   session.insert(page.id, View, cast[JsonNode](nil))
   let globals = session.query(rules.getGlobals)
   ui.refresh(clnt, page.data, globals.board)
 
-proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
+proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
   case actionName:
   of "show-post":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
@@ -403,7 +403,7 @@ proc handleAction(session: var auto, clnt: client.Client, page: Page, width: int
   else:
     discard
 
-proc renderHtml*(session: auto): string =
+proc renderHtml*(session: BbsSession): string =
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
@@ -412,7 +412,7 @@ proc renderHtml*(session: auto): string =
 proc isEditor(page: Page): bool =
   page.data.kind == ui.Editor
 
-proc isEditor*(session: auto): bool =
+proc isEditor*(session: BbsSession): bool =
   try:
     let
       globals = session.query(rules.getGlobals)
@@ -439,7 +439,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-proc tick*(session: var auto, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
+proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
   session.fireRules
   let
     globals = session.query(rules.getGlobals)
@@ -819,7 +819,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   init()
 
   # create session
-  var session = initSession(clnt, hash)
+  var session = initBbsSession(clnt, hash)
 
   # start loop
   while true:

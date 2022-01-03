@@ -134,16 +134,13 @@ schema Fact(Id, Attr):
   Opts: Options
   MidiProgress: MidiProgressType
 
-type
-  EditorSession* = Session[Fact, Vars[Fact]]
-
 const textWidth = editorWidth + 2
 
-proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int)
-proc tick*(session: var EditorSession): iw.TerminalBuffer
-proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int]
+proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
+proc tick*(session: var auto): iw.TerminalBuffer
+proc getTerminalWindow(session: auto): tuple[x: int, y: int, width: int, height: int]
 
-proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
+proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
   if iw.gIllwillInitialised:
     var
       tb = tick(session)
@@ -192,7 +189,7 @@ proc play(session: var EditorSession, events: seq[paramidi.Event], bufferId: int
     else:
       session.insert(Global, MidiProgress, MidiProgressType(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
 
-proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
+proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
   let
     cb =
@@ -204,7 +201,7 @@ proc setErrorLink(session: var EditorSession, linksRef: RefLinks, cmdLine: int, 
   linksRef[cmdLine] = link
   link
 
-proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string, goToError: bool = false) =
+proc setRuntimeError(session: var auto, cmdsRef: RefCommands, errsRef: RefCommands, linksRef: RefLinks, bufferId: int, line: int, message: string, goToError: bool = false) =
   var cmdIndex = -1
   for i in 0 ..< cmdsRef[].len:
     if cmdsRef[0].line == line:
@@ -225,7 +222,7 @@ proc setRuntimeError(session: var EditorSession, cmdsRef: RefCommands, errsRef: 
   if goToError:
     link.callback()
 
-proc compileAndPlayAll(session: var EditorSession, buffer: tuple) =
+proc compileAndPlayAll(session: var auto, buffer: tuple) =
   var
     noErrors = true
     nodes = json.JsonNode(kind: json.JArray)
@@ -308,8 +305,8 @@ proc removeWrappedLines(lines: var seq[ref string], toUnwrapped: ToUnwrappedTabl
     else:
       lines[i] = empty
 
-let rules* =
-  ruleset:
+let (initSession, rules*) =
+  defineSessionWithRules(Fact, FactMatch, autoFire = false):
     rule getGlobals(Fact):
       what:
         (Global, SelectedBuffer, selectedBuffer)
@@ -618,7 +615,10 @@ let rules* =
           t[buffer.id] = buffer
         session.insert(Global, AllBuffers, t)
 
-proc moveCursor(session: var EditorSession, bufferId: int, x: int, y: int) =
+type
+  EditorSession* = Session[Fact, FactMatch]
+
+proc moveCursor(session: var auto, bufferId: int, x: int, y: int) =
   session.insert(bufferId, CursorX, x)
   session.insert(bufferId, CursorY, y)
 
@@ -628,7 +628,7 @@ proc onWindowResize(session: var EditorSession, x: int, y: int, width: int, heig
   session.insert(TerminalWindow, Width, width)
   session.insert(TerminalWindow, Height, height)
 
-proc getTerminalWindow(session: EditorSession): tuple[x: int, y: int, width: int, height: int] =
+proc getTerminalWindow(session: auto): tuple[x: int, y: int, width: int, height: int] =
   session.query(rules.getTerminalWindow)
 
 proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: bool, text: string) =
@@ -1311,7 +1311,7 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
   else:
     editorText = ""
 
-  result = initSession(Fact, autoFire = false)
+  result = initSession()
   for r in rules.fields:
     result.add(r)
 
@@ -1500,7 +1500,7 @@ proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, 
   var finishedLoading: bool
   tick(session, result, x, y, width, height, input, true, finishedLoading)
 
-proc tick*(session: var EditorSession): iw.TerminalBuffer =
+proc tick*(session: var auto): iw.TerminalBuffer =
   let (x, y, width, height) = session.query(rules.getTerminalWindow)
   tick(session, x, y, width, height, (iw.Key.None, 0'u32))
 
