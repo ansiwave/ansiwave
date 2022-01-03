@@ -23,7 +23,7 @@ from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
 from wavecorepkg/wavescript import CommandTree
 
-const version = "1.2.4"
+const version = "1.2.6"
 
 proc exitClean(ex: ref Exception) =
   if iw.gIllwillInitialised:
