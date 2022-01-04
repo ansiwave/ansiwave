@@ -289,9 +289,9 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
         globals = session.query(rules.getGlobals)
         comp =
           if typ == "user" or sig == user.pubKey:
-            ui.initUser(clnt, globals.board, sig)
+            ui.initUser(clnt, globals.board, sig, limbo = page.data.limbo)
           else:
-            ui.initPost(clnt, globals.board, sig)
+            ui.initPost(clnt, globals.board, sig, limbo = page.data.limbo)
       session.insertPage(comp, sig)
   of "change-page":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}

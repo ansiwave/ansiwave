@@ -28,6 +28,7 @@ type
     board*: string
     sig: string
     offset*: int
+    limbo*: bool
     cache: Table[string, client.ChannelValue[client.Response]]
     case kind*: ComponentKind
     of Post:
@@ -77,35 +78,40 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   comp.cache = initTable[string, client.ChannelValue[client.Response]]()
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
-    comp.replies = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, false, comp.offset)
-    comp.post = client.queryPost(clnt, paths.db(board, true), comp.sig)
+    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, isUrl = true, limbo = comp.limbo))
+    comp.replies = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, false, comp.offset)
+    comp.post = client.queryPost(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig)
     comp.editExtraTags.request.started = false
     comp.editExtraTags.sig = ""
   of User:
-    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig, true))
+    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig, isUrl = true, limbo = comp.limbo))
     if comp.showAllPosts:
-      comp.userPosts = client.queryUserPosts(clnt, paths.db(board, true), comp.sig, comp.offset)
+      comp.userPosts = client.queryUserPosts(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, comp.offset)
     else:
-      comp.userPosts = client.queryPostChildren(clnt, paths.db(board, true), comp.sig, comp.sig != board, comp.offset)
+      comp.userPosts = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, comp.sig != board, comp.offset)
     if comp.sig != board:
-      comp.user = client.queryUser(clnt, paths.db(board, true), comp.sig)
+      comp.user = client.queryUser(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig)
     comp.editTags.request.started = false
     comp.editTags.sig = ""
   of Replies:
-    comp.userReplies = client.queryUserReplies(clnt, paths.db(board, true), user.pubKey, comp.offset)
+    comp.userReplies = client.queryUserReplies(clnt, paths.db(board, isUrl = true), user.pubKey, comp.offset)
   of Search:
     if comp.showResults:
-      comp.searchResults = client.search(clnt, paths.db(board, true), comp.searchKind, comp.searchTerm, comp.offset)
+      if comp.searchKind == entities.UserTags and comp.searchTerm == "modlimbo":
+        comp.limbo = true
+        comp.searchResults = client.search(clnt, paths.db(board, isUrl = true, limbo = true), comp.searchKind, comp.searchTerm, comp.offset)
+      else:
+        comp.limbo = false
+        comp.searchResults = client.search(clnt, paths.db(board, isUrl = true), comp.searchKind, comp.searchTerm, comp.offset)
   of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
-proc initPost*(clnt: client.Client, board: string, sig: string): Component =
-  result = Component(kind: Post, client: clnt, board: board, sig: sig, editExtraTags: TagState(field: simpleeditor.init()))
+proc initPost*(clnt: client.Client, board: string, sig: string, limbo: bool = false): Component =
+  result = Component(kind: Post, client: clnt, board: board, sig: sig, limbo: limbo, editExtraTags: TagState(field: simpleeditor.init()))
   refresh(clnt, result, board)
 
-proc initUser*(clnt: client.Client, board: string, key: string): Component =
-  result = Component(kind: User, client: clnt, board: board, sig: key, editTags: TagState(field: simpleeditor.init()))
+proc initUser*(clnt: client.Client, board: string, key: string, limbo: bool = false): Component =
+  result = Component(kind: User, client: clnt, board: board, sig: key, limbo: limbo, editTags: TagState(field: simpleeditor.init()))
   refresh(clnt, result, board)
 
 proc initEditor*(width: int, height: int, board: string, sig: string, headers: string): Component =
@@ -217,7 +223,7 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
             (true, post.content.value.uncompressed)
           else:
             if sig notin comp.cache:
-              comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, true))
+              comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, isUrl = true, limbo = comp.limbo))
             client.get(comp.cache[sig])
             if comp.cache[sig].ready:
               (true, if comp.cache[sig].value.kind == client.Valid: comp.cache[sig].value.valid.body else: "")
@@ -481,24 +487,31 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             comp.user.value.kind == client.Error:
           %[]
         else:
-          if comp.editTags.sig != "":
-            finishedLoading = false # so the editor will always refresh
-            if comp.editTags.request.started:
-              client.get(comp.editTags.request)
-              if comp.editTags.request.ready:
-                if comp.editTags.request.value.kind == client.Error:
-                  %["error: " & comp.editTags.request.value.error, "refresh to continue"]
-                else:
-                  %["tags edited successfully (but they may take time to appear)", "refresh to continue"]
-              else:
-                %"editing tags..."
-            else:
-              simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
+          if comp.user.value.valid.user_id == 0:
+            # if the user wasn't found, try checking in limbo
+            if not comp.limbo:
+              comp.limbo = true
+              refresh(comp.client, comp, comp.board)
+            %[]
           else:
-            if comp.user.value.valid.tags.value == "":
-              %[]
+            if comp.editTags.sig != "":
+              finishedLoading = false # so the editor will always refresh
+              if comp.editTags.request.started:
+                client.get(comp.editTags.request)
+                if comp.editTags.request.ready:
+                  if comp.editTags.request.value.kind == client.Error:
+                    %["error: " & comp.editTags.request.value.error, "refresh to continue"]
+                  else:
+                    %["tags edited successfully (but they may take time to appear)", "refresh to continue"]
+                else:
+                  %"editing tags..."
+              else:
+                simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
             else:
-              % (" " & comp.user.value.valid.tags.value)
+              if comp.user.value.valid.tags.value == "":
+                %[]
+              else:
+                % (" " & comp.user.value.valid.tags.value)
       else:
         %[]
       ,
