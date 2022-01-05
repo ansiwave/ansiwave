@@ -487,15 +487,15 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           },
         }
       ,
-      "", # spacer
       if comp.sig != comp.board:
         if comp.post.ready and comp.post.value.kind != client.Error:
-          % [(" " & replyText(comp.post.value.valid, comp.board)), ""]
+          % (" " & replyText(comp.post.value.valid, comp.board))
         else:
           %""
       else:
         %""
       ,
+      "", # spacer
       if not comp.replies.ready:
         %"loading posts"
       elif comp.replies.value.kind == client.Error:
