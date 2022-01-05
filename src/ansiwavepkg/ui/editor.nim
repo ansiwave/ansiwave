@@ -305,30 +305,29 @@ proc removeWrappedLines(lines: var seq[ref string], toUnwrapped: ToUnwrappedTabl
     else:
       lines[i] = empty
 
-# the wasm binary gets too big if we use defineSessionWithRules,
+# the wasm binary gets too big if we use staticRuleset,
 # so make the emscripten version define rules the normal way
 import macros
 when defined(emscripten):
   type FactMatch = Table[string, Fact]
-
-  macro defSessionWithRules(arg: untyped): untyped =
+  macro defRuleset(arg: untyped): untyped =
     quote:
       let rules =
         ruleset:
           `arg`
       (initSession:
-        proc (): Session[Fact, FactMatch] =
-          initSession(Fact, autoFire = false)
+        proc (autoFire: bool = true): Session[Fact, FactMatch] =
+          initSession(Fact, autoFire = autoFire)
        ,
        rules: rules)
 else:
-  macro defSessionWithRules(arg: untyped): untyped =
+  macro defRuleset(arg: untyped): untyped =
     quote:
-      defineSessionWithRules(Fact, FactMatch, autoFire = false):
+      staticRuleset(Fact, FactMatch):
         `arg`
 
 let (initSession, rules*) =
-  defSessionWithRules:
+  defRuleset:
     rule getGlobals(Fact):
       what:
         (Global, SelectedBuffer, selectedBuffer)
@@ -1333,7 +1332,7 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
   else:
     editorText = ""
 
-  result = initSession()
+  result = initSession(autoFire = false)
   for r in rules.fields:
     result.add(r)
 
