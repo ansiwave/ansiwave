@@ -173,8 +173,36 @@ proc separate(parts: openArray[string]): string =
   for part in parts:
     if part != "":
       if result != "":
-        result &= " | "
+        result &= " "
       result &= part
+
+proc header(entity: entities.Post): string =
+  let
+    tags = separate([entity.tags, entity.extra_tags.value])
+    parts = [
+      entity.display_name,
+      if tags.len > 0:
+        "[" & tags & "]"
+      else:
+        ""
+      ,
+      "on",
+      chrono.format(chrono.Timestamp(entity.ts), "{year/4}-{month/2}-{day/2}"),
+    ]
+  separate(parts)
+
+proc header(entity: entities.User): string =
+  let
+    tags = entity.tags.value
+    parts = [
+      entity.display_name,
+      if tags.len > 0:
+        "[" & tags & "]"
+      else:
+        ""
+      ,
+    ]
+  separate(parts)
 
 proc toJson*(entity: entities.Post, content: string, board: string, kind: string, sig: string): JsonNode =
   const maxLines = int(editorWidth / 4f)
@@ -187,7 +215,7 @@ proc toJson*(entity: entities.Post, content: string, board: string, kind: string
     "type": "rect",
     "children": truncatedLines,
     "copyable-text": lines,
-    "top-left": separate([entity.tags, entity.extra_tags.value]),
+    "top-left": if entity.parent == board: "" else: header(entity),
     "top-right": (if kind == "post": replies else: ""),
     "bottom-left": if wrappedLines.len > maxLines: "see more" else: "",
     "action": "show-post",
@@ -400,12 +428,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               simpleeditor.toJson(comp.editExtraTags.field, "press enter to edit extra tags or esc to cancel", "edit-extra-tags")
           else:
             if comp.post.value.valid.parent != comp.board:
-              let parts = [
-                comp.post.value.valid.tags,
-                comp.post.value.valid.extra_tags.value,
-                chrono.format(chrono.Timestamp(comp.post.value.valid.ts), "{year/4}-{month/2}-{day/2}"),
-              ]
-              % (" " & parts.separate)
+              % (" " & header(comp.post.value.valid))
             else:
               %""
       else:
@@ -467,7 +490,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       "", # spacer
       if comp.sig != comp.board:
         if comp.post.ready and comp.post.value.kind != client.Error:
-          % (" " & replyText(comp.post.value.valid, comp.board))
+          % [(" " & replyText(comp.post.value.valid, comp.board)), ""]
         else:
           %""
       else:
@@ -516,10 +539,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
             else:
-              if comp.user.value.valid.tags.value == "":
-                %[]
-              else:
-                % (" " & comp.user.value.valid.tags.value)
+              % (" " & header(comp.user.value.valid))
       else:
         %[]
       ,
