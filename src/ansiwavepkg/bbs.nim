@@ -796,7 +796,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
           iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
           iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
-          iw.write(result, 0, 1, "press tab to stop playing")
+          iw.write(result, 0, 1, "press esc to stop playing")
 
   # in case double buffering was temporarily disabled
   if iw.gIllwillInitialised:

@@ -1075,7 +1075,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
     if buffer.mode == 0:
       prompt = "press tab to delete the current line"
   of StopPlaying:
-    prompt = "press tab to stop playing"
+    prompt = "press esc to stop playing"
   if prompt.len > 0:
     let x = termX + buffer.x + 1 + buffer.width - prompt.runeLen
     iw.write(tb, max(x, termX + buffer.x + 1), termY + buffer.y, prompt)
