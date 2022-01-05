@@ -2,16 +2,13 @@ from strutils import nil
 from math import `mod`
 import tables
 import streams
+from wavecorepkg/ansi import nil
 
 const
   defaultLineWidth = 80
   ESCAPE = '\x1B'
   CR     = '\x0D'
   LF     = '\x0A'
-  codeTerminators* = {'c', 'f', 'h', 'l', 'm', 's', 't', 'u',
-                      'A', 'B', 'C', 'D', 'E', 'F', 'G',
-                      'H', 'J', 'K', 'N', 'O', 'P', 'S',
-                      'T', 'X', '\\', ']', '^', '_'}
   COLOR_DEFAULT_TXT = "37"
   COLOR_DEFAULT_BG  = "40"
   cp437 = [
@@ -214,7 +211,7 @@ proc incClamp(pos: var Pos, x: int, y: int, lineWidth: int) =
   if newCol >= 0 and newCol < lineWidth:
     pos.col = newCol
 
-proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[Pos, Val] =
+proc ansiToUtf8*(content: string, lineWidth: int = defaultLineWidth): OrderedTable[Pos, Val] =
   var
     isEscape = false
     curCode = ""
@@ -222,7 +219,7 @@ proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[
     savedPos: Pos = (row: 0, col: 0)
     brush = initBrush()
 
-  for ch in ansi:
+  for ch in content:
     case ch:
     of CR:
       continue
@@ -232,7 +229,7 @@ proc ansiToUtf8*(ansi: string, lineWidth: int = defaultLineWidth): OrderedTable[
     else:
       if isEscape:
         case ch:
-        of codeTerminators:
+        of ansi.codeTerminators:
           let params = parseParams(curCode)
           isEscape = false
           case ch:

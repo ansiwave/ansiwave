@@ -1,26 +1,13 @@
 from ./illwill as iw import `[]`, `[]=`
-from ./ansi import nil
 from strutils import nil
 from sequtils import nil
 import unicode
 import sets
 from ./kdtree import nil
+from wavecorepkg/ansi import nil
+from ./ansi as ansi2 import parseParams
 
-proc parseCode(codes: var seq[string], ch: Rune): bool =
-  proc terminated(s: string): bool =
-    if s.len > 0:
-      let lastChar = s[s.len - 1]
-      return ansi.codeTerminators.contains(lastChar)
-    else:
-      return false
-  let s = $ch
-  if s == "\e":
-    codes.add(s)
-    return true
-  elif codes.len > 0 and not codes[codes.len - 1].terminated:
-    codes[codes.len - 1] &= s
-    return true
-  return false
+export ansi.stripCodes, ansi.stripCodesIfCommand
 
 proc dedupeParams(params: var seq[int]) =
   # partition the params so RGB values are grouped together.
@@ -93,7 +80,7 @@ var tree = kdtree.newKdTree[(iw.ForegroundColor, iw.BackgroundColor)](colors)
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let
     trimmed = code[1 ..< code.len - 1]
-    params = ansi.parseParams(trimmed)
+    params = parseParams(trimmed)
   var i = 0
   while i < params.len:
     let param = params[i]
@@ -151,7 +138,7 @@ proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
   var currX = x
   var codes: seq[string]
   for ch in runes(s):
-    if parseCode(codes, ch):
+    if ansi.parseCode(codes, ch):
       continue
     for code in codes:
       applyCode(tb, code)
@@ -172,32 +159,6 @@ proc writeMaybe*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
   except Exception as ex:
     discard
 
-proc stripCodes*(line: seq[Rune]): seq[Rune] =
-  var codes: seq[string]
-  for ch in line:
-    if parseCode(codes, ch):
-      continue
-    result.add(ch)
-
-proc stripCodes*(line: string): string =
-  $stripCodes(line.toRunes)
-
-proc stripCodesIfCommand*(line: string): string =
-  var
-    codes: seq[string]
-    foundFirstValidChar = false
-  for ch in runes(line):
-    if parseCode(codes, ch):
-      continue
-    if not foundFirstValidChar and ch.toUTF8[0] != '/':
-      return ""
-    else:
-      foundFirstValidChar = true
-      result &= $ch
-
-proc stripCodesIfCommand*(line: ref string): string =
-  stripCodesIfCommand(line[])
-
 proc dedupeCodes*(line: seq[Rune]): string =
   var
     codes: seq[string]
@@ -208,7 +169,7 @@ proc dedupeCodes*(line: seq[Rune]): string =
       if code[1] == '[' and code[code.len - 1] == 'm':
         let
           trimmed = code[1 ..< code.len - 1]
-          newParams = ansi.parseParams(trimmed)
+          newParams = parseParams(trimmed)
         params &= newParams
       # this is some other kind of code that we should just preserve
       else:
@@ -219,7 +180,7 @@ proc dedupeCodes*(line: seq[Rune]): string =
       lastParams = params
     codes = @[]
   for ch in line:
-    if parseCode(codes, ch):
+    if ansi.parseCode(codes, ch):
       continue
     elif codes.len > 0:
       addCodes(result)
@@ -235,7 +196,7 @@ proc getRealX*(line: seq[Rune], x: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if parseCode(codes, ch):
+    if ansi.parseCode(codes, ch):
       result.inc
       continue
     if fakeX == x:
@@ -246,12 +207,12 @@ proc getRealX*(line: seq[Rune], x: int): int =
 proc getAllParams(line: seq[Rune]): seq[int] =
   var codes: seq[string]
   for ch in line:
-    if parseCode(codes, ch):
+    if ansi.parseCode(codes, ch):
       continue
   for code in codes:
     if code[1] == '[' and code[code.len - 1] == 'm':
       let trimmed = code[1 ..< code.len - 1]
-      result &= ansi.parseParams(trimmed)
+      result &= parseParams(trimmed)
 
 proc onlyHasClearParams*(line: string): bool =
   const clearSet = [0].toHashSet
@@ -269,7 +230,7 @@ proc firstValidChar*(line: seq[Rune]): int =
   var realX = 0
   var codes: seq[string]
   for ch in line:
-    if not parseCode(codes, ch):
+    if not ansi.parseCode(codes, ch):
       result = realX
       break
     realX.inc
@@ -289,7 +250,7 @@ proc firstValidCharAfter*(line: seq[Rune], count: int): int =
   var fakeX = 0
   var codes: seq[string]
   for ch in line:
-    if not parseCode(codes, ch):
+    if not ansi.parseCode(codes, ch):
       if fakeX > count:
         result = realX
         break

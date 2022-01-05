@@ -7,6 +7,7 @@ import tables, sets
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from wavecorepkg/common import nil
+from wavecorepkg/wavescript import nil
 from strutils import format
 from os import `/`
 from ./ui/editor import nil
@@ -268,33 +269,40 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
       sectionTitle = ""
   result = %[]
   for i in 0 ..< lines.len:
-    let strippedLine = lines[i].stripCodes
+    let strippedLine = codes.stripCodesIfCommand(lines[i])
     if strutils.startsWith(strippedLine, "/link "):
-      flush(sectionLines, sectionTitle, result, finishedLoading)
-      var
-        url = ""
-        parts = strutils.split(strippedLine, " ")
-        words: seq[string]
-      parts.delete(0)
-      for part in parts:
-        if urlly.parseUrl(part).scheme != "":
-          url = part
-        else:
-          words.add(part)
-      let text = strutils.join(words, " ")
-      result.elems.add(%* {
-        "type": "rect",
-        "top-left": truncate(text, constants.editorWidth - 2),
-        "children": [truncate(url, constants.editorWidth)],
-        "copyable-text": [url],
-        "action": "go-to-url",
-        "action-data": {"url": url},
-      })
+      var ctx = wavescript.initContext()
+      let res = wavescript.parse(ctx, strippedLine)
+      if res.kind == wavescript.Valid:
+        flush(sectionLines, sectionTitle, result, finishedLoading)
+        var
+          url = ""
+          parts = strutils.split(res.args[0].name, " ")
+          words: seq[string]
+        for part in parts:
+          if urlly.parseUrl(part).scheme != "":
+            url = part
+          else:
+            words.add(part)
+        let text = strutils.join(words, " ")
+        result.elems.add(%* {
+          "type": "rect",
+          "top-left": truncate(text, constants.editorWidth - 2),
+          "children": [truncate(url, constants.editorWidth)],
+          "copyable-text": [url],
+          "action": "go-to-url",
+          "action-data": {"url": url},
+        })
+      else:
+        sectionLines.add(lines[i])
     elif strutils.startsWith(strippedLine, "/section ") or strippedLine == "/section":
-      flush(sectionLines, sectionTitle, result, finishedLoading)
-      var parts = strutils.split(strippedLine, " ")
-      parts.delete(0)
-      sectionTitle = strutils.join(parts, " ")
+      var ctx = wavescript.initContext()
+      let res = wavescript.parse(ctx, strippedLine)
+      if res.kind == wavescript.Valid:
+        flush(sectionLines, sectionTitle, result, finishedLoading)
+        sectionTitle = res.args[0].name
+      else:
+        sectionLines.add(lines[i])
     else:
       sectionLines.add(lines[i])
   flush(sectionLines, sectionTitle, result, finishedLoading)
