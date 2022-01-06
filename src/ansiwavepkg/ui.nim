@@ -80,7 +80,7 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   case comp.kind:
   of Post:
     comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, isUrl = true, limbo = comp.limbo))
-    comp.replies = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, false, comp.offset)
+    comp.replies = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, entities.Score, comp.offset)
     comp.post = client.queryPost(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig)
     comp.editExtraTags.request.started = false
     comp.editExtraTags.sig = ""
@@ -89,7 +89,12 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     if comp.showAllPosts:
       comp.userPosts = client.queryUserPosts(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, comp.offset)
     else:
-      comp.userPosts = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, comp.sig != board, comp.offset)
+      let sortBy =
+        if comp.sig == board:
+          entities.ReplyCount
+        else:
+          entities.Ts
+      comp.userPosts = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, sortBy, comp.offset)
     if comp.sig != board:
       comp.user = client.queryUser(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig)
     comp.editTags.request.started = false
