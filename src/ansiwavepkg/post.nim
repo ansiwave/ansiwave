@@ -200,7 +200,7 @@ proc play*(events: seq[paramidi.Event]): midi.PlayResult =
         break
       iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
       iw.fill(tb, 0, 0, int((currTime / secs) * float(constants.editorWidth + 1)), 0, "▓")
-      iw.write(tb, 0, 1, "press tab to stop playing")
+      iw.write(tb, 0, 1, "press esc to stop playing")
       iw.display(tb)
       let key = iw.getKey()
       if key in {iw.Key.Tab, iw.Key.Escape}:
