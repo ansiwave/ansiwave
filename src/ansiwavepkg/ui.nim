@@ -543,7 +543,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
                   %"editing tags..."
               else:
                 simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
-            elif comp.limbo:
+            elif comp.limbo and comp.sig == user.pubKey:
               % "You're in \"limbo\"...a mod will add you to the board shortly."
             else:
               % (" " & header(comp.user.value.valid))
