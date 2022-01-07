@@ -51,6 +51,8 @@ type
   PageTable = ref Table[string, Page]
   StringSeq = seq[string]
   MidiProgressType = ref object
+    messageDisplayed: bool
+    started: bool
     midiResult: midi.PlayResult
     time: tuple[start: float, stop: float]
   ClientType = client.Client
@@ -724,12 +726,8 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
               if iw.gIllwillInitialised:
                 discard post.compileAndPlayAll(page.viewCommands[])
               else:
-                let midiResult = post.compileAndPlayAll(page.viewCommands[])
-                let currTime = times.epochTime()
                 var progress: MidiProgressType
                 new progress
-                progress.midiResult = midiResult
-                progress.time = (currTime, currTime + midiResult.secs)
                 sess.insert(page.id, MidiProgress, progress)
             except Exception as ex:
               discard
@@ -775,7 +773,17 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           s
       navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
     else:
-      if page.midiProgress[].midiResult.playResult.kind == sound.Error:
+      if not page.midiProgress[].messageDisplayed:
+        page.midiProgress[].messageDisplayed = true
+        iw.fill(result, 0, 0, constants.editorWidth + 1, 3, " ")
+        iw.write(result, 0, 1, "making music...")
+      elif not page.midiProgress[].started:
+        page.midiProgress[].started = true
+        let midiResult = post.compileAndPlayAll(page.viewCommands[])
+        let currTime = times.epochTime()
+        page.midiProgress[].midiResult = midiResult
+        page.midiProgress[].time = (currTime, currTime + midiResult.secs)
+      elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
         let
           continueAction = proc () =
             sess.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
