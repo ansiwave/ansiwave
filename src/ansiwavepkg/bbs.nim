@@ -715,7 +715,9 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     else:
       if iw.gIllwillInitialised:
         let copyLinkAction = proc () {.closure.} =
-          editor.copyLink(paths.address & "#" & globals.hash)
+          let url = paths.address & "#" & globals.hash
+          editor.copyLines(@[url])
+          editor.copyLink(url)
           iw.setDoubleBuffering(false)
         leftButtons.add((" copy link ", copyLinkAction))
     if page.midiProgress == nil:
