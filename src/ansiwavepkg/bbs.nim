@@ -416,12 +416,18 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
     if result:
       let url = actionData["url"].str
       if url != "":
-        when defined(emscripten):
-          emscripten.openNewTab(url)
+        let
+          currUrl = urlly.parseUrl(paths.address)
+          destUrl = urlly.parseUrl(url)
+        if currUrl.hostname == destUrl.hostname and destUrl.fragment != "":
+          routeHash(session, clnt, destUrl.fragment)
         else:
-          if iw.gIllwillInitialised:
-            editor.copyLink(url)
-            iw.setDoubleBuffering(false)
+          when defined(emscripten):
+            emscripten.openNewTab(url)
+          else:
+            if iw.gIllwillInitialised:
+              editor.copyLink(url)
+              iw.setDoubleBuffering(false)
   else:
     discard
 
