@@ -640,8 +640,8 @@ type
   EditorSession* = Session[Fact, FactMatch]
 
 proc moveCursor(session: var auto, bufferId: int, x: int, y: int) =
-  session.insert(bufferId, CursorX, x)
-  session.insert(bufferId, CursorY, y)
+  session.insert(bufferId, WrappedCursorX, x)
+  session.insert(bufferId, WrappedCursorY, y)
 
 proc onWindowResize(session: var EditorSession, x: int, y: int, width: int, height: int) =
   session.insert(TerminalWindow, X, x)
