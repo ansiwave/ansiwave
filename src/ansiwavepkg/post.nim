@@ -67,7 +67,8 @@ proc wrapLine(line: string, maxWidth: int): seq[string] =
     if isWhitespace:
       currentLine &= chars
     else:
-      if currentLine.stripCodes.len + chars.stripCodes.len <= maxWidth:
+      let currLen = currentLine.stripCodes.len
+      if currLen == 0 or currLen + chars.stripCodes.len <= maxWidth:
         currentLine &= chars
       else:
         result.add $currentLine
