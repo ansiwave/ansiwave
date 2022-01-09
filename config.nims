@@ -15,6 +15,8 @@ when defined(linux):
     # make
   else:
     switch("passL", "-ldl -lm -lpthread")
+elif defined(windows):
+  switch("passL", "-static")
 
 --threads:on
 --define:staticSqlite
