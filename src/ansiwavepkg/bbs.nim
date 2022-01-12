@@ -707,13 +707,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
-    if page.sig != globals.board:
-      leftButtons.add((" ≈ ", homeAction))
     if page.data.kind == ui.Post and
         finishedLoading and
         page.data.post.ready and
         page.data.post.value.kind != client.Error:
       leftButtons &= @[(" ↑ ", upAction)]
+    if page.sig != globals.board:
+      leftButtons.add((" home ", homeAction))
     if page.sig != "search":
       leftButtons &= @[(" search ", searchAction)]
     when defined(emscripten):
