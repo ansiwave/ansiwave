@@ -700,11 +700,15 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           sess.insertPage(ui.initPost(clnt, globals.board, sig), sig)
       refreshAction = proc () {.closure.} =
         refresh(sess, clnt, page)
+      homeAction = proc () {.closure.} =
+        sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
       searchAction = proc () {.closure.} =
         sess.insertPage(ui.initSearch(clnt, globals.board), "search")
     var leftButtons: seq[(string, proc ())]
     when not defined(emscripten):
       leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
+    if page.sig != globals.board:
+      leftButtons.add((" ≈ ", homeAction))
     if page.data.kind == ui.Post and
         finishedLoading and
         page.data.post.ready and
