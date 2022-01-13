@@ -534,7 +534,19 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
 
   # handle the action
   if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData, focusIndex):
-    case input.key:
+    let key =
+      case input.key:
+      of iw.Key.Mouse:
+        case iw.getMouse().scrollDir:
+        of iw.ScrollDirection.sdUp:
+          iw.Key.Up
+        of iw.ScrollDirection.sdDown:
+          iw.Key.Down
+        else:
+          input.key
+      else:
+        input.key
+    case key:
     of iw.Key.Up:
       if focusIndex == 0:
         if page.scrollY == 0:
@@ -570,7 +582,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         if area.copyableText.len > 0:
           editor.copyLines(area.copyableText)
     else:
-      if not isPlaying and input.key == iw.Key.Escape and
+      if not isPlaying and key == iw.Key.Escape and
           # on windows the esc character seems to be inserted automatically
           # sometimes while a page is loading, so we need to ignore it
           (not defined(windows) or finishedLoading):
@@ -586,7 +598,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       # beyond the current viewable scroll area, adjust scrollY
       # so we can see it. if the adjustment is greater than maxScroll,
       # only scroll maxScroll rows and update the focusIndex.
-      case input.key:
+      case key:
       of iw.Key.Up:
         if page.viewFocusAreas[focusIndex].top < page.scrollY:
           scrollY = page.viewFocusAreas[focusIndex].top
