@@ -535,8 +535,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   # handle the action
   if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData, focusIndex):
     let key =
-      case input.key:
-      of iw.Key.Mouse:
+      if input.key == iw.Key.Mouse and not page.isEditor:
         case iw.getMouse().scrollDir:
         of iw.ScrollDirection.sdUp:
           iw.Key.Up
