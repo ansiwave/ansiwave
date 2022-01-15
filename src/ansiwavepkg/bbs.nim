@@ -873,12 +873,16 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var session = initBbsSession(clnt, hash)
 
   # start loop
+  var secs = 0.0
   while true:
     var finishedLoading = false
     var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
     # display and sleep
     try:
-      iw.display(tb)
+      let t = times.cpuTime()
+      if t - secs >= 0.016:
+        iw.display(tb)
+        secs = t
     except Exception as ex:
       discard
     os.sleep(constants.sleepMsecs)
