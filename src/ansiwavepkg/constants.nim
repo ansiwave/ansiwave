@@ -1,5 +1,5 @@
 const
-  sleepMsecs* = 10
+  sleepMsecs* = 4
   hintSecs* = 5
   undoDelay* = 0.5
   saveDelay* = 0.5
