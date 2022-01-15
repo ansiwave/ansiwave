@@ -233,17 +233,18 @@ proc main*() =
         session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)
       except Exception as ex:
         exitClean(ex.msg)
-      var tickCount = 0
+      var secs = 0.0
       while true:
         var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
         # save if necessary
         # don't render every tick because it's wasteful
-        if tickCount mod 5 == 0:
+        let t = times.cpuTime()
+        if t - secs >= 0.016:
           iw.display(tb)
+          secs = t
         session.fireRules
         saveEditor(session, opts)
         os.sleep(sleepMsecs)
-        tickCount.inc
       quit(0)
   ## start the BBS
   bbs.main(parsedUrl, hash)
