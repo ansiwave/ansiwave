@@ -239,7 +239,7 @@ proc main*() =
         # save if necessary
         # don't render every tick because it's wasteful
         let t = times.cpuTime()
-        if t - secs >= 0.016:
+        if t - secs >= displaySecs:
           iw.display(tb)
           secs = t
         session.fireRules

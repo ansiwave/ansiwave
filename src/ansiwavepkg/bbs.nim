@@ -880,7 +880,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
     # display and sleep
     try:
       let t = times.cpuTime()
-      if t - secs >= 0.016:
+      if t - secs >= constants.displaySecs:
         iw.display(tb)
         secs = t
     except Exception as ex:
