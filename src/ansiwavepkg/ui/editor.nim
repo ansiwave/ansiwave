@@ -809,7 +809,6 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
     return
   var ch = tb[col, row]
   ch.bg = iw.bgYellow
-  ch.bgTruecolor = (255'u, 255'u, 0'u)
   if ch.fg == iw.fgYellow:
     ch.fg = iw.fgWhite
   elif $ch.ch == "█":
