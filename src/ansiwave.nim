@@ -242,9 +242,9 @@ proc main*() =
         if key != iw.Key.None or t - secs >= displaySecs:
           var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32))
           iw.display(tb)
+          session.fireRules
+          saveEditor(session, opts)
           secs = t
-        session.fireRules
-        saveEditor(session, opts)
         os.sleep(sleepMsecs)
       quit(0)
   ## start the BBS
