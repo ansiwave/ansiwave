@@ -878,11 +878,16 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
     var finishedLoading = false
     # display and sleep
     try:
-      let
-        key = iw.getKey()
-        t = times.cpuTime()
+      # only render once per displaySecs unless a key was pressed
+      var key = iw.getKey()
+      let t = times.cpuTime()
       if key != iw.Key.None or t - secs >= constants.displaySecs:
-        var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
+        var tb: iw.TerminalBuffer
+        while true:
+          tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
+          if key == iw.Key.None:
+            break
+          key = iw.getKey()
         iw.display(tb)
         secs = t
     except Exception as ex:

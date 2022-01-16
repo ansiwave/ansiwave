@@ -235,14 +235,18 @@ proc main*() =
         exitClean(ex.msg)
       var secs = 0.0
       while true:
-        # don't render every tick because it's wasteful
-        let
-          key = iw.getKey()
-          t = times.cpuTime()
+        # only render once per displaySecs unless a key was pressed
+        var key = iw.getKey()
+        let t = times.cpuTime()
         if key != iw.Key.None or t - secs >= displaySecs:
-          var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32))
+          var tb: iw.TerminalBuffer
+          while true:
+            tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32))
+            session.fireRules
+            if key == iw.Key.None:
+              break
+            key = iw.getKey()
           iw.display(tb)
-          session.fireRules
           saveEditor(session, opts)
           secs = t
         os.sleep(sleepMsecs)
