@@ -873,24 +873,25 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var session = initBbsSession(clnt, hash)
 
   # start loop
-  var secs = 0.0
+  var
+    secs = 0.0
+    finishedLoading = false
   while true:
-    var finishedLoading = false
-    # display and sleep
-    try:
-      # only render once per displaySecs unless a key was pressed
-      var key = iw.getKey()
-      let t = times.cpuTime()
-      if key != iw.Key.None or t - secs >= constants.displaySecs:
-        var tb: iw.TerminalBuffer
-        while true:
-          tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
-          if key == iw.Key.None:
-            break
-          key = iw.getKey()
-        iw.display(tb)
-        secs = t
-    except Exception as ex:
-      discard
+    var key = iw.getKey()
+    if key != iw.Key.None or not finishedLoading:
+      try:
+        # only render once per displaySecs unless a key was pressed
+        let t = times.cpuTime()
+        if key != iw.Key.None or t - secs >= constants.displaySecs:
+          var tb: iw.TerminalBuffer
+          while true:
+            tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
+            if key == iw.Key.None:
+              break
+            key = iw.getKey()
+          iw.display(tb)
+          secs = t
+      except Exception as ex:
+        discard
     os.sleep(constants.sleepMsecs)
 
