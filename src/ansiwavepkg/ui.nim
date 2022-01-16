@@ -9,7 +9,6 @@ from wavecorepkg/client import nil
 from wavecorepkg/common import nil
 from wavecorepkg/wavescript import nil
 from strutils import format
-from os import `/`
 from ./ui/editor import nil
 from ./ui/navbar import nil
 from ./user import nil

@@ -1,5 +1,4 @@
 from strutils import nil
-from math import `mod`
 import tables
 import streams
 from wavecorepkg/ansi import nil

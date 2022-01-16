@@ -1,6 +1,5 @@
 from ./illwill as iw import `[]`, `[]=`
 from strutils import nil
-from sequtils import nil
 import unicode
 import sets
 from ./kdtree import nil
