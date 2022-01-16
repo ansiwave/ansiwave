@@ -235,11 +235,12 @@ proc main*() =
         exitClean(ex.msg)
       var secs = 0.0
       while true:
-        var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32))
-        # save if necessary
         # don't render every tick because it's wasteful
-        let t = times.cpuTime()
-        if t - secs >= displaySecs:
+        let
+          key = iw.getKey()
+          t = times.cpuTime()
+        if key != iw.Key.None or t - secs >= displaySecs:
+          var tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32))
           iw.display(tb)
           secs = t
         session.fireRules

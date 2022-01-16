@@ -876,11 +876,13 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var secs = 0.0
   while true:
     var finishedLoading = false
-    var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (iw.getKey(), 0'u32), finishedLoading)
     # display and sleep
     try:
-      let t = times.cpuTime()
-      if t - secs >= constants.displaySecs:
+      let
+        key = iw.getKey()
+        t = times.cpuTime()
+      if key != iw.Key.None or t - secs >= constants.displaySecs:
+        var tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
         iw.display(tb)
         secs = t
     except Exception as ex:
