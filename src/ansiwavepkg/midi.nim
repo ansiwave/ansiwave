@@ -12,9 +12,18 @@ when defined(emscripten):
 
   var response: client.ChannelValue[client.Response]
 
-  proc fetchSoundfont*() =
+  proc fetchSoundfont() =
     var clnt = client.initClient("")
     response = client.query(clnt, "soundfont.sf2")
+
+  proc soundfontReady*(): bool =
+    if not response.started:
+      fetchSoundfont()
+    client.get(response)
+    response.ready
+else:
+  proc soundfontReady*(): bool =
+    true
 
 type
   ResultKind* = enum
@@ -47,9 +56,8 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
   # get the sound font
   # in a release build, embed it in the binary.
   when defined(emscripten):
-    client.get(response)
-    if not response.ready:
-      return (0.0, sound.PlayResult(kind: sound.Error, message: "Still fetching soundfont...try again soon."))
+    if not soundfontReady():
+      return (0.0, sound.PlayResult(kind: sound.Error, message: "Still fetching soundfont, try again soon."))
     elif response.value.kind == client.Error:
       return (0.0, sound.PlayResult(kind: sound.Error, message: response.value.error))
     elif response.value.valid.code != 200:

@@ -89,6 +89,8 @@ type
     lastSaveTime: float
   BufferTable = ref Table[int, Buffer]
   MidiProgressType = ref object
+    messageDisplayed: bool
+    started: bool
     events: seq[paramidi.Event]
     lineTimes: seq[tuple[line: int, time: float]]
     time: tuple[start: float, stop: float]
@@ -182,12 +184,11 @@ proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTim
     midi.stop(playResult.addrs)
     session.insert(bufferId, Prompt, None)
   else:
-    let currentTime = times.epochTime()
-    let (secs, playResult) = midi.play(events)
-    if playResult.kind == sound.Error:
-      session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
-    else:
-      session.insert(Global, MidiProgress, MidiProgressType(time: (currentTime, currentTime + secs), addrs: playResult.addrs, lineTimes: lineTimes))
+    var progress: MidiProgressType
+    new progress
+    progress.events = events
+    progress.lineTimes = lineTimes
+    session.insert(Global, MidiProgress, progress)
 
 proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -1493,7 +1494,24 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       discard renderButton(session, tb, text, textX, termY + termWindow.height - 1, input.key, cb)
 
   if globals.midiProgress != nil:
-    if currentTime > globals.midiProgress.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
+    if not globals.midiProgress[].messageDisplayed:
+      globals.midiProgress.messageDisplayed = true
+      iw.fill(tb, termX, termY, termX + textWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
+      iw.write(tb, termX, termY, "making music...")
+    elif not globals.midiProgress[].started:
+      if midi.soundfontReady():
+        globals.midiProgress.started = true
+        let currentTime = times.epochTime()
+        let (secs, playResult) = midi.play(globals.midiProgress.events)
+        if playResult.kind == sound.Error:
+          session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
+        else:
+          globals.midiProgress.time = (currentTime, currentTime + secs)
+          globals.midiProgress.addrs = playResult.addrs
+      else:
+        iw.fill(tb, termX, termY, termX + textWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
+        iw.write(tb, termX, termY, "fetching soundfont...")
+    elif currentTime > globals.midiProgress.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
       midi.stop(globals.midiProgress.addrs)
       session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
       session.insert(selectedBuffer.id, Prompt, None)

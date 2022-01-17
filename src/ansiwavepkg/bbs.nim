@@ -455,9 +455,6 @@ proc init*() =
   except Exception as ex:
     discard
 
-  when defined(emscripten):
-    midi.fetchSoundfont()
-
   # remove old cached files
   const deleteFromStorageSeconds = 60 * 60 * 24 * 7 # one week
   for filename in storage.list():
@@ -801,11 +798,15 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         iw.fill(result, 0, 0, constants.editorWidth + 1, 3, " ")
         iw.write(result, 0, 1, "making music...")
       elif not page.midiProgress[].started:
-        page.midiProgress[].started = true
-        let midiResult = post.compileAndPlayAll(page.viewCommands[])
-        let currTime = times.epochTime()
-        page.midiProgress[].midiResult = midiResult
-        page.midiProgress[].time = (currTime, currTime + midiResult.secs)
+        if midi.soundfontReady():
+          page.midiProgress[].started = true
+          let midiResult = post.compileAndPlayAll(page.viewCommands[])
+          let currTime = times.epochTime()
+          page.midiProgress[].midiResult = midiResult
+          page.midiProgress[].time = (currTime, currTime + midiResult.secs)
+        else:
+          iw.fill(result, 0, 0, constants.editorWidth + 1, 3, " ")
+          iw.write(result, 0, 1, "fetching soundfont...")
       elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
         let
           continueAction = proc () =
