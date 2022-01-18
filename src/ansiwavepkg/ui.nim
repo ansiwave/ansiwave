@@ -818,43 +818,6 @@ proc getContent*(comp: Component): string =
   else:
     ""
 
-proc toHtml(node: JsonNode): string
-
-proc toHtml(node: OrderedTable[string, JsonNode]): string =
-  let nodeType = node["type"].str
-  case nodeType:
-  of "rect":
-    result &= "<div title='Post'>"
-    for child in node["children"]:
-      result &= toHtml(child)
-    if "accessible-text" in node and "accessible-hash" in node:
-      result &= "<br/><a href='#" & node["accessible-hash"].str & "'>" & node["accessible-text"].str & "</a>"
-    result &= "</div>"
-  of "button":
-    if "accessible-text" in node and "accessible-hash" in node:
-      result &= "<br/><a href='#" & node["accessible-hash"].str & "'>" & node["accessible-text"].str & "</a>"
-  else:
-    discard
-
-proc escapeHtml(s: string): string =
-  strutils.multiReplace(s, ("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"), ("\"", "&quot;"), ("'", "&apos;"))
-
-proc toHtml(node: JsonNode): string =
-  case node.kind:
-  of JString:
-    result = node.str.stripCodes.escapeHtml & "\n"
-  of JObject:
-    result = toHtml(node.fields)
-  of JArray:
-    for item in node.elems:
-      result &= toHtml(item)
-  else:
-    raise newException(Exception, "Unhandled JSON type")
-
-proc toHtml*(comp: Component): string =
-  var finishedLoading = false
-  comp.toJson(finishedLoading).toHtml
-
 proc toHash*(comp: Component, board: string): string =
   let pairs =
     case comp.kind:

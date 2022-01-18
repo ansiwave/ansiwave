@@ -431,12 +431,6 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
   else:
     discard
 
-proc renderHtml*(session: BbsSession): string =
-  let
-    globals = session.query(rules.getGlobals)
-    page = globals.pages[globals.selectedPage]
-  ui.toHtml(page.data)
-
 proc isEditor(page: Page): bool =
   page.data.kind == ui.Editor
 
