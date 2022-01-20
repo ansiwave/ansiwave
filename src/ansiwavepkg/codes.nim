@@ -5,6 +5,7 @@ import sets
 from ./kdtree import nil
 from wavecorepkg/ansi import nil
 from ./ansi as ansi2 import parseParams
+from ./termtools/runewidth import nil
 
 export ansi.stripCodes, ansi.stripCodesIfCommand
 
@@ -141,11 +142,14 @@ proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
       continue
     for code in codes:
       applyCode(tb, code)
-    var c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
+    let c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
                             style: iw.getStyle(tb),
                             fgTruecolor: tb.currFgTruecolor, bgTruecolor: tb.currBgTruecolor)
     tb[currX, y] = c
-    inc(currX)
+    currX += 1
+    if runewidth.runeWidth(ch) == 2:
+      tb[currX, y] = iw.TerminalChar()
+      currX += 1
     codes = @[]
   for code in codes:
     applyCode(tb, code)

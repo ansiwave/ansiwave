@@ -21,6 +21,7 @@ import streams
 import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
+from ../termtools/runewidth import nil
 
 type
   Id* = enum
@@ -28,6 +29,7 @@ type
     Editor, Errors, Tutorial, Publish,
   Attr* = enum
     CursorX, CursorY, WrappedCursorX, WrappedCursorY, Cursor, WrappedCursor,
+    AdjustedWrappedCursorX,
     ScrollX, ScrollY,
     X, Y, Width, Height,
     SelectedBuffer, Lines, WrappedLines, ToWrapped, ToUnwrapped,
@@ -62,6 +64,7 @@ type
     cursorY: int
     wrappedCursorX: int
     wrappedCursorY: int
+    adjustedWrappedCursorX: int
     scrollX: int
     scrollY: int
     lines: RefStrings
@@ -102,6 +105,7 @@ schema Fact(Id, Attr):
   CursorY: int
   WrappedCursorX: int
   WrappedCursorY: int
+  AdjustedWrappedCursorX: int
   Cursor: XY
   WrappedCursor: XY
   ScrollX: int
@@ -599,12 +603,29 @@ let (initSession, rules*) =
             session.insert(id, CursorX, newCursorX)
           if newCursorY != cursorY:
             session.insert(id, CursorY, newCursorY)
+    rule adjustWrappedCursorX(Fact):
+      what:
+        (id, WrappedLines, wrappedLines, then = false)
+        (id, WrappedCursorX, wrappedCursorX)
+        (id, WrappedCursorY, wrappedCursorY)
+      then:
+        # for each double width character before the cursor x, add 1
+        session.insert(id, AdjustedWrappedCursorX, wrappedCursorX)
+        if wrappedCursorY >= 0 and wrappedLines[].len > wrappedCursorY:
+          let chars = wrappedLines[wrappedCursorY][].toRunes.stripCodes
+          if wrappedCursorX >= 0 and chars.len >= wrappedCursorX:
+            var adjust = 0
+            for ch in chars[0 ..< wrappedCursorX]:
+              if runewidth.runeWidth(ch) == 2:
+                adjust += 1
+            session.insert(id, AdjustedWrappedCursorX, wrappedCursorX + adjust)
     rule getBuffer(Fact):
       what:
         (id, CursorX, cursorX)
         (id, CursorY, cursorY)
         (id, WrappedCursorX, wrappedCursorX)
         (id, WrappedCursorY, wrappedCursorY)
+        (id, AdjustedWrappedCursorX, adjustedWrappedCursorX)
         (id, ScrollX, scrollX)
         (id, ScrollY, scrollY)
         (id, Lines, lines)
@@ -1012,12 +1033,17 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
           info.x <= termX + buffer.x + buffer.width and
           info.y >= termY + buffer.y and
           info.y <= termY + buffer.y + buffer.height:
+        # adjust x for double width characters
+        var adjust = 0
+        for col in termX + buffer.x ..< info.x:
+          if runewidth.runeWidth(tb[col, info.y].ch) == 2:
+            adjust -= 1
         if buffer.mode == 0:
-            session.insert(buffer.id, WrappedCursorX, info.x - (termX + buffer.x + 1 - buffer.scrollX))
-            session.insert(buffer.id, WrappedCursorY, info.y - (termY + buffer.y + 1 - buffer.scrollY))
+          session.insert(buffer.id, WrappedCursorX, info.x - (termX + buffer.x + 1 - buffer.scrollX) + adjust)
+          session.insert(buffer.id, WrappedCursorY, info.y - (termY + buffer.y + 1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
-            x = info.x - termX - buffer.x - 1 + buffer.scrollX
+            x = info.x - termX - buffer.x - 1 + buffer.scrollX + adjust
             y = info.y - termY - buffer.y - 1 + buffer.scrollY
           if x >= 0 and y >= 0:
             var lines = buffer.wrappedLines
@@ -1051,7 +1077,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
       discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
 
   let
-    col = termX + buffer.x + 1 + buffer.wrappedCursorX - buffer.scrollX
+    col = termX + buffer.x + 1 + buffer.adjustedWrappedCursorX - buffer.scrollX
     row = termY + buffer.y + 1 + buffer.wrappedCursorY - buffer.scrollY
   if buffer.mode == 0 or buffer.prompt == StopPlaying:
     setCursor(tb, col, row)
