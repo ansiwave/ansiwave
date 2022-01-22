@@ -162,6 +162,29 @@ proc writeMaybe*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
   except Exception as ex:
     discard
 
+proc write*(lines: seq[ref string]): seq[seq[iw.TerminalChar]] =
+  var tb = iw.newTerminalBuffer(0, 0)
+  var codes: seq[string]
+  for line in lines:
+    var chars: seq[iw.TerminalChar]
+    for ch in runes(line[]):
+      if ansi.parseCode(codes, ch):
+        continue
+      for code in codes:
+        applyCode(tb, code)
+      let c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
+                              style: iw.getStyle(tb),
+                              fgTruecolor: tb.currFgTruecolor, bgTruecolor: tb.currBgTruecolor)
+      chars.add c
+      codes = @[]
+    result.add chars
+
+proc writeMaybe*(lines: seq[ref string]): seq[seq[iw.TerminalChar]] =
+  try:
+    result = write(lines)
+  except Exception as ex:
+    discard
+
 proc dedupeCodes*(line: seq[Rune]): string =
   var
     codes: seq[string]

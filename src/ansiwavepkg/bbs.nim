@@ -342,7 +342,7 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       refresh(session, clnt, page)
   of "edit":
     if focusIndex == 0:
-      if input.key == iw.Key.Up and editor.getCursorY(page.data.session) == 0:
+      if input.key == iw.Key.Up and editor.getEditor(page.data.session).wrappedCursorY == 0:
         focusIndex -= 1
       else:
         result = input.key notin {iw.Key.Escape}
@@ -442,6 +442,43 @@ proc isEditor*(session: BbsSession): bool =
     page.isEditor
   except Exception as ex:
     false
+
+proc getEditorSize*(session: BbsSession): tuple[x: int, y: int, width: int, height: int] =
+  try:
+    let
+      globals = session.query(rules.getGlobals)
+      page = globals.pages[globals.selectedPage]
+      (x, y, width, height) = editor.getSize(page.data.session)
+    (x + 0, y + navbar.height, width, height)
+  except Exception as ex:
+    (0, 0, 0, 0)
+
+proc isEditing*(session: BbsSession): bool =
+  try:
+    let
+      globals = session.query(rules.getGlobals)
+      page = globals.pages[globals.selectedPage]
+    editor.isEditorTab(page.data.session) and editor.getEditor(page.data.session).mode == 0
+  except Exception as ex:
+    false
+
+proc setEditorContent*(session: var BbsSession, content: string) =
+  try:
+    let
+      globals = session.query(rules.getGlobals)
+      page = globals.pages[globals.selectedPage]
+    editor.setContent(page.data.session, content)
+  except Exception as ex:
+    discard
+
+proc getEditorLines*(session: BbsSession): seq[ref string] =
+  try:
+    let
+      globals = session.query(rules.getGlobals)
+      page = globals.pages[globals.selectedPage]
+    result = editor.getEditor(page.data.session).lines[]
+  except Exception as ex:
+    discard
 
 proc init*() =
   try:
@@ -679,7 +716,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       let
         sendAction = proc () {.closure.} =
           editor.setEditable(page.data.session, false)
-          let (body, sig) = common.sign(user.keyPair, page.data.headers, editor.getContent(page.data.session))
+          let (body, sig) = common.sign(user.keyPair, page.data.headers, post.joinLines(editor.getEditor(page.data.session).lines))
           page.data.requestBody = body
           page.data.requestSig = sig
           page.data.request = client.submit(clnt, "ansiwave", body)

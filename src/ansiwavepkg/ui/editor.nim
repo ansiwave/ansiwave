@@ -741,28 +741,35 @@ proc saveToStorage*(session: var EditorSession, sig: string) =
     except Exception as ex:
       discard
 
-proc getContent*(session: EditorSession): string =
-  let
-    globals = session.query(rules.getGlobals)
-    buffer = globals.buffers[Editor.ord]
-  post.joinLines(buffer.lines)
+proc setContent*(session: var EditorSession, content: string) =
+  session.insert(Editor, Lines, post.splitLines(content))
+  session.fireRules
 
-proc getCursorY*(session: EditorSession): int =
+proc setEditable*(session: var EditorSession, editable: bool) =
+  session.insert(Editor, Editable, editable)
+
+proc getEditor*(session: EditorSession): Buffer =
   let globals = session.query(rules.getGlobals)
-  globals.buffers[globals.selectedBuffer].wrappedCursorY
+  return globals.buffers[Editor.ord]
 
 proc isEmpty*(session: EditorSession): bool =
-  let
-    globals = session.query(rules.getGlobals)
-    buffer = globals.buffers[Editor.ord]
+  let buffer = getEditor(session)
   buffer.lines[].len == 1 and post.joinLines(buffer.lines).stripCodes == ""
 
 proc isPlaying*(session: EditorSession): bool =
   let globals = session.query(rules.getGlobals)
   globals.midiProgress != nil
 
-proc setEditable*(session: var EditorSession, editable: bool) =
-  session.insert(Editor, Editable, editable)
+proc getSize*(buffer: tuple): tuple[x: int, y: int, width: int, height: int] =
+  (buffer.x + 1, buffer.y + 1, buffer.width, buffer.height)
+
+proc getSize*(session: EditorSession): tuple[x: int, y: int, width: int, height: int] =
+  let buffer = getEditor(session)
+  getSize(buffer)
+
+proc isEditorTab*(session: EditorSession): bool =
+  let globals = session.query(rules.getGlobals)
+  globals.selectedBuffer == Editor.ord
 
 var
   clipboard*: seq[string]
@@ -979,7 +986,8 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   true
 
 proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
-  iw.drawRect(tb, termX + buffer.x, termY + buffer.y, termX + buffer.x + buffer.width + 1, termY + buffer.y + buffer.height + 1, doubleStyle = focused)
+  let (x, y, width, height) = getSize(buffer)
+  iw.drawRect(tb, termX + x - 1, termY + y - 1, termX + x + width, termY + y + height, doubleStyle = focused)
 
   let
     lines = buffer.wrappedLines[]
@@ -1076,21 +1084,22 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
       session.insert(buffer.id, Prompt, None)
       discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
 
-  let
-    col = termX + buffer.x + 1 + buffer.adjustedWrappedCursorX - buffer.scrollX
-    row = termY + buffer.y + 1 + buffer.wrappedCursorY - buffer.scrollY
-  if buffer.mode == 0 or buffer.prompt == StopPlaying:
-    setCursor(tb, col, row)
-  var
-    xBlock = tb[col, termY + buffer.y + buffer.height + 1]
-    yBlock = tb[termX + buffer.x + buffer.width + 1, row]
-  const
-    dash = "-".toRunes[0]
-    pipe = "|".toRunes[0]
-  xBlock.ch = dash
-  yBlock.ch = pipe
-  tb[col, termY + buffer.y + buffer.height + 1] = xBlock
-  tb[termX + buffer.x + buffer.width + 1, row] = yBlock
+  if not (defined(emscripten) and buffer.id == Editor.ord and buffer.mode == 0):
+    let
+      col = termX + buffer.x + 1 + buffer.adjustedWrappedCursorX - buffer.scrollX
+      row = termY + buffer.y + 1 + buffer.wrappedCursorY - buffer.scrollY
+    if buffer.mode == 0 or buffer.prompt == StopPlaying:
+      setCursor(tb, col, row)
+    var
+      xBlock = tb[col, termY + buffer.y + buffer.height + 1]
+      yBlock = tb[termX + buffer.x + buffer.width + 1, row]
+    const
+      dash = "-".toRunes[0]
+      pipe = "|".toRunes[0]
+    xBlock.ch = dash
+    yBlock.ch = pipe
+    tb[col, termY + buffer.y + buffer.height + 1] = xBlock
+    tb[termX + buffer.x + buffer.width + 1, row] = yBlock
 
   var prompt = ""
   case buffer.prompt:
@@ -1259,7 +1268,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
     brushCharsColored &= buffer.selectedFgColor & buffer.selectedBgColor
     brushCharsColored &= ch
     brushCharsColored &= "\e[0m "
-  result = brushX + brushChars.len * 2
+  result = brushX + brushChars.len * 2 + 1
   let brushIndex = find(brushChars, buffer.selectedChar)
   codes.write(tb, brushX, brushY, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, brushY + 1, "↑")
@@ -1423,10 +1432,6 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", termX + 1, termY + 0, input.key, proc () = discard)
       var x = max(titleX, playX)
 
-      let undoX = renderButton(session, tb, "◄ undo", termX + x, termY + 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
-      let redoX = renderButton(session, tb, "► redo", termX + x, termY + 1, input.key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
-      x = max(undoX, redoX)
-
       let
         choices = [
           (id: 0, label: "write mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
@@ -1435,15 +1440,22 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
       x = renderRadioButtons(session, tb, termX + x, termY + 0, choices, selectedBuffer.mode, input.key, false, shortcut)
 
-      x = renderColors(session, tb, selectedBuffer, input, termX + x + 1, termY)
+      if selectedBuffer.mode == 1 or not defined(emscripten):
+        x = renderColors(session, tb, selectedBuffer, input, termX + x + 1, termY)
 
       if selectedBuffer.mode == 0:
-        discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwillInitialised: "k" else: "c")))
-        x = renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
-        x -= 1
-        discard renderButton(session, tb, "↔ insert", termX + x, termY + 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
+        when not defined(emscripten):
+          discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwillInitialised: "k" else: "c")))
+          x = renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
+          x -= 1
+          x = renderButton(session, tb, "↔ insert", termX + x, termY + 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
       elif selectedBuffer.mode == 1:
         x = renderBrushes(session, tb, selectedBuffer, input.key, termX + x + 1, termY)
+
+      if selectedBuffer.mode == 1 or not defined(emscripten):
+        let undoX = renderButton(session, tb, "◄ undo", termX + x, termY + 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
+        let redoX = renderButton(session, tb, "► redo", termX + x, termY + 1, input.key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
+        x = max(undoX, redoX)
     elif not globals.options.bbsMode:
       let
         topText = "read-only mode! to edit this, convert it into an ansiwave:"
