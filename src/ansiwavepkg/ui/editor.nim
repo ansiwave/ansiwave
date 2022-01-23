@@ -756,6 +756,18 @@ proc isEmpty*(session: EditorSession): bool =
   let buffer = getEditor(session)
   buffer.lines[].len == 1 and post.joinLines(buffer.lines).stripCodes == ""
 
+proc scrollDown*(session: var EditorSession) =
+  let
+    globals = session.query(rules.getGlobals)
+    buffer = globals.buffers[globals.selectedBuffer]
+  session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY + linesPerScroll)
+
+proc scrollUp*(session: var EditorSession) =
+  let
+    globals = session.query(rules.getGlobals)
+    buffer = globals.buffers[globals.selectedBuffer]
+  session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY - linesPerScroll)
+
 proc isPlaying*(session: EditorSession): bool =
   let globals = session.query(rules.getGlobals)
   globals.midiProgress != nil
@@ -915,9 +927,9 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
   of iw.Key.End:
     session.insert(buffer.id, CursorX, buffer.lines[buffer.cursorY][].stripCodes.runeLen)
   of iw.Key.PageUp, iw.Key.CtrlU:
-    session.insert(buffer.id, CursorY, buffer.cursorY - int(buffer.height / 2))
+    session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY - int(buffer.height / 2))
   of iw.Key.PageDown, iw.Key.CtrlD:
-    session.insert(buffer.id, CursorY, buffer.cursorY + int(buffer.height / 2))
+    session.insert(buffer.id, WrappedCursorY, buffer.wrappedCursorY + int(buffer.height / 2))
   of iw.Key.Tab:
     case buffer.prompt:
     of DeleteLine:
@@ -1301,58 +1313,9 @@ proc redo(session: var EditorSession, buffer: tuple) =
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
-  from ansiwavepkg/chafa import nil
-  from ../ansi import nil
 
-  var currentSession: EditorSession
-
-  proc browseImage(session: var EditorSession, buffer: tuple) =
-    currentSession = session
+  proc browseImage(buffer: tuple) =
     emscripten.browseFile("insertFile")
-
-  proc free(p: pointer) {.importc.}
-
-  proc insertFile(name: cstring, image: pointer, length: cint) {.exportc.} =
-    let
-      (_, _, ext) = os.splitFile($name)
-      globals = currentSession.query(rules.getGlobals)
-      buffer = globals.buffers[Editor.ord]
-      data = block:
-        var s = newSeq[uint8](length)
-        copyMem(s[0].addr, image, length)
-        free(image)
-        cast[string](s)
-    let content =
-      case strutils.toLowerAscii(ext):
-      of ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".psd":
-        try:
-          chafa.imageToAnsi(data, editorWidth)
-        except Exception as ex:
-          "Error reading image"
-      of ".ans":
-        try:
-          var ss = newStringStream("")
-          ansi.write(ss, ansi.ansiToUtf8(data, editorWidth), editorWidth)
-          ss.setPosition(0)
-          let s = ss.readAll()
-          ss.close()
-          s
-        except Exception as ex:
-          "Error reading file"
-      else:
-        if unicode.validateUtf8(data) != -1:
-          "Error reading file"
-        else:
-          data
-    let ansiLines = post.splitLines(content)[]
-    var newLines: RefStrings
-    new newLines
-    newLines[] = buffer.lines[][0 ..< buffer.cursorY]
-    newLines[] &= ansiLines
-    newLines[] &= buffer.lines[][buffer.cursorY ..< buffer.lines[].len]
-    currentSession.insert(buffer.id, Lines, newLines)
-    currentSession.insert(buffer.id, CursorY, buffer.cursorY + ansiLines.len)
-    currentSession.fireRules
 
 proc init*(opts: Options, width: int, height: int, hash: Table[string, string] = initTable[string, string]()): EditorSession =
   var
@@ -1427,7 +1390,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     if selectedBuffer.editable:
       let titleX =
         when defined(emscripten):
-          renderButton(session, tb, "+ file", termX + 1, termY + 0, input.key, proc () = browseImage(sess, selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
+          renderButton(session, tb, "+ file", termX + 1, termY + 0, input.key, proc () = browseImage(selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
         else:
           renderButton(session, tb, "\e[3m≈ANSIWAVE≈\e[0m", termX + 1, termY + 0, input.key, proc () = discard)
       var x = max(titleX, playX)

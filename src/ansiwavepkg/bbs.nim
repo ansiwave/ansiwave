@@ -443,6 +443,12 @@ proc isEditor*(session: BbsSession): bool =
   except Exception as ex:
     false
 
+proc getEditorSession*(session: BbsSession): editor.EditorSession =
+  let
+    globals = session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  page.data.session
+
 proc getEditorSize*(session: BbsSession): tuple[x: int, y: int, width: int, height: int] =
   try:
     let
