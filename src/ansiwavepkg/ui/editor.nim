@@ -1429,7 +1429,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
     discard renderButton(session, tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", termX + 1, termY, input.key, proc () = discard)
   of Tutorial:
     let titleX = renderButton(session, tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", termX + 1, termY + 0, input.key, proc () = discard)
-    discard renderButton(session, tb, "↨ copy line", titleX, termY, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
+    when not defined(emscripten):
+      discard renderButton(session, tb, "↨ copy line", titleX, termY, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
   of Publish:
     var sess = session
     let

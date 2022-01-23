@@ -609,11 +609,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           page.data.editExtraTags.sig = tags.sig
           session.insert(page.id, View, cast[JsonNode](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
-      if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
-        ui.showPasteText = true
-        let area = page.viewFocusAreas[focusIndex]
-        if area.copyableText.len > 0:
-          editor.copyLines(area.copyableText)
+      when not defined(emscripten):
+        if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
+          ui.showPasteText = true
+          let area = page.viewFocusAreas[focusIndex]
+          if area.copyableText.len > 0:
+            editor.copyLines(area.copyableText)
     else:
       if not isPlaying and key == iw.Key.Escape and
           # on windows the esc character seems to be inserted automatically
