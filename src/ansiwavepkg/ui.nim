@@ -22,7 +22,7 @@ from urlly import nil
 
 type
   ComponentKind* = enum
-    Post, User, Editor, Drafts, Sent, Replies, Login, Logout, Message, Search,
+    Post, User, Editor, Drafts, Sent, Replies, Login, Logout, Message, Search, Limbo,
   Component* = ref object
     client: client.Client
     board*: string
@@ -58,6 +58,8 @@ type
       searchKind*: entities.SearchKind
       searchResults*: client.ChannelValue[seq[entities.Post]]
       showResults*: bool
+    of Limbo:
+      limboResults*: client.ChannelValue[seq[entities.Post]]
     of Drafts, Sent, Login, Logout:
       discard
   TagState = object
@@ -108,6 +110,8 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
       else:
         comp.limbo = false
         comp.searchResults = client.search(clnt, paths.db(board, isUrl = true), comp.searchKind, comp.searchTerm, comp.offset)
+  of Limbo:
+    comp.limboResults = client.search(clnt, paths.db(board, isUrl = true, limbo = true), entities.UserTags, "modlimbo", comp.offset)
   of Drafts, Sent, Editor, Login, Logout, Message:
     discard
 
@@ -147,6 +151,10 @@ proc initMessage*(message: string): Component =
 
 proc initSearch*(clnt: client.Client, board: string): Component =
   Component(kind: Search, client: clnt, board: board, searchField: simpleeditor.init())
+
+proc initLimbo*(clnt: client.Client, board: string): Component =
+  result = Component(kind: Limbo, client: clnt, board: board)
+  refresh(clnt, result, board)
 
 proc createHash(pairs: seq[(string, string)]): string =
   var fragments: seq[string]
@@ -794,6 +802,17 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       else:
         %""
     ]
+  of Limbo:
+    client.get(comp.limboResults)
+    finishedLoading = comp.limboResults.ready
+    %* [
+      if not comp.limboResults.ready:
+        %"searching limbo"
+      elif comp.limboResults.value.kind == client.Error:
+        %["failed to search limbo", comp.limboResults.value.error]
+      else:
+        toJson(comp.limboResults.value.valid, comp, finishedLoading, "no posts in limbo")
+    ]
 
 proc getContent*(comp: Component): string =
   case comp.kind:
@@ -856,6 +875,11 @@ proc toHash*(comp: Component, board: string): string =
     of Search:
       @{
         "type": "search",
+        "board": board,
+      }
+    of Limbo:
+      @{
+        "type": "limbo",
         "board": board,
       }
     of Editor, Login, Logout, Message:

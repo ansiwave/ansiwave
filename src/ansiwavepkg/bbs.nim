@@ -236,8 +236,10 @@ proc routeHash(session: var BbsSession, clnt: client.Client, hash: Table[string,
       session.insertPage(ui.initReplies(clnt, hash["board"]), "replies")
     of "search":
       session.insertPage(ui.initSearch(clnt, hash["board"]), "search")
+    of "limbo":
+      session.insertPage(ui.initLimbo(clnt, hash["board"]), "limbo")
     else:
-      discard
+      session.insertPage(ui.initMessage("Can't navigate to this page"), "message")
   elif "key" in hash and "algo" in hash:
     if user.pubKey == "":
       if user.createUser(hash["key"], hash["algo"]):
@@ -762,6 +764,14 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       leftButtons &= @[(" ↑ ", upAction)]
     if page.sig != "search":
       leftButtons &= @[(" search ", searchAction)]
+    if page.sig == user.pubKey and
+        page.data.user.ready and
+        page.data.user.value.kind != client.Error:
+      let tags = common.parseTags(page.data.user.value.valid.tags.value)
+      if "moderator" in tags or "modleader" in tags:
+        let limboAction = proc () {.closure.} =
+          sess.insertPage(ui.initLimbo(clnt, globals.board), "limbo")
+        leftButtons &= @[(" limbo ", limboAction)]
     when defined(emscripten):
       let content = ui.getContent(page.data)
       if content != "":
