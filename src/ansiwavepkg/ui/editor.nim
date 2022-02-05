@@ -384,17 +384,6 @@ let (initSession, rules*) =
           session.insert(id, ScrollY, cursorY)
         elif cursorY > scrollBottom and cursorY < lines[].len:
           session.insert(id, ScrollY, scrollY + (cursorY - scrollBottom))
-    rule addClearToBeginningOfEveryLine(Fact):
-      what:
-        (id, Lines, lines)
-      then:
-        var shouldInsert = false
-        for i in 0 ..< lines[].len:
-          if lines[i][].len == 0 or not strutils.startsWith(lines[i][], "\e[0"):
-            lines[i][] = codes.dedupeCodes("\e[0m" & lines[i][])
-            shouldInsert = true
-        if shouldInsert:
-          session.insert(id, Lines, lines)
     rule parseCommands(Fact):
       what:
         (Global, Opts, options)

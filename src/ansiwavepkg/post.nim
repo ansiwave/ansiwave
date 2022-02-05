@@ -152,16 +152,22 @@ proc animateLines*(lines: seq[string], startTime: float): seq[string] =
     for i in lineCount ..< lines.len:
       result[i] = ""
 
+proc addClear(s: ref string) =
+  if s[].len == 0 or not strutils.startsWith(s[], "\e[0"):
+    s[] = codes.dedupeCodes("\e[0m" & s[])
+
 proc add*(lines: var RefStrings, line: string) =
   var s: ref string
   new s
   s[] = line
+  s.addClear
   lines[].add(s)
 
 proc set*(lines: var RefStrings, i: int, line: string) =
   var s: ref string
   new s
   s[] = line
+  s.addClear
   lines[i] = s
 
 proc drafts*(): seq[string] =
