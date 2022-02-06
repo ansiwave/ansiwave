@@ -2,7 +2,7 @@ import parasound/dr_wav
 import parasound/miniaudio
 
 type
-  AddrsKind = enum
+  AddrsKind* = enum
     FromWeb, FromFile, FromMemory,
   Addrs* = object
     engine*: ref seq[uint8]
