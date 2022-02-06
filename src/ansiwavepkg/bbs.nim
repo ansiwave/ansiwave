@@ -687,7 +687,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ui.render(result, view, 0, y, y, focusIndex, areas)
     var rightButtons: seq[(string, proc ())]
     var errorLines: seq[string]
-    if page.data.request.chan != nil:
+    if page.data.request.started:
       client.get(page.data.request)
       if not page.data.request.ready:
         rightButtons.add((" sending... ", proc () {.closure.} = discard))
@@ -713,7 +713,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       else:
         let
           continueAction = proc () =
-            page.data.request.chan = nil
+            page.data.request.started = false
             editor.setEditable(page.data.session, true)
           errorStr = page.data.request.value.error
         rightButtons.add((" continue editing ", continueAction))
