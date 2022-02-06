@@ -75,7 +75,8 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   # during dev, read it from the disk
   else:
-    var sf = tsf_load_filename(paramidi_soundfonts.getSoundFontPath("generaluser.sf2"))
+    let path = paramidi_soundfonts.getSoundFontPath("generaluser.sf2")
+    var sf = tsf_load_filename(path.cstring)
   # render the score
   const sampleRate = 44100
   tsf_set_output(sf, TSF_MONO, sampleRate, 0)
@@ -92,7 +93,7 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
     let wav = sound.writeMemory(res.data, res.data.len.uint32, sampleRate)
     when defined(emscripten):
       emscripten.playAudio("data:audio/wav;base64," & base64.encode(wav))
-      (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Valid))
+      (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Valid, addrs: sound.Addrs(kind: sound.FromWeb)))
     else:
       (secs: res.seconds, playResult: sound.play(wav))
 
@@ -100,5 +101,4 @@ proc stop*(addrs: sound.Addrs) =
   when defined(emscripten):
     emscripten.stopAudio()
   else:
-    if addrs != (nil, nil):
-      sound.stop(addrs[0], addrs[1])
+    sound.stop(addrs)
