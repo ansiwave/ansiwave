@@ -71,7 +71,7 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
       when os.fileExists("soundfont.sf2"):
         staticRead("../../soundfont.sf2")
       else:
-        staticRead("paramidi_soundfonts/generaluser.sf2")
+        staticRead("paramidi_soundfonts/aspirin.sf2")
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   # during dev, read it from the disk
   else:
