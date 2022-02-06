@@ -725,7 +725,9 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       let
         sendAction = proc () {.closure.} =
           editor.setEditable(page.data.session, false)
-          let (body, sig) = common.sign(user.keyPair, page.data.headers, post.joinLines(editor.getEditor(page.data.session).lines))
+          let
+            content = post.joinLines(editor.getEditor(page.data.session).lines)
+            (body, sig) = common.sign(user.keyPair, page.data.headers, strutils.strip(content, leading = true, trailing = true, {'\n'}))
           page.data.requestBody = body
           page.data.requestSig = sig
           page.data.request = client.submit(clnt, "ansiwave", body)
