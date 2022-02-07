@@ -65,17 +65,11 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
     let soundfont = response.value.valid.body
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   elif defined(release):
-    # if there is a soundfont in the root of this repo, use it.
-    # otherwise, use a soundfont from paramidi_soundfonts
-    const soundfont =
-      when os.fileExists("soundfont.sf2"):
-        staticRead("../../soundfont.sf2")
-      else:
-        staticRead("paramidi_soundfonts/aspirin.sf2")
+    const soundfont = staticRead("paramidi_soundfonts/aspirin.sf2")
     var sf = tsf_load_memory(soundfont.cstring, soundfont.len.cint)
   # during dev, read it from the disk
   else:
-    let path = paramidi_soundfonts.getSoundFontPath("generaluser.sf2")
+    let path = paramidi_soundfonts.getSoundFontPath("aspirin.sf2")
     var sf = tsf_load_filename(path.cstring)
   # render the score
   const sampleRate = 44100
