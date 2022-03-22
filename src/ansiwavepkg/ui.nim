@@ -153,7 +153,7 @@ proc initSearch*(clnt: client.Client, board: string): Component =
   Component(kind: Search, client: clnt, board: board, searchField: simpleeditor.init())
 
 proc initLimbo*(clnt: client.Client, board: string): Component =
-  result = Component(kind: Limbo, client: clnt, board: board)
+  result = Component(kind: Limbo, client: clnt, board: board, limbo: true)
   refresh(clnt, result, board)
 
 proc createHash(pairs: seq[(string, string)]): string =
