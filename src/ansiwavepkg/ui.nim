@@ -80,13 +80,13 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
   comp.cache = initTable[string, client.ChannelValue[client.Response]]()
   case comp.kind:
   of Post:
-    comp.postContent = client.query(clnt, paths.ansiwavez(board, comp.sig, isUrl = true, limbo = comp.limbo))
+    comp.postContent = client.query(clnt, paths.ansiwave(board, comp.sig, isUrl = true, limbo = comp.limbo))
     comp.replies = client.queryPostChildren(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, entities.Score, comp.offset)
     comp.post = client.queryPost(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig)
     comp.editExtraTags.request.started = false
     comp.editExtraTags.sig = ""
   of User:
-    comp.userContent = client.query(clnt, paths.ansiwavez(board, comp.sig, isUrl = true, limbo = comp.limbo))
+    comp.userContent = client.query(clnt, paths.ansiwave(board, comp.sig, isUrl = true, limbo = comp.limbo))
     if comp.showAllPosts:
       comp.userPosts = client.queryUserPosts(clnt, paths.db(board, isUrl = true, limbo = comp.limbo), comp.sig, comp.offset)
     else:
@@ -257,14 +257,10 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
             ("user", post.public_key)
           else:
             ("post", post.content.sig)
-        # if the content came from the db, no need to query it from the separate ansiwavez file
-        # (this happens when querying purgatory)
         (ready, content) =
-          if post.content.value.uncompressed.len > 0:
-            (true, post.content.value.uncompressed)
-          else:
+          block:
             if sig notin comp.cache:
-              comp.cache[sig] = client.query(comp.client, paths.ansiwavez(comp.board, sig, isUrl = true, limbo = comp.limbo))
+              comp.cache[sig] = client.query(comp.client, paths.ansiwave(comp.board, sig, isUrl = true, limbo = comp.limbo))
             client.get(comp.cache[sig])
             if comp.cache[sig].ready:
               (true, if comp.cache[sig].value.kind == client.Valid: comp.cache[sig].value.valid.body else: "")
