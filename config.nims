@@ -20,5 +20,4 @@ elif defined(windows):
 
 --threads:on
 --define:staticSqlite
---define:multiplexSqlite
 --gc:orc
