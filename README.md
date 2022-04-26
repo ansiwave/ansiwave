@@ -42,13 +42,13 @@ ansiwave hello.ansiwave
 On the web portal of the BBS, there is a "plain view" button which takes you to a pure HTML version of the post. Its URL is very long because it contains the entire content inside of it. You can then open it in the terminal client like this:
 
 ```
-ansiwave http://bbs.ansiwave.net/view.html#...
+ansiwave http://bbs.ansiwave.net/bbs/view.html#...
 ```
 
 And you can save it to a file like this:
 
 ```
-ansiwave http://bbs.ansiwave.net/view.html#... hello.ansiwave
+ansiwave http://bbs.ansiwave.net/bbs/view.html#... hello.ansiwave
 ```
 
 There are a couple other cool things you can do. If you have a .ansiwave file, you can synthesize the music in it to a wav file:
