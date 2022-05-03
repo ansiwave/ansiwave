@@ -7,6 +7,7 @@ from wavecorepkg/ansi import nil
 from ./ansi as ansi2 import parseParams
 from ./termtools/runewidth import nil
 from terminal import nil
+import bitops, colors
 
 export ansi.stripCodes, ansi.stripCodesIfCommand
 
@@ -66,7 +67,7 @@ proc dedupeParams(params: var seq[int]) =
   for partition in partitionedParams:
     params.add(partition)
 
-const colors = [
+const simpleColors = [
   ([0.0, 0.0, 0.0], (iw.fgBlack, iw.bgBlack)),
   ([255.0, 0.0, 0.0], (iw.fgRed, iw.bgRed)),
   ([0.0, 128.0, 0.0], (iw.fgGreen, iw.bgGreen)),
@@ -76,7 +77,7 @@ const colors = [
   ([0.0, 255.0, 255.0], (iw.fgCyan, iw.bgCyan)),
   ([255.0, 255.0, 255.0], (iw.fgWhite, iw.bgWhite)),
 ]
-var tree = kdtree.newKdTree[(iw.SimpleForegroundColor, iw.SimpleBackgroundColor)](colors)
+var tree = kdtree.newKdTree[(iw.SimpleForegroundColor, iw.SimpleBackgroundColor)](simpleColors)
 
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let
@@ -124,10 +125,14 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
               b = params[i + 4].uint8
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if terminal.isTruecolorSupported():
+              let rgb: uint =
+                r.uint.rotateLeftBits(16) +
+                g.uint.rotateLeftBits(8) +
+                b.uint
               if param == 38:
-                iw.setForegroundColor(tb, iw.RGB(red: r, green: g, blue: b))
+                iw.setForegroundColor(tb, colors.Color(rgb))
               else:
-                iw.setBackgroundColor(tb, iw.RGB(red: r, green: g, blue: b))
+                iw.setBackgroundColor(tb, colors.Color(rgb))
             else:
               if param == 38:
                 iw.setForegroundColor(tb, value[0])
