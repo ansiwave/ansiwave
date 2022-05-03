@@ -1,4 +1,4 @@
-from ../illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 from ../constants import nil
 import unicode
 

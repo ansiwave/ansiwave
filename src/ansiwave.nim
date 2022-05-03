@@ -1,4 +1,4 @@
-from ./ansiwavepkg/illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 import tables, sets
 import pararules
 from os import nil

@@ -1,4 +1,4 @@
-from ../illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 import pararules
 from pararules/engine import Session, Vars
 import json

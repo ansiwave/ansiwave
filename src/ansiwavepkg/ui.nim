@@ -1,4 +1,4 @@
-from ./illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 import ./constants
 import unicode
 from ./codes import stripCodes
@@ -955,11 +955,11 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
         col = int(x + node["x"].num)
         row = int(y + node["y"].num)
       var ch = tb[col, row]
-      ch.bg = iw.bgYellow
-      if ch.fg == iw.fgYellow:
-        ch.fg = iw.fgWhite
+      ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
+      if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
+        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
       elif $ch.ch == "█":
-        ch.fg = iw.fgYellow
+        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
       tb[col, row] = ch
       iw.setCursorPos(tb, col, row)
   of "editor":

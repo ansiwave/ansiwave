@@ -1,4 +1,4 @@
-from ./illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 from strutils import nil
 import unicode
 import sets
@@ -6,6 +6,7 @@ from ./kdtree import nil
 from wavecorepkg/ansi import nil
 from ./ansi as ansi2 import parseParams
 from ./termtools/runewidth import nil
+from terminal import nil
 
 export ansi.stripCodes, ansi.stripCodesIfCommand
 
@@ -75,7 +76,7 @@ const colors = [
   ([0.0, 255.0, 255.0], (iw.fgCyan, iw.bgCyan)),
   ([255.0, 255.0, 255.0], (iw.fgWhite, iw.bgWhite)),
 ]
-var tree = kdtree.newKdTree[(iw.ForegroundColor, iw.BackgroundColor)](colors)
+var tree = kdtree.newKdTree[(iw.SimpleForegroundColor, iw.SimpleBackgroundColor)](colors)
 
 proc applyCode(tb: var iw.TerminalBuffer, code: string) =
   let
@@ -98,9 +99,9 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
       style.excl(iw.Style(2))
       iw.setStyle(tb, style)
     elif param >= 30 and param <= 37:
-      iw.setForegroundColor(tb, iw.ForegroundColor(param))
+      iw.setForegroundColor(tb, iw.SimpleForegroundColor(param))
     elif param >= 40 and param <= 47:
-      iw.setBackgroundColor(tb, iw.BackgroundColor(param))
+      iw.setBackgroundColor(tb, iw.SimpleBackgroundColor(param))
     elif param == 38 or param == 48:
       if i + 1 < params.len:
         let mode = params[i + 1]
@@ -122,10 +123,16 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
               g = params[i + 3].uint
               b = params[i + 4].uint
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
-            if param == 38:
-              iw.setForegroundColor(tb, value[0], (r, g, b))
+            if terminal.isTruecolorSupported():
+              if param == 38:
+                iw.setForegroundColor(tb, (r, g, b))
+              else:
+                iw.setBackgroundColor(tb, (r, g, b))
             else:
-              iw.setBackgroundColor(tb, value[1], (r, g, b))
+              if param == 38:
+                iw.setForegroundColor(tb, value[0])
+              else:
+                iw.setBackgroundColor(tb, value[1])
             i += 5
             continue
         # the values appear to be invalid so just stop trying to make sense of them
@@ -143,8 +150,7 @@ proc write*(tb: var iw.TerminalBuffer, x, y: int, s: string) =
     for code in codes:
       applyCode(tb, code)
     let c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
-                            style: iw.getStyle(tb),
-                            fgTruecolor: tb.currFgTruecolor, bgTruecolor: tb.currBgTruecolor)
+                            style: iw.getStyle(tb))
     tb[currX, y] = c
     currX += 1
     if runewidth.runeWidth(ch) == 2:
@@ -173,8 +179,7 @@ proc write*(lines: seq[ref string]): seq[seq[iw.TerminalChar]] =
       for code in codes:
         applyCode(tb, code)
       let c = iw.TerminalChar(ch: ch, fg: iw.getForegroundColor(tb), bg: iw.getBackgroundColor(tb),
-                              style: iw.getStyle(tb),
-                              fgTruecolor: tb.currFgTruecolor, bgTruecolor: tb.currBgTruecolor)
+                              style: iw.getStyle(tb))
       chars.add c
       codes = @[]
     result.add chars

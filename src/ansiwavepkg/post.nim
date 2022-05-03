@@ -1,4 +1,4 @@
-from illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 from wavecorepkg/wavescript import nil
 from strutils import format
 from sequtils import nil

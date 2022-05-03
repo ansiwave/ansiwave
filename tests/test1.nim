@@ -74,7 +74,7 @@ test "stego":
   check message == user.destego(data)
 
 from ./ansiwavepkg/ui/editor import nil
-from ./ansiwavepkg/illwill as iw import `[]`, `[]=`
+from illwave as iw import `[]`, `[]=`, `==`
 from times import nil
 import pararules
 
