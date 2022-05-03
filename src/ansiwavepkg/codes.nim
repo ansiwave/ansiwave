@@ -119,15 +119,15 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
         elif mode == 2:
           if i + 4 < params.len:
             let
-              r = params[i + 2].uint
-              g = params[i + 3].uint
-              b = params[i + 4].uint
+              r = params[i + 2].uint8
+              g = params[i + 3].uint8
+              b = params[i + 4].uint8
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if terminal.isTruecolorSupported():
               if param == 38:
-                iw.setForegroundColor(tb, (r, g, b))
+                iw.setForegroundColor(tb, iw.RGB(red: r, green: g, blue: b))
               else:
-                iw.setBackgroundColor(tb, (r, g, b))
+                iw.setBackgroundColor(tb, iw.RGB(red: r, green: g, blue: b))
             else:
               if param == 38:
                 iw.setForegroundColor(tb, value[0])
