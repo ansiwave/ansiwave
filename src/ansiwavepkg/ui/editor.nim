@@ -22,6 +22,7 @@ import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
 from ../termtools/runewidth import nil
+from terminal import nil
 
 type
   Id* = enum
@@ -838,11 +839,11 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
     return
   var ch = tb[col, row]
-  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
-  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
+  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
+  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
   elif $ch.ch == "█":
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
   ch.cursor = true
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)

@@ -19,6 +19,7 @@ from ./ui/simpleeditor import nil
 from algorithm import nil
 from chrono import nil
 from urlly import nil
+from terminal import nil
 
 type
   ComponentKind* = enum
@@ -955,11 +956,11 @@ proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x:
         col = int(x + node["x"].num)
         row = int(y + node["y"].num)
       var ch = tb[col, row]
-      ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
-      if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
-        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
+      ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
+      if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
+        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
       elif $ch.ch == "█":
-        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
+        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
       tb[col, row] = ch
       iw.setCursorPos(tb, col, row)
   of "editor":
