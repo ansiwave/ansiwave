@@ -23,6 +23,7 @@ from ./midi import nil
 from ./sound import nil
 from strutils import nil
 from urlly import `$`
+from terminal import nil
 
 when defined(emscripten):
   from wavecorepkg/client/emscripten import nil
@@ -936,7 +937,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
         if key != iw.Key.None or t - secs >= constants.displaySecs:
           var tb: iw.TerminalBuffer
           while true:
-            tb = tick(session, clnt, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32), finishedLoading)
+            tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32), finishedLoading)
             if key == iw.Key.None:
               break
             key = iw.getKey()

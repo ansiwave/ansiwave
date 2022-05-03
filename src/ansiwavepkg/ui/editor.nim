@@ -824,7 +824,7 @@ proc parseHash*(hash: string): Table[string, string] =
 proc copyLink*(link: string) =
   # echo the link to the terminal so the user can copy it
   iw.illwillDeinit()
-  iw.showCursor()
+  terminal.showCursor()
   for i in 0 ..< 100:
     echo ""
   echo link
@@ -833,7 +833,7 @@ proc copyLink*(link: string) =
   var s: TaintedString
   discard readLine(stdin, s)
   iw.illwillInit(fullscreen=true, mouse=true)
-  iw.hideCursor()
+  terminal.hideCursor()
 
 proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:

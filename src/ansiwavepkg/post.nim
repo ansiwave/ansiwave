@@ -17,6 +17,7 @@ from parseutils import nil
 import tables, sets
 from wavecorepkg/client import nil
 import unicode
+from terminal import nil
 
 type
   RefStrings* = ref seq[ref string]
@@ -200,7 +201,7 @@ proc play*(events: seq[paramidi.Event]): midi.PlayResult =
       startTime = times.epochTime()
     if playResult.kind == sound.Error:
       return midiResult
-    var tb = iw.newTerminalBuffer(iw.terminalWidth(), iw.terminalHeight())
+    var tb = iw.newTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
     while true:
       let currTime = times.epochTime() - startTime
       if currTime > secs:

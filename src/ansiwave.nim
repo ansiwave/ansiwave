@@ -28,13 +28,13 @@ const version = "1.6.0"
 proc exitClean(ex: ref Exception) =
   if iw.gIllwillInitialised:
     iw.illwillDeinit()
-    iw.showCursor()
+    terminal.showCursor()
   raise ex
 
 proc exitClean(message: string) =
   if iw.gIllwillInitialised:
     iw.illwillDeinit()
-    iw.showCursor()
+    terminal.showCursor()
   if message.len > 0:
     quit(message)
   else:
@@ -213,7 +213,7 @@ proc main*() =
   # initialize illwill
   iw.illwillInit(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
-  iw.hideCursor()
+  terminal.hideCursor()
   var
     parsedUrl: urlly.Url
     hash: Table[string, string]
@@ -230,7 +230,7 @@ proc main*() =
     elif not isUri or hash.hasKey("data"):
       var session: editor.EditorSession
       try:
-        session = editor.init(opts, iw.terminalWidth(), iw.terminalHeight(), hash)
+        session = editor.init(opts, terminal.terminalWidth(), terminal.terminalHeight(), hash)
       except Exception as ex:
         exitClean(ex.msg)
       var secs = 0.0
@@ -241,7 +241,7 @@ proc main*() =
         if key != iw.Key.None or t - secs >= displaySecs:
           var tb: iw.TerminalBuffer
           while true:
-            tb = editor.tick(session, 0, 0, iw.terminalWidth(), iw.terminalHeight(), (key, 0'u32))
+            tb = editor.tick(session, 0, 0, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32))
             session.fireRules
             if key == iw.Key.None:
               break
