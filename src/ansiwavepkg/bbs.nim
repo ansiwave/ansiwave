@@ -428,7 +428,7 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
           when defined(emscripten):
             emscripten.openNewTab(url)
           else:
-            if iw.gIllwillInitialised:
+            if iw.gIllwaveInitialized:
               editor.copyLink(url)
               iw.setDoubleBuffering(false)
   else:
@@ -782,7 +782,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
         leftButtons.add((" plain view ", viewHtmlAction))
     else:
-      if iw.gIllwillInitialised:
+      if iw.gIllwaveInitialized:
         let copyLinkAction = proc () {.closure.} =
           let url = paths.address & "#" & globals.hash
           editor.copyLines(@[url])
@@ -794,7 +794,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         let
           playAction = proc () {.closure.} =
             try:
-              if iw.gIllwillInitialised:
+              if iw.gIllwaveInitialized:
                 discard post.compileAndPlayAll(page.viewCommands[])
               else:
                 var progress: MidiProgressType
@@ -882,7 +882,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           iw.write(result, 0, 1, "press esc to stop playing")
 
   # in case double buffering was temporarily disabled
-  if iw.gIllwillInitialised:
+  if iw.gIllwaveInitialized:
     iw.setDoubleBuffering(true)
 
   # update values if necessary

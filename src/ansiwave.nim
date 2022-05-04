@@ -26,14 +26,14 @@ from wavecorepkg/wavescript import CommandTree
 const version = "1.6.0"
 
 proc exitClean(ex: ref Exception) =
-  if iw.gIllwillInitialised:
-    iw.illwillDeinit()
+  if iw.gIllwaveInitialized:
+    iw.deinit()
     terminal.showCursor()
   raise ex
 
 proc exitClean(message: string) =
-  if iw.gIllwillInitialised:
-    iw.illwillDeinit()
+  if iw.gIllwaveInitialized:
+    iw.deinit()
     terminal.showCursor()
   if message.len > 0:
     quit(message)
@@ -210,8 +210,8 @@ proc main*() =
       quit("Input and output cannot be the same")
     convert(opts)
     quit(0)
-  # initialize illwill
-  iw.illwillInit(fullscreen=true, mouse=true)
+  # initialize illwave
+  iw.init(fullscreen=true, mouse=true)
   setControlCHook(exitClean)
   terminal.hideCursor()
   var

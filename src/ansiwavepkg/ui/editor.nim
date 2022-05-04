@@ -148,7 +148,7 @@ proc tick*(session: var auto): iw.TerminalBuffer
 proc getTerminalWindow(session: auto): tuple[x: int, y: int, width: int, height: int]
 
 proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
-  if iw.gIllwillInitialised:
+  if iw.gIllwaveInitialized:
     var
       tb = tick(session)
       lineTimesIdx = -1
@@ -823,7 +823,7 @@ proc parseHash*(hash: string): Table[string, string] =
 
 proc copyLink*(link: string) =
   # echo the link to the terminal so the user can copy it
-  iw.illwillDeinit()
+  iw.deinit()
   terminal.showCursor()
   for i in 0 ..< 100:
     echo ""
@@ -832,7 +832,7 @@ proc copyLink*(link: string) =
   echo "Copy the link above, and then press Enter to return to ANSIWAVE."
   var s: TaintedString
   discard readLine(stdin, s)
-  iw.illwillInit(fullscreen=true, mouse=true)
+  iw.init(fullscreen=true, mouse=true)
   terminal.hideCursor()
 
 proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
@@ -1398,8 +1398,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
       if selectedBuffer.mode == 0:
         when not defined(emscripten):
-          discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwillInitialised: "k" else: "c")))
-          x = renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwillInitialised: "l" else: "v")))
+          discard renderButton(session, tb, "↨ copy line", termX + x, termY + 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c")))
+          x = renderButton(session, tb, "↨ paste", termX + x, termY + 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v")))
           x -= 1
           x = renderButton(session, tb, "↔ insert", termX + x, termY + 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
       elif selectedBuffer.mode == 1:

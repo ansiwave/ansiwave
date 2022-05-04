@@ -194,7 +194,7 @@ proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.Command
   wavescript.parseOperatorCommands(treesTemp)
 
 proc play*(events: seq[paramidi.Event]): midi.PlayResult =
-  if iw.gIllwillInitialised:
+  if iw.gIllwaveInitialized:
     let
       midiResult = midi.play(events)
       (secs, playResult) = midiResult
