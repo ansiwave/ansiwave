@@ -8,7 +8,6 @@ from ./ansi as ansi2 import parseParams
 from ./termtools/runewidth import nil
 from terminal import nil
 from colors import nil
-import bitops
 
 export ansi.stripCodes, ansi.stripCodesIfCommand
 
@@ -126,14 +125,10 @@ proc applyCode(tb: var iw.TerminalBuffer, code: string) =
               b = params[i + 4].uint8
               (pt, value, dist) = kdtree.nearestNeighbour(tree, [float(r), float(g), float(b)])
             if terminal.isTruecolorSupported():
-              let rgb: uint =
-                r.uint.rotateLeftBits(16) +
-                g.uint.rotateLeftBits(8) +
-                b.uint
               if param == 38:
-                iw.setForegroundColor(tb, colors.Color(rgb))
+                iw.setForegroundColor(tb, iw.toColor(r, g, b))
               else:
-                iw.setBackgroundColor(tb, colors.Color(rgb))
+                iw.setBackgroundColor(tb, iw.toColor(r, g, b))
             else:
               if param == 38:
                 iw.setForegroundColor(tb, value[0])
