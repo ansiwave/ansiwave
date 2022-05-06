@@ -2,7 +2,7 @@ from illwave as iw import `[]`, `[]=`, `==`
 from wavecorepkg/wavescript import nil
 from strutils import format
 from sequtils import nil
-from ./codes import stripCodes
+from ansiutils/codes import stripCodes
 from unicode import nil
 from paramidi import nil
 from ./midi import nil

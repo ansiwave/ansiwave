@@ -11,7 +11,7 @@ from times import nil
 from wavecorepkg/wavescript import CommandTree
 from ../midi import nil
 from ../sound import nil
-from ../codes import stripCodes
+from ansiutils/codes import stripCodes
 import ../constants
 from paramidi import Context
 from json import nil
@@ -21,8 +21,9 @@ import streams
 import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
-from ../termtools/runewidth import nil
+from nimwave/termtools/runewidth import nil
 from terminal import nil
+from nimwave/io import nil
 
 type
   Id* = enum
@@ -1006,7 +1007,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
     else:
       line = @[]
     codes.deleteAfter(line, buffer.width - 1)
-    codes.writeMaybe(tb, termX + buffer.x + 1, termY + buffer.y + 1 + screenLine, $line)
+    io.writeMaybe(tb, termX + buffer.x + 1, termY + buffer.y + 1 + screenLine, $line)
     if buffer.prompt != StopPlaying and buffer.mode == 0:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
@@ -1158,7 +1159,7 @@ proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x
   return xx
 
 proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
-  codes.write(tb, x, y, text)
+  io.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -1205,9 +1206,9 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     colorChars &= " "
   let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
   let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
-  codes.write(tb, colorX, colorY, colorChars)
+  io.write(tb, colorX, colorY, colorChars)
   iw.write(tb, colorX + fgIndex * 3, colorY + 1, "↑")
-  codes.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
+  io.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
   if input.key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.y == colorY:
@@ -1272,7 +1273,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
     brushCharsColored &= "\e[0m "
   result = brushX + brushChars.len * 2 + 1
   let brushIndex = find(brushChars, buffer.selectedChar)
-  codes.write(tb, brushX, brushY, brushCharsColored)
+  io.write(tb, brushX, brushY, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, brushY + 1, "↑")
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -1476,7 +1477,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           "‼ exit"
       textX = max(termX + x + 2, termX + selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      codes.write(tb, textX, termY + termWindow.height - 1, "\e[3m" & text & "\e[0m")
+      io.write(tb, textX, termY + termWindow.height - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
       var sess = session
       let cb =

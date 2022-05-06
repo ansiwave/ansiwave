@@ -5,9 +5,9 @@ from os import nil
 from strutils import format
 from sequtils import nil
 from times import nil
-from ./ansiwavepkg/ansi import nil
+from ansiutils/cp437 import nil
 from ./ansiwavepkg/midi import nil
-from ./ansiwavepkg/codes import stripCodes
+from ansiutils/codes import stripCodes
 from ./ansiwavepkg/chafa import nil
 from ./ansiwavepkg/bbs import nil
 from ./ansiwavepkg/post import nil
@@ -143,7 +143,7 @@ proc convert(opts: editor.Options) =
       let width = strutils.parseInt(opts.args["width"])
       var f: File
       if open(f, opts.output, fmWrite):
-        ansi.write(f, ansi.ansiToUtf8(readFile(opts.input), width), width)
+        cp437.write(f, cp437.toUtf8(readFile(opts.input), width), width)
         close(f)
       else:
         raise newException(Exception, "Cannot open: " & opts.output)
