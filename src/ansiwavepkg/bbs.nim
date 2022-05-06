@@ -26,7 +26,7 @@ from urlly import `$`
 from terminal import nil
 
 when defined(emscripten):
-  from wavecorepkg/client/emscripten import nil
+  from nimwave/web/emscripten import nil
 
 type
   Id* = enum
