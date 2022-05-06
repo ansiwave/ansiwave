@@ -1,5 +1,5 @@
 when defined(emscripten):
-  from wavecorepkg/client/emscripten import nil
+  from ./emscripten import nil
   from wavecorepkg/paths import nil
 else:
   from os import `/`

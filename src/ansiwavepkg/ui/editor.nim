@@ -1303,7 +1303,7 @@ proc redo(session: var EditorSession, buffer: tuple) =
     session.insert(buffer.id, UndoIndex, buffer.undoIndex + 1)
 
 when defined(emscripten):
-  from wavecorepkg/client/emscripten import nil
+  from ../emscripten import nil
 
   proc browseImage(buffer: tuple) =
     emscripten.browseFile("insertFile")

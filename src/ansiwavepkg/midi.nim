@@ -7,7 +7,7 @@ from os import nil
 
 when defined(emscripten):
   from wavecorepkg/client import nil
-  from wavecorepkg/client/emscripten import nil
+  from ./emscripten import nil
   from base64 import nil
 
   var response: client.ChannelValue[client.Response]

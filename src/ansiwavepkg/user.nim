@@ -100,7 +100,7 @@ proc removeKey*() =
   pubKey = ""
 
 when defined(emscripten):
-  from wavecorepkg/client/emscripten import nil
+  from ./emscripten import nil
   from base64 import nil
 
   var callback: proc () = nil
