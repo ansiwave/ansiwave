@@ -21,9 +21,9 @@ import streams
 import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
-from nimwave/termtools/runewidth import nil
 from terminal import nil
-from nimwave/io import nil
+from nimwave/tui/termtools/runewidth import nil
+from nimwave/tui import nil
 
 type
   Id* = enum
@@ -1007,7 +1007,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, termX: 
     else:
       line = @[]
     codes.deleteAfter(line, buffer.width - 1)
-    io.writeMaybe(tb, termX + buffer.x + 1, termY + buffer.y + 1 + screenLine, $line)
+    tui.writeMaybe(tb, termX + buffer.x + 1, termY + buffer.y + 1 + screenLine, $line)
     if buffer.prompt != StopPlaying and buffer.mode == 0:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
@@ -1159,7 +1159,7 @@ proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x
   return xx
 
 proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: string, x: int, y: int, key: iw.Key, cb: proc (), shortcut: tuple[key: set[iw.Key], hint: string] = ({}, "")): int =
-  io.write(tb, x, y, text)
+  tui.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -1206,9 +1206,9 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     colorChars &= " "
   let fgIndex = find(colorFgCodes, buffer.selectedFgColor)
   let bgIndex = find(colorBgCodes, buffer.selectedBgColor)
-  io.write(tb, colorX, colorY, colorChars)
+  tui.write(tb, colorX, colorY, colorChars)
   iw.write(tb, colorX + fgIndex * 3, colorY + 1, "↑")
-  io.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
+  tui.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
   if input.key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.y == colorY:
@@ -1273,7 +1273,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
     brushCharsColored &= "\e[0m "
   result = brushX + brushChars.len * 2 + 1
   let brushIndex = find(brushChars, buffer.selectedChar)
-  io.write(tb, brushX, brushY, brushCharsColored)
+  tui.write(tb, brushX, brushY, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, brushY + 1, "↑")
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
@@ -1477,7 +1477,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
           "‼ exit"
       textX = max(termX + x + 2, termX + selectedBuffer.width + 1 - text.runeLen)
     if showHint:
-      io.write(tb, textX, termY + termWindow.height - 1, "\e[3m" & text & "\e[0m")
+      tui.write(tb, textX, termY + termWindow.height - 1, "\e[3m" & text & "\e[0m")
     elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
       var sess = session
       let cb =
