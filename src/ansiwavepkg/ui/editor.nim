@@ -1431,7 +1431,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         copyLink(initLink(post.joinLines(buffer.lines)))
         iw.setDoubleBuffering(false)
         var
-          tb = iw.newTerminalBuffer(width, height)
+          tb = iw.initTerminalBuffer(width, height)
           finishedLoading: bool
         tick(sess, tb, termX, termY, width, height, (iw.Key.None, 0'u32), focused, finishedLoading)
         iw.display(tb)
@@ -1527,7 +1527,7 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       session.insert(selectedBuffer.id, Prompt, StopPlaying)
 
 proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
-  result = iw.newTerminalBuffer(width, height)
+  result = iw.initTerminalBuffer(width, height)
   var finishedLoading: bool
   tick(session, result, x, y, width, height, input, true, finishedLoading)
 

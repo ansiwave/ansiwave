@@ -671,7 +671,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     y = - scrollY + navbar.height
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
-    result = iw.newTerminalBuffer(width, height)
+    result = iw.initTerminalBuffer(width, height)
     let filteredInput =
       if page.focusIndex == 0:
         input
@@ -740,7 +740,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    result = iw.newTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
+    result = iw.initTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
     ui.render(result, view, 0, y, y, focusIndex, areas)
     let
       upAction = proc () {.closure.} =

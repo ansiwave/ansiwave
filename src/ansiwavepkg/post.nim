@@ -201,7 +201,7 @@ proc play*(events: seq[paramidi.Event]): midi.PlayResult =
       startTime = times.epochTime()
     if playResult.kind == sound.Error:
       return midiResult
-    var tb = iw.newTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
+    var tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
     while true:
       let currTime = times.epochTime() - startTime
       if currTime > secs:
