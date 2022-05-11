@@ -881,10 +881,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
           iw.write(result, 0, 1, "press esc to stop playing")
 
-  # in case double buffering was temporarily disabled
-  if iw.gIllwaveInitialized:
-    iw.setDoubleBuffering(true)
-
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
@@ -942,6 +938,8 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
               break
             key = iw.getKey()
           iw.display(tb)
+          # in case double buffering was temporarily disabled
+          iw.setDoubleBuffering(true)
           secs = t
       except Exception as ex:
         discard
