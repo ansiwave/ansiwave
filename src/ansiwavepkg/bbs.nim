@@ -740,7 +740,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    result = iw.initTerminalBuffer(width, when defined(emscripten): page.viewHeight else: height)
+    result = iw.initTerminalBuffer(width, height, grow = defined(emscripten))
     ui.render(result, view, 0, y, y, focusIndex, areas)
     let
       upAction = proc () {.closure.} =
