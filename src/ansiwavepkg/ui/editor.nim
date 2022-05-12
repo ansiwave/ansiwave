@@ -1,4 +1,4 @@
-from illwave as iw import `[]`, `[]=`, `==`
+from illwave as iw import `[]`, `[]=`, `==`, TerminalBuffer
 import tables, sets
 import pararules
 from pararules/engine import Session, Vars
@@ -144,57 +144,12 @@ schema Fact(Id, Attr):
 
 const textWidth* = editorWidth + 2
 
-proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
-proc tick*(session: var auto): iw.TerminalBuffer
-proc getTerminalWindow(session: auto): tuple[x: int, y: int, width: int, height: int]
-
-proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTimes: seq[tuple[line: int, time: float]]) =
-  if iw.gIllwaveInitialized:
-    var
-      tb = tick(session)
-      lineTimesIdx = -1
-    iw.display(tb) # render once to give quick feedback, since midi.play can time to run
-    let
-      (secs, playResult) = midi.play(events)
-      startTime = times.epochTime()
-    # render again with double buffering disabled,
-    # because audio errors printed by midi.play to std out
-    # will cover up the UI if double buffering is enabled
-    iw.setDoubleBuffering(false)
-    iw.display(tb)
-    if playResult.kind == sound.Error:
-      return
-    session.insert(bufferId, Prompt, StopPlaying)
-    while true:
-      let currTime = times.epochTime() - startTime
-      if currTime > secs:
-        break
-      # go to the right line
-      if lineTimesIdx + 1 < lineTimes.len:
-        let (line, time) = lineTimes[lineTimesIdx + 1]
-        if currTime >= time:
-          lineTimesIdx.inc
-          moveCursor(session, bufferId, 0, line)
-          session.fireRules
-          tb = tick(session)
-      # draw progress bar
-      let termWindow = getTerminalWindow(session)
-      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + textWidth + 1, termWindow.y + (if bufferId == Editor.ord: 1 else: 0), " ")
-      iw.fill(tb, termWindow.x, termWindow.y, termWindow.x + int((currTime / secs) * float(textWidth + 1)), termWindow.y, "▓")
-      iw.display(tb)
-      let key = iw.getKey()
-      if key in {iw.Key.Tab, iw.Key.Escape}:
-        break
-      os.sleep(sleepMsecs)
-    iw.setDoubleBuffering(true)
-    midi.stop(playResult.addrs)
-    session.insert(bufferId, Prompt, None)
-  else:
-    var progress: MidiProgressType
-    new progress
-    progress.events = events
-    progress.lineTimes = lineTimes
-    session.insert(Global, MidiProgress, progress)
+proc play(session: var auto, events: seq[paramidi.Event], lineTimes: seq[tuple[line: int, time: float]]) =
+  var progress: MidiProgressType
+  new progress
+  progress.events = events
+  progress.lineTimes = lineTimes
+  session.insert(Global, MidiProgress, progress)
 
 proc setErrorLink(session: var auto, linksRef: RefLinks, cmdLine: int, errLine: int): Link =
   var sess = session
@@ -265,7 +220,7 @@ proc compileAndPlayAll(session: var auto, buffer: tuple) =
     case res.kind:
     of midi.Valid:
       if res.events.len > 0:
-        play(session, res.events, buffer.id, lineTimes)
+        play(session, res.events, lineTimes)
     of midi.Error:
       discard
 
@@ -430,7 +385,7 @@ let (initSession, rules*) =
                         midi.CompileResult(kind: midi.Error, message: e.msg)
                     case res.kind:
                     of midi.Valid:
-                      play(sess, res.events, id, @[])
+                      play(sess, res.events, @[])
                     of midi.Error:
                       if id == Editor.ord:
                         setRuntimeError(sess, cmdsRef, errsRef, linksRef, id, treeLocal.line, res.message)
@@ -1347,7 +1302,7 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
     result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
-proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool, finishedLoading: var bool) =
+proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, termY: int, width: int, height: int, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
   let
     termWindow = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
@@ -1361,12 +1316,6 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
 
   if termWindow != (termX, termY, width, height):
     onWindowResize(session, termX, termY, width, height)
-
-  # if we're playing music or the editor has unsaved changes, set finishedLoading to false to ensure the tick function
-  # will continue running, allowing the save to eventually take place
-  # (this only matters for the emscripten version)
-  if globals.midiProgress != nil or (selectedBuffer.editable and selectedBuffer.lastEditTime > selectedBuffer.lastSaveTime):
-    finishedLoading = false
 
   # render top bar
   case Id(globals.selectedBuffer):
@@ -1430,10 +1379,8 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
         let buffer = globals.buffers[Editor.ord]
         copyLink(initLink(post.joinLines(buffer.lines)))
         iw.setDoubleBuffering(false)
-        var
-          tb = iw.initTerminalBuffer(width, height)
-          finishedLoading: bool
-        tick(sess, tb, termX, termY, width, height, (iw.Key.None, 0'u32), focused, finishedLoading)
+        var tb = iw.initTerminalBuffer(width, height)
+        tick(sess, tb, termX, termY, width, height, (iw.Key.None, 0'u32), focused)
         iw.display(tb)
         iw.setDoubleBuffering(true)
     discard renderButton(session, tb, "↕ copy link", titleX, termY, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
@@ -1525,13 +1472,4 @@ proc tick*(session: var EditorSession, tb: var iw.TerminalBuffer, termX: int, te
       iw.fill(tb, termX, termY, termX + textWidth + 1, termY + (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
       iw.fill(tb, termX, termY, termX + int((progress / secs) * float(textWidth + 1)), termY, "▓")
       session.insert(selectedBuffer.id, Prompt, StopPlaying)
-
-proc tick*(session: var EditorSession, x: int, y: int, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
-  result = iw.initTerminalBuffer(width, height)
-  var finishedLoading: bool
-  tick(session, result, x, y, width, height, input, true, finishedLoading)
-
-proc tick*(session: var auto): iw.TerminalBuffer =
-  let (x, y, width, height) = session.query(rules.getTerminalWindow)
-  tick(session, x, y, width, height, (iw.Key.None, 0'u32))
 

@@ -239,9 +239,9 @@ proc main*() =
         var key = iw.getKey()
         let t = times.cpuTime()
         if key != iw.Key.None or t - secs >= displaySecs:
-          var tb: iw.TerminalBuffer
+          var tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
           while true:
-            tb = editor.tick(session, 0, 0, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32))
+            editor.tick(session, tb, 0, 0, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32), true)
             session.fireRules
             if key == iw.Key.None:
               break

@@ -648,8 +648,9 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: var bool): iw.TerminalBuffer =
+proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   session.fireRules
+  var finishedLoading = false
   let
     globals = session.query(rules.getGlobals)
     page = globals.pages[globals.selectedPage]
@@ -769,7 +770,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           (not defined(windows) or finishedLoading):
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
-        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32))
     # adjust focusIndex and scrollY based on viewFocusAreas
     if focusIndex >= 0 and page.viewFocusAreas.len > 0:
       # don't let it go beyond the last focused area
@@ -816,6 +817,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     areas: seq[ui.ViewFocusArea]
   if page.isEditor:
     result = iw.initTerminalBuffer(width, height)
+
     let filteredInput =
       if page.focusIndex == 0:
         input
@@ -828,8 +830,14 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         input
       else:
         (iw.Key.None, 0'u32)
-    editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, filteredInput, focusIndex == 0, finishedLoading)
-    if not isPlaying:
+
+    var ctx = nimwave.initContext(result)
+
+    if isPlaying:
+      proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+        ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
+      ctx.components["navbar"] = navbarView
+    else:
       var rightButtons: seq[(string, proc ())]
       var errorLines: seq[string]
       if page.data.request.started:
@@ -854,7 +862,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
                 page.data.requestSig
           if storage.set(sig & ".ansiwave", page.data.requestBody):
             session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
-          return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+          return tick(session, clnt, width, height, (iw.Key.None, 0'u32))
         else:
           let
             continueAction = proc () =
@@ -879,15 +887,17 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      var ctx = nimwave.initContext(result)
       ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
-
       proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
         navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
       ctx.components["navbar"] = navbarView
 
-      nimwave.render(ctx, %* ["navbar"])
+    proc editorView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      editor.tick(page.data.session, ctx.tb, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), filteredInput, focusIndex == 0)
+    ctx.components["editor"] = editorView
+
+    nimwave.render(ctx, %* ["vbox", ["navbar"], ["editor"]])
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
@@ -900,10 +910,9 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
     ctx.components["content"] = contentView
 
-    let finished = finishedLoading
     proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
-      renderNavbar(ctx, sess, clnt, globals, page, input, finished, focusIndex)
+      renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView
 
     nimwave.render(ctx, %* ["vbox", ["navbar"], ["content"]])
@@ -948,30 +957,27 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var session = initBbsSession(clnt, hash)
 
   # start loop
-  var
-    secs = 0.0
-    finishedLoading = false
+  var secs = 0.0
   while true:
     var key = iw.getKey()
-    if key != iw.Key.None or not finishedLoading:
-      try:
-        # only render once per displaySecs unless a key was pressed
-        let t = times.cpuTime()
-        if key != iw.Key.None or t - secs >= constants.displaySecs:
-          var tb: iw.TerminalBuffer
-          while true:
-            tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32), finishedLoading)
-            if key == iw.Key.None:
-              break
-            key = iw.getKey()
-          iw.display(tb)
-          # in case double buffering was temporarily disabled
-          iw.setDoubleBuffering(true)
-          secs = t
-      except Exception as ex:
-        when defined(release):
-          discard
-        else:
-          raise ex
+    try:
+      # only render once per displaySecs unless a key was pressed
+      let t = times.cpuTime()
+      if key != iw.Key.None or t - secs >= constants.displaySecs:
+        var tb: iw.TerminalBuffer
+        while true:
+          tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32))
+          if key == iw.Key.None:
+            break
+          key = iw.getKey()
+        iw.display(tb)
+        # in case double buffering was temporarily disabled
+        iw.setDoubleBuffering(true)
+        secs = t
+    except Exception as ex:
+      when defined(release):
+        discard
+      else:
+        raise ex
     os.sleep(constants.sleepMsecs)
 
