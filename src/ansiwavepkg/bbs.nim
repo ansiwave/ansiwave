@@ -598,7 +598,7 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
   else:
     if not page.midiProgress[].messageDisplayed:
       page.midiProgress[].messageDisplayed = true
-      iw.fill(tb, 0, 0, constants.editorWidth + 1, 3, " ")
+      iw.fill(tb, 0, 0, iw.width(tb), 3, " ")
       iw.write(tb, 0, 1, "making music...")
     elif not page.midiProgress[].started:
       if midi.soundfontReady():
@@ -608,7 +608,7 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
         page.midiProgress[].midiResult = midiResult
         page.midiProgress[].time = (currTime, currTime + midiResult.secs)
       else:
-        iw.fill(tb, 0, 0, constants.editorWidth + 1, 3, " ")
+        iw.fill(tb, 0, 0, iw.width(tb), 3, " ")
         iw.write(tb, 0, 1, "fetching soundfont...")
     elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
       let
@@ -629,8 +629,8 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
         session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
       else:
         let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
-        iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
-        iw.fill(tb, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
+        iw.fill(tb, 0, 0, iw.width(tb), 2, " ")
+        iw.fill(tb, 0, 0, int(progress * float(iw.width(tb))), 0, "▓")
         iw.write(tb, 0, 1, "press esc to stop playing")
 
 proc init*() =
@@ -888,6 +888,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     var ctx = nimwave.initContext(result)
     let finished = finishedLoading
     proc outerPage(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
       ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
       renderNavbar(ctx.tb, sess, clnt, globals, page, input, finished, focusIndex)
     ctx.components["outer-page"] = outerPage
