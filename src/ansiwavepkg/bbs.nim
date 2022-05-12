@@ -955,6 +955,9 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
           iw.setDoubleBuffering(true)
           secs = t
       except Exception as ex:
-        discard
+        when defined(release):
+          discard
+        else:
+          raise ex
     os.sleep(constants.sleepMsecs)
 
