@@ -545,15 +545,9 @@ proc renderNavbar(ctx: var nimwave.Context, session: var BbsSession, clnt: clien
     if page.viewCommands != nil and page.viewCommands[].len > 0:
       let
         playAction = proc () {.closure.} =
-          try:
-            if iw.gIllwaveInitialized:
-              discard post.compileAndPlayAll(page.viewCommands[])
-            else:
-              var progress: MidiProgressType
-              new progress
-              sess.insert(page.id, MidiProgress, progress)
-          except Exception as ex:
-            discard
+          var progress: MidiProgressType
+          new progress
+          sess.insert(page.id, MidiProgress, progress)
       leftButtons.add((" ♫ play ", playAction))
     var rightButtons: seq[(string, proc ())] =
       if page.sig == "login" or page.sig == "logout":

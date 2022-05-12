@@ -193,33 +193,6 @@ proc linesToTrees*(lines: seq[string] | seq[ref string]): seq[wavescript.Command
     treesTemp = sequtils.map(cmds, proc (text: auto): wavescript.CommandTree = wavescript.parse(scriptContext, text))
   wavescript.parseOperatorCommands(treesTemp)
 
-proc play*(events: seq[paramidi.Event]): midi.PlayResult =
-  if iw.gIllwaveInitialized:
-    let
-      midiResult = midi.play(events)
-      (secs, playResult) = midiResult
-      startTime = times.epochTime()
-    if playResult.kind == sound.Error:
-      return midiResult
-    var tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
-    while true:
-      let currTime = times.epochTime() - startTime
-      if currTime > secs:
-        break
-      iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
-      iw.fill(tb, 0, 0, int((currTime / secs) * float(constants.editorWidth + 1)), 0, "▓")
-      iw.write(tb, 0, 1, "press esc to stop playing")
-      iw.display(tb)
-      let key = iw.getKey()
-      if key in {iw.Key.Tab, iw.Key.Escape}:
-        break
-      os.sleep(constants.sleepMsecs)
-    midi.stop(playResult.addrs)
-    return midiResult
-  else:
-    let currentTime = times.epochTime()
-    return midi.play(events)
-
 proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]): midi.PlayResult =
   var
     noErrors = true
@@ -252,7 +225,7 @@ proc compileAndPlayAll*(trees: seq[wavescript.CommandTree]): midi.PlayResult =
     case res.kind:
     of midi.Valid:
       if res.events.len > 0:
-        return play(res.events)
+        return midi.play(res.events)
     of midi.Error:
       discard
 
