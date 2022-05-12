@@ -829,54 +829,54 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       else:
         (iw.Key.None, 0'u32)
     editor.tick(page.data.session, result, 0, navbar.height, width, height - navbar.height, filteredInput, focusIndex == 0, finishedLoading)
-    var rightButtons: seq[(string, proc ())]
-    var errorLines: seq[string]
-    if page.data.request.started:
-      client.get(page.data.request)
-      if not page.data.request.ready:
-        rightButtons.add((" sending... ", proc () {.closure.} = discard))
-        finishedLoading = false # when a request is being sent, make sure the view refreshes
-      elif page.data.request.value.kind == client.Valid:
-        session.retract(page.id, ComponentData)
-        storage.remove(page.sig)
-        backAction()
-        session.fireRules
-        let
-          idx = strutils.find(page.sig, ".edit")
-          sig =
-            # if it's an edit, go to the original sig
-            if idx != -1:
-              let parts = strutils.split(page.sig, '.')
-              parts[0]
-            # go to the new sig
-            else:
-              page.data.requestSig
-        if storage.set(sig & ".ansiwave", page.data.requestBody):
-          session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
-        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+    if not isPlaying:
+      var rightButtons: seq[(string, proc ())]
+      var errorLines: seq[string]
+      if page.data.request.started:
+        client.get(page.data.request)
+        if not page.data.request.ready:
+          rightButtons.add((" sending... ", proc () {.closure.} = discard))
+          finishedLoading = false # when a request is being sent, make sure the view refreshes
+        elif page.data.request.value.kind == client.Valid:
+          session.retract(page.id, ComponentData)
+          storage.remove(page.sig)
+          backAction()
+          session.fireRules
+          let
+            idx = strutils.find(page.sig, ".edit")
+            sig =
+              # if it's an edit, go to the original sig
+              if idx != -1:
+                let parts = strutils.split(page.sig, '.')
+                parts[0]
+              # go to the new sig
+              else:
+                page.data.requestSig
+          if storage.set(sig & ".ansiwave", page.data.requestBody):
+            session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
+          return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finishedLoading)
+        else:
+          let
+            continueAction = proc () =
+              page.data.request.started = false
+              editor.setEditable(page.data.session, true)
+            errorStr = page.data.request.value.error
+          rightButtons.add((" continue editing ", continueAction))
+          errorLines = @[
+            "error (don't worry, a draft is saved)",
+            errorStr
+          ]
       else:
         let
-          continueAction = proc () =
-            page.data.request.started = false
-            editor.setEditable(page.data.session, true)
-          errorStr = page.data.request.value.error
-        rightButtons.add((" continue editing ", continueAction))
-        errorLines = @[
-          "error (don't worry, a draft is saved)",
-          errorStr
-        ]
-    else:
-      let
-        sendAction = proc () {.closure.} =
-          editor.setEditable(page.data.session, false)
-          let
-            content = post.joinLines(editor.getEditor(page.data.session).lines)
-            (body, sig) = common.sign(user.keyPair, page.data.headers, strutils.strip(content, leading = true, trailing = true, {'\n'}))
-          page.data.requestBody = body
-          page.data.requestSig = sig
-          page.data.request = client.submit(clnt, "ansiwave", body)
-      rightButtons.add((" send ", sendAction))
-    if not isPlaying:
+          sendAction = proc () {.closure.} =
+            editor.setEditable(page.data.session, false)
+            let
+              content = post.joinLines(editor.getEditor(page.data.session).lines)
+              (body, sig) = common.sign(user.keyPair, page.data.headers, strutils.strip(content, leading = true, trailing = true, {'\n'}))
+            page.data.requestBody = body
+            page.data.requestSig = sig
+            page.data.request = client.submit(clnt, "ansiwave", body)
+        rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
       var ctx = nimwave.initContext(result)
