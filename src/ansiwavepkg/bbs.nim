@@ -489,7 +489,7 @@ proc getEditorLines*(session: BbsSession): seq[ref string] =
   except Exception as ex:
     discard
 
-proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
+proc renderNavbar(ctx: var nimwave.Context, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
   var sess = session
   let
     backAction = proc () {.closure.} =
@@ -594,12 +594,12 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
           s.add((" replies ", repliesAction))
         s.add((" my page ", myPageAction))
         s
-    navbar.render(tb, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
+    navbar.render(ctx, input, leftButtons, [], rightButtons, focusIndex)
   else:
     if not page.midiProgress[].messageDisplayed:
       page.midiProgress[].messageDisplayed = true
-      iw.fill(tb, 0, 0, iw.width(tb), 3, " ")
-      iw.write(tb, 0, 1, "making music...")
+      iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), 3, " ")
+      iw.write(ctx.tb, 0, 1, "making music...")
     elif not page.midiProgress[].started:
       if midi.soundfontReady():
         page.midiProgress[].started = true
@@ -608,8 +608,8 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
         page.midiProgress[].midiResult = midiResult
         page.midiProgress[].time = (currTime, currTime + midiResult.secs)
       else:
-        iw.fill(tb, 0, 0, iw.width(tb), 3, " ")
-        iw.write(tb, 0, 1, "fetching soundfont...")
+        iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), 3, " ")
+        iw.write(ctx.tb, 0, 1, "fetching soundfont...")
     elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
       let
         continueAction = proc () =
@@ -621,7 +621,7 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
         "error",
         errorStr
       ]
-      navbar.render(tb, 0, 0, input, [], errorLines, rightButtons, focusIndex)
+      navbar.render(ctx, input, [], errorLines, rightButtons, focusIndex)
     else:
       let currTime = times.epochTime()
       if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
@@ -629,9 +629,9 @@ proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: clie
         session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
       else:
         let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
-        iw.fill(tb, 0, 0, iw.width(tb), 2, " ")
-        iw.fill(tb, 0, 0, int(progress * float(iw.width(tb))), 0, "▓")
-        iw.write(tb, 0, 1, "press esc to stop playing")
+        iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), 2, " ")
+        iw.fill(ctx.tb, 0, 0, int(progress * float(iw.width(ctx.tb))), 0, "▓")
+        iw.write(ctx.tb, 0, 1, "press esc to stop playing")
 
 proc init*() =
   try:
@@ -880,7 +880,9 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     if not isPlaying:
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      navbar.render(result, 0, 0, input, leftButtons, errorLines, rightButtons, focusIndex)
+      var ctx = nimwave.initContext(result)
+      ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
+      navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
@@ -890,7 +892,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     proc outerPage(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
       ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
-      renderNavbar(ctx.tb, sess, clnt, globals, page, input, finished, focusIndex)
+      renderNavbar(ctx, sess, clnt, globals, page, input, finished, focusIndex)
     ctx.components["outer-page"] = outerPage
     nimwave.render(ctx, %* ["outer-page"])
 

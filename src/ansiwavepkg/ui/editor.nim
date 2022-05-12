@@ -142,7 +142,7 @@ schema Fact(Id, Attr):
   Opts: Options
   MidiProgress: MidiProgressType
 
-const textWidth = editorWidth + 2
+const textWidth* = editorWidth + 2
 
 proc moveCursor(session: var auto, bufferId: int, x: int, y: int)
 proc tick*(session: var auto): iw.TerminalBuffer
