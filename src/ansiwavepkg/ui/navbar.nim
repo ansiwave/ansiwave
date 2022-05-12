@@ -11,8 +11,7 @@ type
     focused: bool
 
 proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())], focusIndex: var int) =
-  var newContext = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), height)
-  iw.fill(newContext.tb, 0, 0, iw.width(newContext.tb), iw.height(newContext.tb))
+  iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb))
 
   var lineY = 0
   for line in middleLines:
@@ -21,9 +20,9 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
       # dumb/primitive way of filtering out invalid chars in error message
       if ch in {'a'..'z', 'A'..'Z', '0'..'9', ' ', '\'', '(', ')', '<', '>', ','}:
         s &= ch
-        if s.len == iw.width(newContext.tb):
+        if s.len == iw.width(ctx.tb):
           break
-    iw.write(newContext.tb, max(0, int(iw.width(newContext.tb).float / 2 - s.len / 2)), lineY, s)
+    iw.write(ctx.tb, max(0, int(iw.width(ctx.tb).float / 2 - s.len / 2)), lineY, s)
     lineY += 1
 
   let buttonCount = leftButtons.len + rightButtons.len
@@ -72,9 +71,9 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
     rightBox.add(%* ["nav-button", {"text": text}])
 
   let
-    spacerWidth = max(0, iw.width(newContext.tb) - leftButtonsWidth - rightButtonsWidth)
+    spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
     spacer = strutils.repeat(' ', spacerWidth)
 
-  newContext.components["nav-button"] = navButton
-  nimwave.render(newContext, %* ["hbox", leftBox, spacer, rightBox])
+  ctx.components["nav-button"] = navButton
+  nimwave.render(ctx, %* ["hbox", leftBox, spacer, rightBox])
 
