@@ -10,8 +10,7 @@ from ./ui/navbar import nil
 from ./constants import nil
 import pararules
 from pararules/engine import Session, Vars
-from json import JsonNode
-import tables, sets
+import tables, sets, json
 from ./user import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
@@ -24,6 +23,7 @@ from ./sound import nil
 from strutils import nil
 from urlly import `$`
 from terminal import nil
+from nimwave import nil
 
 when defined(emscripten):
   from nimwave/web/emscripten import nil
@@ -489,6 +489,150 @@ proc getEditorLines*(session: BbsSession): seq[ref string] =
   except Exception as ex:
     discard
 
+proc renderNavbar(tb: var iw.TerminalBuffer, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
+  var sess = session
+  let
+    backAction = proc () {.closure.} =
+      if globals.breadcrumbsIndex > 0:
+        sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+    upAction = proc () {.closure.} =
+      let sig = page.data.post.value.valid.parent
+      if sig == page.data.post.value.valid.public_key:
+        sess.insertPage(ui.initUser(clnt, globals.board, sig), sig)
+      else:
+        sess.insertPage(ui.initPost(clnt, globals.board, sig), sig)
+    refreshAction = proc () {.closure.} =
+      refresh(sess, clnt, page)
+    homeAction = proc () {.closure.} =
+      sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
+    searchAction = proc () {.closure.} =
+      sess.insertPage(ui.initSearch(clnt, globals.board), "search")
+  var leftButtons: seq[(string, proc ())]
+  when not defined(emscripten):
+    leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
+  if page.sig != globals.board:
+    leftButtons.add((" ⌂ ", homeAction))
+  if page.data.kind == ui.Post and
+      finishedLoading and
+      page.data.post.ready and
+      page.data.post.value.kind != client.Error:
+    leftButtons &= @[(" ↑ ", upAction)]
+  if page.sig != "search":
+    leftButtons &= @[(" search ", searchAction)]
+  if page.sig == user.pubKey and
+      page.data.user.ready and
+      page.data.user.value.kind != client.Error:
+    let tags = common.parseTags(page.data.user.value.valid.tags.value)
+    if "moderator" in tags or "modleader" in tags:
+      let limboAction = proc () {.closure.} =
+        sess.insertPage(ui.initLimbo(clnt, globals.board), "limbo")
+      leftButtons &= @[(" limbo ", limboAction)]
+  when defined(emscripten):
+    let content = ui.getContent(page.data)
+    if content != "":
+      let viewHtmlAction = proc () {.closure.} =
+        emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
+      leftButtons.add((" plain view ", viewHtmlAction))
+  else:
+    if iw.gIllwaveInitialized:
+      let copyLinkAction = proc () {.closure.} =
+        let url = paths.address & "#" & globals.hash
+        editor.copyLines(@[url])
+        editor.copyLink(url)
+        iw.setDoubleBuffering(false)
+      leftButtons.add((" copy link ", copyLinkAction))
+  if page.midiProgress == nil:
+    if page.viewCommands != nil and page.viewCommands[].len > 0:
+      let
+        playAction = proc () {.closure.} =
+          try:
+            if iw.gIllwaveInitialized:
+              discard post.compileAndPlayAll(page.viewCommands[])
+            else:
+              var progress: MidiProgressType
+              new progress
+              sess.insert(page.id, MidiProgress, progress)
+          except Exception as ex:
+            discard
+      leftButtons.add((" ♫ play ", playAction))
+    var rightButtons: seq[(string, proc ())] =
+      if page.sig == "login" or page.sig == "logout":
+        @[]
+      elif user.pubKey == "":
+        let
+          loginAction = proc () {.closure.} =
+            sess.insertPage(ui.initLogin(), "login")
+        @[(" login ", loginAction)]
+      elif page.sig == user.pubKey:
+        let
+          logoutAction = proc () {.closure, gcsafe.} =
+            {.cast(gcsafe).}:
+              sess.insertPage(ui.initLogout(), "logout")
+          downloadKeyAction = proc () {.closure.} =
+            when defined(emscripten):
+              user.downloadImage()
+        when defined(emscripten):
+          @[(" save login key ", downloadKeyAction), (" logout ", logoutAction)]
+        else:
+          @[(" logout ", logoutAction)]
+      else:
+        let
+          draftsAction = proc () {.closure.} =
+            sess.insertPage(ui.initDrafts(clnt, globals.board), "drafts")
+          sentAction = proc () {.closure.} =
+            sess.insertPage(ui.initSent(clnt, globals.board), "sent")
+          repliesAction = proc () {.closure.} =
+            sess.insertPage(ui.initReplies(clnt, globals.board), "replies")
+          myPageAction = proc () {.closure.} =
+            sess.insertPage(ui.initUser(clnt, globals.board, user.pubKey), user.pubKey)
+        var s: seq[(string, proc ())]
+        if globals.hasDrafts and page.sig != "drafts":
+          s.add((" drafts ", draftsAction))
+        if globals.hasSent and page.sig != "sent":
+          s.add((" sent ", sentAction))
+        if user.pubKey != "" and page.sig != "replies":
+          s.add((" replies ", repliesAction))
+        s.add((" my page ", myPageAction))
+        s
+    navbar.render(tb, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
+  else:
+    if not page.midiProgress[].messageDisplayed:
+      page.midiProgress[].messageDisplayed = true
+      iw.fill(tb, 0, 0, constants.editorWidth + 1, 3, " ")
+      iw.write(tb, 0, 1, "making music...")
+    elif not page.midiProgress[].started:
+      if midi.soundfontReady():
+        page.midiProgress[].started = true
+        let midiResult = post.compileAndPlayAll(page.viewCommands[])
+        let currTime = times.epochTime()
+        page.midiProgress[].midiResult = midiResult
+        page.midiProgress[].time = (currTime, currTime + midiResult.secs)
+      else:
+        iw.fill(tb, 0, 0, constants.editorWidth + 1, 3, " ")
+        iw.write(tb, 0, 1, "fetching soundfont...")
+    elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
+      let
+        continueAction = proc () =
+          sess.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+        errorStr = page.midiProgress[].midiResult.playResult.message
+      var rightButtons: seq[(string, proc ())]
+      rightButtons.add((" continue ", continueAction))
+      let errorLines = @[
+        "error",
+        errorStr
+      ]
+      navbar.render(tb, 0, 0, input, [], errorLines, rightButtons, focusIndex)
+    else:
+      let currTime = times.epochTime()
+      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
+        midi.stop(page.midiProgress[].midiResult.playResult.addrs)
+        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+      else:
+        let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
+        iw.fill(tb, 0, 0, constants.editorWidth + 1, 2, " ")
+        iw.fill(tb, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
+        iw.write(tb, 0, 1, "press esc to stop playing")
+
 proc init*() =
   try:
     user.loadKey()
@@ -741,145 +885,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     editor.saveToStorage(page.data.session, page.sig)
   else:
     result = iw.initTerminalBuffer(width, height, grow = defined(emscripten))
-    ui.render(result, view, 0, y, y, focusIndex, areas)
-    let
-      upAction = proc () {.closure.} =
-        let sig = page.data.post.value.valid.parent
-        if sig == page.data.post.value.valid.public_key:
-          sess.insertPage(ui.initUser(clnt, globals.board, sig), sig)
-        else:
-          sess.insertPage(ui.initPost(clnt, globals.board, sig), sig)
-      refreshAction = proc () {.closure.} =
-        refresh(sess, clnt, page)
-      homeAction = proc () {.closure.} =
-        sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
-      searchAction = proc () {.closure.} =
-        sess.insertPage(ui.initSearch(clnt, globals.board), "search")
-    var leftButtons: seq[(string, proc ())]
-    when not defined(emscripten):
-      leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
-    if page.sig != globals.board:
-      leftButtons.add((" ⌂ ", homeAction))
-    if page.data.kind == ui.Post and
-        finishedLoading and
-        page.data.post.ready and
-        page.data.post.value.kind != client.Error:
-      leftButtons &= @[(" ↑ ", upAction)]
-    if page.sig != "search":
-      leftButtons &= @[(" search ", searchAction)]
-    if page.sig == user.pubKey and
-        page.data.user.ready and
-        page.data.user.value.kind != client.Error:
-      let tags = common.parseTags(page.data.user.value.valid.tags.value)
-      if "moderator" in tags or "modleader" in tags:
-        let limboAction = proc () {.closure.} =
-          sess.insertPage(ui.initLimbo(clnt, globals.board), "limbo")
-        leftButtons &= @[(" limbo ", limboAction)]
-    when defined(emscripten):
-      let content = ui.getContent(page.data)
-      if content != "":
-        let viewHtmlAction = proc () {.closure.} =
-          emscripten.openNewTab(editor.initLink(content) & ",hash:" & paths.encode(globals.hash))
-        leftButtons.add((" plain view ", viewHtmlAction))
-    else:
-      if iw.gIllwaveInitialized:
-        let copyLinkAction = proc () {.closure.} =
-          let url = paths.address & "#" & globals.hash
-          editor.copyLines(@[url])
-          editor.copyLink(url)
-          iw.setDoubleBuffering(false)
-        leftButtons.add((" copy link ", copyLinkAction))
-    if page.midiProgress == nil:
-      if page.viewCommands != nil and page.viewCommands[].len > 0:
-        let
-          playAction = proc () {.closure.} =
-            try:
-              if iw.gIllwaveInitialized:
-                discard post.compileAndPlayAll(page.viewCommands[])
-              else:
-                var progress: MidiProgressType
-                new progress
-                sess.insert(page.id, MidiProgress, progress)
-            except Exception as ex:
-              discard
-        leftButtons.add((" ♫ play ", playAction))
-      var rightButtons: seq[(string, proc ())] =
-        if page.sig == "login" or page.sig == "logout":
-          @[]
-        elif user.pubKey == "":
-          let
-            loginAction = proc () {.closure.} =
-              sess.insertPage(ui.initLogin(), "login")
-          @[(" login ", loginAction)]
-        elif page.sig == user.pubKey:
-          let
-            logoutAction = proc () {.closure, gcsafe.} =
-              {.cast(gcsafe).}:
-                sess.insertPage(ui.initLogout(), "logout")
-            downloadKeyAction = proc () {.closure.} =
-              when defined(emscripten):
-                user.downloadImage()
-          when defined(emscripten):
-            @[(" save login key ", downloadKeyAction), (" logout ", logoutAction)]
-          else:
-            @[(" logout ", logoutAction)]
-        else:
-          let
-            draftsAction = proc () {.closure.} =
-              sess.insertPage(ui.initDrafts(clnt, globals.board), "drafts")
-            sentAction = proc () {.closure.} =
-              sess.insertPage(ui.initSent(clnt, globals.board), "sent")
-            repliesAction = proc () {.closure.} =
-              sess.insertPage(ui.initReplies(clnt, globals.board), "replies")
-            myPageAction = proc () {.closure.} =
-              sess.insertPage(ui.initUser(clnt, globals.board, user.pubKey), user.pubKey)
-          var s: seq[(string, proc ())]
-          if globals.hasDrafts and page.sig != "drafts":
-            s.add((" drafts ", draftsAction))
-          if globals.hasSent and page.sig != "sent":
-            s.add((" sent ", sentAction))
-          if user.pubKey != "" and page.sig != "replies":
-            s.add((" replies ", repliesAction))
-          s.add((" my page ", myPageAction))
-          s
-      navbar.render(result, 0, 0, input, leftButtons, [], rightButtons, focusIndex)
-    else:
-      if not page.midiProgress[].messageDisplayed:
-        page.midiProgress[].messageDisplayed = true
-        iw.fill(result, 0, 0, constants.editorWidth + 1, 3, " ")
-        iw.write(result, 0, 1, "making music...")
-      elif not page.midiProgress[].started:
-        if midi.soundfontReady():
-          page.midiProgress[].started = true
-          let midiResult = post.compileAndPlayAll(page.viewCommands[])
-          let currTime = times.epochTime()
-          page.midiProgress[].midiResult = midiResult
-          page.midiProgress[].time = (currTime, currTime + midiResult.secs)
-        else:
-          iw.fill(result, 0, 0, constants.editorWidth + 1, 3, " ")
-          iw.write(result, 0, 1, "fetching soundfont...")
-      elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
-        let
-          continueAction = proc () =
-            sess.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
-          errorStr = page.midiProgress[].midiResult.playResult.message
-        var rightButtons: seq[(string, proc ())]
-        rightButtons.add((" continue ", continueAction))
-        let errorLines = @[
-          "error",
-          errorStr
-        ]
-        navbar.render(result, 0, 0, input, [], errorLines, rightButtons, focusIndex)
-      else:
-        let currTime = times.epochTime()
-        if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
-          midi.stop(page.midiProgress[].midiResult.playResult.addrs)
-          session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
-        else:
-          let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
-          iw.fill(result, 0, 0, constants.editorWidth + 1, 2, " ")
-          iw.fill(result, 0, 0, int(progress * float(constants.editorWidth + 1)), 0, "▓")
-          iw.write(result, 0, 1, "press esc to stop playing")
+    var ctx = nimwave.initContext(result)
+    let finished = finishedLoading
+    proc outerPage(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
+      renderNavbar(ctx.tb, sess, clnt, globals, page, input, finished, focusIndex)
+    ctx.components["outer-page"] = outerPage
+    nimwave.render(ctx, %* ["outer-page"])
 
   # update values if necessary
   if focusIndex != page.focusIndex:
