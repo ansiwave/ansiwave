@@ -162,7 +162,6 @@ proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTim
     # will cover up the UI if double buffering is enabled
     iw.setDoubleBuffering(false)
     iw.display(tb)
-    iw.setDoubleBuffering(true)
     if playResult.kind == sound.Error:
       return
     session.insert(bufferId, Prompt, StopPlaying)
@@ -187,6 +186,7 @@ proc play(session: var auto, events: seq[paramidi.Event], bufferId: int, lineTim
       if key in {iw.Key.Tab, iw.Key.Escape}:
         break
       os.sleep(sleepMsecs)
+    iw.setDoubleBuffering(true)
     midi.stop(playResult.addrs)
     session.insert(bufferId, Prompt, None)
   else:
