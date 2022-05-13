@@ -642,7 +642,7 @@ proc init*() =
       if parsed.kind != post.Error and times.toUnix(times.getTime()) - deleteFromStorageSeconds >= post.getTime(parsed):
         storage.remove(filename)
 
-proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
+proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], finished: var bool): iw.TerminalBuffer =
   session.fireRules
   var finishedLoading = false
   let
@@ -764,7 +764,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           (not defined(windows) or finishedLoading):
         backAction()
         # since we have changed the page, we need to rerun this function from the beginning
-        return tick(session, clnt, width, height, (iw.Key.None, 0'u32))
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finished)
     # adjust focusIndex and scrollY based on viewFocusAreas
     if focusIndex >= 0 and page.viewFocusAreas.len > 0:
       # don't let it go beyond the last focused area
@@ -856,7 +856,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
                 page.data.requestSig
           if storage.set(sig & ".ansiwave", page.data.requestBody):
             session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
-          return tick(session, clnt, width, height, (iw.Key.None, 0'u32))
+          return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finished)
         else:
           let
             continueAction = proc () =
@@ -919,6 +919,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   if page.viewFocusAreas != areas or page.viewHeight != scrollY + y:
     session.insert(page.id, ViewFocusAreas, areas)
     session.insert(page.id, ViewHeight, scrollY + y)
+
+  finished = finishedLoading
+
+proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
+  var finished: bool
+  return tick(session, clnt, width, height, input, finished)
 
 proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var hash = origHash
