@@ -1,4 +1,3 @@
-from illwave as iw import `[]`, `[]=`, `==`
 from wavecorepkg/wavescript import nil
 from strutils import format
 from sequtils import nil
@@ -7,8 +6,6 @@ from unicode import nil
 from paramidi import nil
 from ./midi import nil
 from times import nil
-from ./sound import nil
-from os import nil
 from ./constants import nil
 from json import nil
 from ./storage import nil
@@ -17,7 +14,6 @@ from parseutils import nil
 import tables, sets
 from wavecorepkg/client import nil
 import unicode
-from terminal import nil
 
 type
   RefStrings* = ref seq[ref string]
