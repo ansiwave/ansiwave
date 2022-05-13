@@ -888,7 +888,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       ctx.components["navbar"] = navbarView
 
     proc editorView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
-      editor.tick(page.data.session, ctx.tb, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), filteredInput, focusIndex == 0)
+      editor.tick(page.data.session, ctx.tb, iw.width(ctx.tb), iw.height(ctx.tb), filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
     nimwave.render(ctx, %* ["vbox", ["navbar"], ["editor"]])
