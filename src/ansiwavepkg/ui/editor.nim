@@ -1440,7 +1440,15 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
     ctx.components["top-bar"] = midiProgressView
 
   proc bufferView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
-    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.parent)-1-(if bufferId == Editor: 2 else: 1))
+    let
+      parentHeight =
+        if ctx.parent == nil:
+          iw.height(ctx.tb)
+        else:
+          iw.height(ctx.parent[].tb)
+      topBarHeight = if bufferId == Editor: 2 else: 1
+      bottomBarHeight = 1
+    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), parentHeight-topBarHeight-bottomBarHeight)
     renderBuffer(sess, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
   ctx.components["buffer"] = bufferView
 
