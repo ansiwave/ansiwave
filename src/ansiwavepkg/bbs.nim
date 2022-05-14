@@ -458,7 +458,7 @@ proc getEditorSize*(session: BbsSession): tuple[x: int, y: int, width: int, heig
       globals = session.query(rules.getGlobals)
       page = globals.pages[globals.selectedPage]
       (x, y, width, height) = editor.getSize(page.data.session)
-    (x + 0, y + navbar.height, width, height)
+    (x, y, width, height)
   except Exception as ex:
     (0, 0, 0, 0)
 
@@ -704,6 +704,8 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
             focusIndex = i
             ui.showPasteText = false
             break
+    elif page.isEditor:
+      action.actionName = "edit"
     elif focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
       let area = page.viewFocusAreas[focusIndex]
       action = (area.action, area.actionData)
@@ -826,6 +828,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         (iw.Key.None, 0'u32)
 
     var ctx = nimwave.initContext(result)
+    ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:
       proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
@@ -881,7 +884,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
       proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
         navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)

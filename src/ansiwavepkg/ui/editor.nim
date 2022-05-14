@@ -303,16 +303,6 @@ let (initSession, rules*) =
       what:
         (TerminalWindow, Width, width)
         (TerminalWindow, Height, height)
-    rule updateBufferSize(Fact):
-      what:
-        (TerminalWindow, Width, width)
-        (TerminalWindow, Height, height)
-        (id, Y, bufferY, then = false)
-      cond:
-        id != TerminalWindow.ord
-      then:
-        session.insert(id, Width, min(width - 2, textWidth))
-        session.insert(id, Height, height - 3 - bufferY)
     rule updateTerminalScrollX(Fact):
       what:
         (id, Width, bufferWidth)
@@ -617,7 +607,7 @@ proc onWindowResize(session: var EditorSession, width: int, height: int) =
 proc getTerminalWindow(session: auto): tuple[width: int, height: int] =
   session.query(rules.getTerminalWindow)
 
-proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: bool, text: string) =
+proc insertBuffer(session: var EditorSession, id: Id, editable: bool, text: string) =
   session.insert(id, CursorX, 0)
   session.insert(id, CursorY, 0)
   session.insert(id, WrappedCursorX, 0)
@@ -625,8 +615,8 @@ proc insertBuffer(session: var EditorSession, id: Id, x: int, y: int, editable: 
   session.insert(id, ScrollX, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, Lines, post.splitLines(text))
-  session.insert(id, X, x)
-  session.insert(id, Y, y)
+  session.insert(id, X, 0)
+  session.insert(id, Y, 0)
   session.insert(id, Width, 0)
   session.insert(id, Height, 0)
   session.insert(id, Editable, editable)
@@ -945,8 +935,12 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   true
 
 proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
-  let (x, y, width, height) = getSize(buffer)
-  iw.drawRect(tb, x - 1, y - 1, x + width, y + height, doubleStyle = focused)
+  session.insert(buffer.id, X, iw.x(tb))
+  session.insert(buffer.id, Y, iw.y(tb))
+  session.insert(buffer.id, Width, iw.width(tb)-2)
+  session.insert(buffer.id, Height, iw.height(tb)-2)
+
+  iw.drawRect(tb, 0, 0, iw.width(tb)-1, iw.height(tb)-1, doubleStyle = focused)
 
   let
     lines = buffer.wrappedLines[]
@@ -963,16 +957,16 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     else:
       line = @[]
     codes.deleteAfter(line, buffer.width - 1)
-    tui.writeMaybe(tb, buffer.x + 1, buffer.y + 1 + screenLine, $line)
+    tui.writeMaybe(tb, 1, 1 + screenLine, $line)
     if buffer.prompt != StopPlaying and buffer.mode == 0:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
-        let linkY = buffer.y + 1 + screenLine
-        iw.write(tb, buffer.x, linkY, $buffer.links[i].icon)
+        let linkY = 1 + screenLine
+        iw.write(tb, 0, linkY, $buffer.links[i].icon)
         if input.key == iw.Key.Mouse:
           let info = iw.getMouse()
           if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-            if info.x == buffer.x and info.y == linkY:
+            if info.x == 0 and info.y == linkY:
               session.insert(buffer.id, WrappedCursorX, 0)
               session.insert(buffer.id, WrappedCursorY, i)
               let hintText =
@@ -996,22 +990,22 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
-      if info.x >= buffer.x and
-          info.x <= buffer.x + buffer.width and
-          info.y >= buffer.y and
-          info.y <= buffer.y + buffer.height:
+      if info.x >= 0 and
+          info.x <= 0 + buffer.width and
+          info.y >= 0 and
+          info.y <= buffer.height:
         # adjust x for double width characters
         var adjust = 0
-        for col in buffer.x ..< info.x:
+        for col in 0 ..< info.x:
           if runewidth.runeWidth(tb[col, info.y].ch) == 2:
             adjust -= 1
         if buffer.mode == 0:
-          session.insert(buffer.id, WrappedCursorX, info.x - (buffer.x + 1 - buffer.scrollX) + adjust)
-          session.insert(buffer.id, WrappedCursorY, info.y - (buffer.y + 1 - buffer.scrollY))
+          session.insert(buffer.id, WrappedCursorX, info.x - (1 - buffer.scrollX) + adjust)
+          session.insert(buffer.id, WrappedCursorY, info.y - (1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
-            x = info.x - buffer.x - 1 + buffer.scrollX + adjust
-            y = info.y - buffer.y - 1 + buffer.scrollY
+            x = info.x - 1 + buffer.scrollX + adjust
+            y = info.y - 1 + buffer.scrollY
           if x >= 0 and y >= 0:
             var lines = buffer.wrappedLines
             while y > lines[].len - 1:
@@ -1045,20 +1039,20 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
 
   if not (defined(emscripten) and buffer.id == Editor.ord and buffer.mode == 0):
     let
-      col = buffer.x + 1 + buffer.adjustedWrappedCursorX - buffer.scrollX
-      row = buffer.y + 1 + buffer.wrappedCursorY - buffer.scrollY
+      col = 1 + buffer.adjustedWrappedCursorX - buffer.scrollX
+      row = 1 + buffer.wrappedCursorY - buffer.scrollY
     if buffer.mode == 0 or buffer.prompt == StopPlaying:
       setCursor(tb, col, row)
     var
-      xBlock = tb[col, buffer.y + buffer.height + 1]
-      yBlock = tb[buffer.x + buffer.width + 1, row]
+      xBlock = tb[col, buffer.height + 1]
+      yBlock = tb[buffer.width + 1, row]
     const
       dash = "-".toRunes[0]
       pipe = "|".toRunes[0]
     xBlock.ch = dash
     yBlock.ch = pipe
-    tb[col, buffer.y + buffer.height + 1] = xBlock
-    tb[buffer.x + buffer.width + 1, row] = yBlock
+    tb[col, buffer.height + 1] = xBlock
+    tb[buffer.width + 1, row] = yBlock
 
   var prompt = ""
   case buffer.prompt:
@@ -1071,8 +1065,8 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
   of StopPlaying:
     prompt = "press esc to stop playing"
   if prompt.len > 0:
-    let x = buffer.x + 1 + buffer.width - prompt.runeLen
-    iw.write(tb, max(x, buffer.x + 1), buffer.y, prompt)
+    let x = 1 + buffer.width - prompt.runeLen
+    iw.write(tb, max(x, 1), 0, prompt)
 
 proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x: int, y: int, choices: openArray[tuple[id: int, label: string, callback: proc ()]], selected: int, key: iw.Key, horiz: bool, shortcut: tuple[key: set[iw.Key], hint: string]): int =
   const space = 2
@@ -1284,11 +1278,11 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
   const
     tutorialText = staticRead("../assets/tutorial.ansiwave")
     publishText = staticRead("../assets/publish.ansiwave")
-  insertBuffer(result, Editor, 0, 2, not isDataUri, editorText)
-  insertBuffer(result, Errors, 0, 1, false, "")
-  insertBuffer(result, Tutorial, 0, 1, false, tutorialText)
+  insertBuffer(result, Editor, not isDataUri, editorText)
+  insertBuffer(result, Errors, false, "")
+  insertBuffer(result, Tutorial, false, tutorialText)
   if not opts.bbsMode:
-    insertBuffer(result, Publish, 0, 1, false, publishText)
+    insertBuffer(result, Publish, false, publishText)
   result.insert(Global, SelectedBuffer, Editor)
   result.insert(Global, HintText, "")
   result.insert(Global, HintTime, 0.0)
@@ -1320,79 +1314,88 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
   if termWindow != (width, height):
     onWindowResize(session, width, height)
 
+  var sess = session
+
   # render top bar
-  case Id(globals.selectedBuffer):
-  of Editor:
-    var sess = session
-    let playX =
-      if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-        renderButton(session, ctx.tb, "♫ play", 1, 1, input.key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "hint: play all lines with ctrl p"))
-      else:
-        0
-
-    if selectedBuffer.editable:
-      let titleX =
-        when defined(emscripten):
-          renderButton(session, ctx.tb, "+ file", 1, 0, input.key, proc () = browseImage(selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
+  proc topBarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    let id = Id(globals.selectedBuffer)
+    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if id == Editor: 2 else: 1)
+    case id:
+    of Editor:
+      let playX =
+        if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
+          renderButton(sess, ctx.tb, "♫ play", 1, 1, input.key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "hint: play all lines with ctrl p"))
         else:
-          renderButton(session, ctx.tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, input.key, proc () = discard)
-      var x = max(titleX, playX)
+          0
 
+      if selectedBuffer.editable:
+        let titleX =
+          when defined(emscripten):
+            renderButton(sess, ctx.tb, "+ file", 1, 0, input.key, proc () = browseImage(selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
+          else:
+            renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, input.key, proc () = discard)
+        var x = max(titleX, playX)
+
+        let
+          choices = [
+            (id: 0, label: "write mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
+            (id: 1, label: "draw mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
+          ]
+          shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
+        x = renderRadioButtons(sess, ctx.tb, x, 0, choices, selectedBuffer.mode, input.key, false, shortcut)
+
+        if selectedBuffer.mode == 1 or not defined(emscripten):
+          x = renderColors(sess, ctx.tb, selectedBuffer, input, x + 1, 0)
+
+        if selectedBuffer.mode == 0:
+          when not defined(emscripten):
+            discard renderButton(sess, ctx.tb, "↨ copy line", x, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c")))
+            x = renderButton(sess, ctx.tb, "↨ paste", x, 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v")))
+            x -= 1
+            x = renderButton(sess, ctx.tb, "↔ insert", x, 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
+        elif selectedBuffer.mode == 1:
+          x = renderBrushes(sess, ctx.tb, selectedBuffer, input.key, x + 1, 0)
+
+        if selectedBuffer.mode == 1 or not defined(emscripten):
+          let undoX = renderButton(sess, ctx.tb, "◄ undo", x, 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
+          let redoX = renderButton(sess, ctx.tb, "► redo", x, 1, input.key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
+          x = max(undoX, redoX)
+      elif not globals.options.bbsMode:
+        let
+          topText = "read-only mode! to edit this, convert it into an ansiwave:"
+          bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
+        iw.write(ctx.tb, max(0, int(textWidth/2 - topText.runeLen/2)), 0, topText)
+        iw.write(ctx.tb, max(playX, int(textWidth/2 - bottomText.runeLen/2)), 1, bottomText)
+    of Errors:
+      discard renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", 1, 0, input.key, proc () = discard)
+    of Tutorial:
+      let titleX = renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", 1, 0, input.key, proc () = discard)
+      when not defined(emscripten):
+        discard renderButton(sess, ctx.tb, "↨ copy line", titleX, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
+    of Publish:
       let
-        choices = [
-          (id: 0, label: "write mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
-          (id: 1, label: "draw mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
-        ]
-        shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
-      x = renderRadioButtons(session, ctx.tb, x, 0, choices, selectedBuffer.mode, input.key, false, shortcut)
+        titleX = renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", 1, 0, input.key, proc () = discard)
+        copyLinkCallback = proc () =
+          let buffer = globals.buffers[Editor.ord]
+          copyLink(initLink(post.joinLines(buffer.lines)))
+          iw.setDoubleBuffering(false)
+          var
+            tb = iw.initTerminalBuffer(width, height)
+            ctx = nimwave.initContext(tb)
+          tick(sess, ctx, (iw.Key.None, 0'u32), focused)
+          iw.display(ctx.tb)
+          iw.setDoubleBuffering(true)
+      discard renderButton(sess, ctx.tb, "↕ copy link", titleX, 0, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
+    else:
+      discard
+  ctx.components["top-bar"] = topBarView
 
-      if selectedBuffer.mode == 1 or not defined(emscripten):
-        x = renderColors(session, ctx.tb, selectedBuffer, input, x + 1, 0)
+  proc bufferView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb)-1)
+    renderBuffer(sess, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
+  ctx.components["buffer"] = bufferView
 
-      if selectedBuffer.mode == 0:
-        when not defined(emscripten):
-          discard renderButton(session, ctx.tb, "↨ copy line", x, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c")))
-          x = renderButton(session, ctx.tb, "↨ paste", x, 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v")))
-          x -= 1
-          x = renderButton(session, ctx.tb, "↔ insert", x, 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
-      elif selectedBuffer.mode == 1:
-        x = renderBrushes(session, ctx.tb, selectedBuffer, input.key, x + 1, 0)
-
-      if selectedBuffer.mode == 1 or not defined(emscripten):
-        let undoX = renderButton(session, ctx.tb, "◄ undo", x, 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
-        let redoX = renderButton(session, ctx.tb, "► redo", x, 1, input.key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
-        x = max(undoX, redoX)
-    elif not globals.options.bbsMode:
-      let
-        topText = "read-only mode! to edit this, convert it into an ansiwave:"
-        bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
-      iw.write(ctx.tb, max(0, int(textWidth/2 - topText.runeLen/2)), 0, topText)
-      iw.write(ctx.tb, max(playX, int(textWidth/2 - bottomText.runeLen/2)), 1, bottomText)
-  of Errors:
-    discard renderButton(session, ctx.tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", 1, 0, input.key, proc () = discard)
-  of Tutorial:
-    let titleX = renderButton(session, ctx.tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", 1, 0, input.key, proc () = discard)
-    when not defined(emscripten):
-      discard renderButton(session, ctx.tb, "↨ copy line", titleX, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
-  of Publish:
-    var sess = session
-    let
-      titleX = renderButton(session, ctx.tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", 1, 0, input.key, proc () = discard)
-      copyLinkCallback = proc () =
-        let buffer = globals.buffers[Editor.ord]
-        copyLink(initLink(post.joinLines(buffer.lines)))
-        iw.setDoubleBuffering(false)
-        var
-          tb = iw.initTerminalBuffer(width, height)
-          ctx = nimwave.initContext(tb)
-        tick(sess, ctx, (iw.Key.None, 0'u32), focused)
-        iw.display(ctx.tb)
-        iw.setDoubleBuffering(true)
-    discard renderButton(session, ctx.tb, "↕ copy link", titleX, 0, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
-  else:
-    discard
-
-  renderBuffer(session, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
+  nimwave.render(ctx, %* ["vbox", ["top-bar"], ["buffer"]])
 
   # render bottom bar
   var x = 0
