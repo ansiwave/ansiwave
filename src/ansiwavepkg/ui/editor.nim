@@ -935,10 +935,16 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   true
 
 proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
-  session.insert(buffer.id, X, iw.x(tb))
-  session.insert(buffer.id, Y, iw.y(tb))
-  session.insert(buffer.id, Width, iw.width(tb)-2)
-  session.insert(buffer.id, Height, iw.height(tb)-2)
+  let
+    bufferX = iw.x(tb)
+    bufferY = iw.y(tb)
+    bufferWidth = iw.width(tb)-2
+    bufferHeight = iw.height(tb)-2
+
+  session.insert(buffer.id, X, bufferX)
+  session.insert(buffer.id, Y, bufferY)
+  session.insert(buffer.id, Width, bufferWidth)
+  session.insert(buffer.id, Height, bufferHeight)
 
   iw.drawRect(tb, 0, 0, iw.width(tb)-1, iw.height(tb)-1, doubleStyle = focused)
 
@@ -966,7 +972,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
         if input.key == iw.Key.Mouse:
           let info = iw.getMouse()
           if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-            if info.x == 0 and info.y == linkY:
+            if info.x == bufferX and info.y == bufferY + linkY:
               session.insert(buffer.id, WrappedCursorX, 0)
               session.insert(buffer.id, WrappedCursorY, i)
               let hintText =
@@ -990,22 +996,22 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
-      if info.x >= 0 and
-          info.x <= 0 + buffer.width and
-          info.y >= 0 and
-          info.y <= buffer.height:
+      if info.x >= bufferX and
+          info.x <= bufferX + bufferWidth and
+          info.y >= bufferY and
+          info.y <= bufferY + bufferHeight:
         # adjust x for double width characters
         var adjust = 0
-        for col in 0 ..< info.x:
+        for col in bufferX ..< info.x:
           if runewidth.runeWidth(tb[col, info.y].ch) == 2:
             adjust -= 1
         if buffer.mode == 0:
-          session.insert(buffer.id, WrappedCursorX, info.x - (1 - buffer.scrollX) + adjust)
-          session.insert(buffer.id, WrappedCursorY, info.y - (1 - buffer.scrollY))
+          session.insert(buffer.id, WrappedCursorX, info.x - (bufferX + 1 - buffer.scrollX) + adjust)
+          session.insert(buffer.id, WrappedCursorY, info.y - (bufferY + 1 - buffer.scrollY))
         elif buffer.mode == 1:
           let
-            x = info.x - 1 + buffer.scrollX + adjust
-            y = info.y - 1 + buffer.scrollY
+            x = info.x - bufferX - 1 + buffer.scrollX + adjust
+            y = info.y - bufferY - 1 + buffer.scrollY
           if x >= 0 and y >= 0:
             var lines = buffer.wrappedLines
             while y > lines[].len - 1:
@@ -1086,9 +1092,9 @@ proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x
     if key == iw.Key.Mouse:
       let info = iw.getMouse()
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-        if info.x >= oldX and
-            info.x <= newX and
-            info.y == oldY:
+        if info.x >= iw.x(tb) + oldX and
+            info.x <= iw.x(tb) + newX and
+            info.y == iw.y(tb) + oldY:
           session.insert(Global, HintText, shortcut.hint)
           session.insert(Global, HintTime, times.epochTime() + hintSecs)
           choice.callback()
@@ -1114,9 +1120,9 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
   if key == iw.Key.Mouse:
     let info = iw.getMouse()
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-      if info.x >= x and
-          info.x < result and
-          info.y == y:
+      if info.x >= iw.x(tb) + x and
+          info.x < iw.x(tb) + result and
+          info.y == iw.y(tb) + y:
         if shortcut.hint.len > 0:
           session.insert(Global, HintText, shortcut.hint)
           session.insert(Global, HintTime, times.epochTime() + hintSecs)
@@ -1161,17 +1167,17 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
   tui.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
   if input.key == iw.Key.Mouse:
     let info = iw.getMouse()
-    if info.y == colorY:
+    if info.y == iw.y(tb) + colorY:
       if info.action == iw.MouseButtonAction.mbaPressed:
         if info.button == iw.MouseButton.mbLeft:
-          let index = int((info.x - colorX) / 3)
+          let index = int((info.x - (iw.x(tb) + colorX)) / 3)
           if index >= 0 and index < colorFgCodes.len:
             session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
             if buffer.mode == 1:
               session.insert(Global, HintText, "hint: press " & colorFgShortcuts[index] & " for " & colorNames[index] & " foreground")
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
         elif info.button == iw.MouseButton.mbRight:
-          let index = int((info.x - colorX) / 3)
+          let index = int((info.x - (iw.x(tb) + colorX)) / 3)
           if index >= 0 and index < colorBgCodes.len:
             session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
             if buffer.mode == 1:
