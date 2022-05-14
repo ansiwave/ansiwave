@@ -243,6 +243,7 @@ proc main*() =
           var
             tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
             ctx = nimwave.initContext(tb)
+          ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
           while true:
             editor.tick(session, ctx, (key, 0'u32), true)
             session.fireRules
