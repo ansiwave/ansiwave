@@ -1395,51 +1395,51 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
     renderBuffer(sess, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
   ctx.components["buffer"] = bufferView
 
-  nimwave.render(ctx, %* ["vbox", ["top-bar"], ["buffer"]])
-
   # render bottom bar
-  var x = 0
-  if selectedBuffer.prompt != StopPlaying:
-    var sess = session
-    let
-      editor = globals.buffers[Editor.ord]
-      errorCount = editor.errors[].len
-      choices = [
-        (id: Editor.ord, label: "editor", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
-        (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
-        (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
-        (id: Publish.ord, label: "publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
-      ]
-      shortcut = (key: {iw.Key.CtrlN}, hint: "hint: switch tabs with ctrl n")
-    var selectedChoices = @choices
-    selectedChoices.setLen(0)
-    for choice in choices:
-      if globals.buffers.hasKey(choice.id):
-        selectedChoices.add(choice)
-    x = renderRadioButtons(session, ctx.tb, 0, termWindow.height - 1, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
+  proc bottomBarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 1)
+    var x = 0
+    if selectedBuffer.prompt != StopPlaying:
+      let
+        editor = globals.buffers[Editor.ord]
+        errorCount = editor.errors[].len
+        choices = [
+          (id: Editor.ord, label: "editor", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
+          (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
+          (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
+          (id: Publish.ord, label: "publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
+        ]
+        shortcut = (key: {iw.Key.CtrlN}, hint: "hint: switch tabs with ctrl n")
+      var selectedChoices = @choices
+      selectedChoices.setLen(0)
+      for choice in choices:
+        if globals.buffers.hasKey(choice.id):
+          selectedChoices.add(choice)
+      x = renderRadioButtons(sess, ctx.tb, 0, 0, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
+    # render hints
+    if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
+      sess.insert(Global, HintText, "")
+      sess.insert(Global, HintTime, 0.0)
+    else:
+      let
+        showHint = globals.hintText.len > 0
+        text =
+          if showHint:
+            globals.hintText
+          else:
+            "‼ exit"
+        textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
+      if showHint:
+        tui.write(ctx.tb, textX, 0, "\e[3m" & text & "\e[0m")
+      elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
+        let cb =
+          proc () =
+            sess.insert(Global, HintText, "press ctrl c to exit")
+            sess.insert(Global, HintTime, times.epochTime() + hintSecs)
+        discard renderButton(sess, ctx.tb, text, textX, 0, input.key, cb)
+  ctx.components["bottom-bar"] = bottomBarView
 
-  # render hints
-  if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
-    session.insert(Global, HintText, "")
-    session.insert(Global, HintTime, 0.0)
-  else:
-    let
-      showHint = globals.hintText.len > 0
-      text =
-        if showHint:
-          globals.hintText
-        else:
-          "‼ exit"
-      textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
-    if showHint:
-      tui.write(ctx.tb, textX, termWindow.height - 1, "\e[3m" & text & "\e[0m")
-    elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
-      var sess = session
-      let cb =
-        proc () =
-          sess.insert(Global, HintText, "press ctrl c to exit")
-          sess.insert(Global, HintTime, times.epochTime() + hintSecs)
-      discard renderButton(session, ctx.tb, text, textX, termWindow.height - 1, input.key, cb)
+  nimwave.render(ctx, %* ["vbox", ["top-bar"], ["buffer"], ["bottom-bar"]])
 
   if globals.midiProgress != nil:
     if not globals.midiProgress[].messageDisplayed:
