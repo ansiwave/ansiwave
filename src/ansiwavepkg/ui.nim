@@ -11,6 +11,7 @@ from wavecorepkg/wavescript import nil
 from strutils import format
 from ./ui/editor import nil
 from ./ui/navbar import nil
+from ./ui/context import nil
 from ./user import nil
 from ./storage import nil
 from wavecorepkg/paths import nil
@@ -885,14 +886,14 @@ proc toHash*(comp: Component, board: string): string =
       newSeq[(string, string)]()
   createHash(pairs)
 
-proc buttonView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+proc buttonView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
   let
     text = node["text"].str
     focused = if "focused" in node: node["focused"].bval else: false
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
   nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
 
-proc rectView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
   var
     y = 1
     remainingHeight = iw.height(ctx.tb).int
@@ -908,7 +909,7 @@ proc rectView(ctx: var nimwave.Context, id: string, node: JsonNode, children: se
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y)
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1)
 
-proc addComponents*(ctx: var nimwave.Context) =
+proc addComponents*(ctx: var context.Context) =
   ctx.components["button"] = buttonView
   ctx.components["rect"] = rectView
 

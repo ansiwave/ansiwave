@@ -2,6 +2,7 @@ from illwave as iw import `[]`, `[]=`, `==`
 import unicode, json, tables
 from nimwave import nil
 from strutils import nil
+from ./context import nil
 
 const height* = 3
 
@@ -10,7 +11,7 @@ type
     cb: proc ()
     focused: bool
 
-proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())], focusIndex: var int) =
+proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())], focusIndex: var int) =
   iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb))
 
   var lineY = 0
@@ -50,7 +51,7 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
     buttonFocus -= 1
     rightButtonsWidth += text.runeLen + 2
 
-  proc navButton(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc navButton(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
     let
       text = node["text"].str
       focused = buttons[text].focused
@@ -76,7 +77,7 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
   let
     spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
     spacer = strutils.repeat(' ', spacerWidth)
-  proc spacerView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc spacerView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
     ctx = nimwave.slice(ctx, 0, 0, spacer.runeLen, iw.height(ctx.tb))
   ctx.components["spacer"] = spacerView
 

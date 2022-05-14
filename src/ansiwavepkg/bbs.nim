@@ -7,6 +7,7 @@ from ./ui import Component
 from ./ui/editor import nil
 from ./ui/simpleeditor import nil
 from ./ui/navbar import nil
+from ./ui/context import nil
 from ./constants import nil
 import pararules
 from pararules/engine import Session, Vars
@@ -489,7 +490,7 @@ proc getEditorLines*(session: BbsSession): seq[ref string] =
   except Exception as ex:
     discard
 
-proc renderNavbar(ctx: var nimwave.Context, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
+proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
   var sess = session
   let
     backAction = proc () {.closure.} =
@@ -827,11 +828,11 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       else:
         (iw.Key.None, 0'u32)
 
-    var ctx = nimwave.initContext(result)
+    var ctx = context.initContext(result)
     ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:
-      proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       ctx.components["navbar"] = navbarView
     else:
@@ -884,12 +885,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
         navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
       ctx.components["navbar"] = navbarView
 
-    proc editorView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc editorView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
@@ -899,18 +900,18 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     editor.saveToStorage(page.data.session, page.sig)
   else:
     result = iw.initTerminalBuffer(width, height)
-    var ctx = nimwave.initContext(result)
+    var ctx = context.initContext(result)
     ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
 
     ui.addComponents(ctx)
 
-    proc contentView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc contentView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       let grow = if defined(emscripten): (false, true, true, false) else: (false, false, false, false)
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
       nimwave.render(ctx, %* {"type": "vbox", "children": view})
     ctx.components["content"] = contentView
 
-    proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView

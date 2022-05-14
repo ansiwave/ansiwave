@@ -25,6 +25,7 @@ from terminal import nil
 from nimwave import nil
 from nimwave/tui import nil
 from nimwave/tui/termtools/runewidth import nil
+from ./context import nil
 
 type
   Id* = enum
@@ -1303,7 +1304,7 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
     result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
-proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
+proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
   let
     width = iw.width(ctx.tb)
     height = iw.height(ctx.tb)
@@ -1325,7 +1326,7 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
 
   # render top bar
   if globals.midiProgress == nil:
-    proc topBarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc topBarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
       case bufferId:
       of Editor:
@@ -1388,7 +1389,7 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
             iw.setDoubleBuffering(false)
             var
               tb = iw.initTerminalBuffer(width, height)
-              ctx = nimwave.initContext(tb)
+              ctx = context.initContext(tb)
             tick(sess, ctx, (iw.Key.None, 0'u32), focused)
             iw.display(ctx.tb)
             iw.setDoubleBuffering(true)
@@ -1397,7 +1398,7 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
         discard
     ctx.components["top-bar"] = topBarView
   else:
-    proc midiProgressView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc midiProgressView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
       if not globals.midiProgress[].messageDisplayed:
         globals.midiProgress.messageDisplayed = true
@@ -1439,7 +1440,7 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
         sess.insert(selectedBuffer.id, Prompt, StopPlaying)
     ctx.components["top-bar"] = midiProgressView
 
-  proc bufferView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc bufferView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
     let
       parentHeight =
         if ctx.parent == nil:
@@ -1453,7 +1454,7 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
   ctx.components["buffer"] = bufferView
 
   # render bottom bar
-  proc bottomBarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc bottomBarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
     ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 1)
     var x = 0
     if selectedBuffer.prompt != StopPlaying:
