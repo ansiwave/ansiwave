@@ -22,6 +22,7 @@ from urlly import `$`
 from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
 from wavecorepkg/wavescript import CommandTree
+from nimwave import nil
 
 const version = "1.6.0"
 
@@ -239,9 +240,11 @@ proc main*() =
         var key = iw.getKey()
         let t = times.cpuTime()
         if key != iw.Key.None or t - secs >= displaySecs:
-          var tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
+          var
+            tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
+            ctx = nimwave.initContext(tb)
           while true:
-            editor.tick(session, tb, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32), true)
+            editor.tick(session, ctx, (key, 0'u32), true)
             session.fireRules
             if key == iw.Key.None:
               break
