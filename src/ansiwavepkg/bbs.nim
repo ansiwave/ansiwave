@@ -898,11 +898,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    result = iw.initTerminalBuffer(width, height, grow = defined(emscripten))
+    result = iw.initTerminalBuffer(width, height)
     var ctx = nimwave.initContext(result)
     ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
 
     proc contentView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      let grow = if defined(emscripten): (false, true, true, false) else: (false, false, false, false)
+      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
       ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
     ctx.components["content"] = contentView
 
