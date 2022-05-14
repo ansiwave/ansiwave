@@ -345,7 +345,7 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       refresh(session, clnt, page)
   of "edit":
     if focusIndex == 0:
-      if input.key == iw.Key.Up and editor.getEditor(page.data.session).wrappedCursorY == 0:
+      if input.key == iw.Key.Up and editor.getSelectedBuffer(page.data.session).wrappedCursorY == 0:
         focusIndex -= 1
       else:
         result = input.key notin {iw.Key.Escape}

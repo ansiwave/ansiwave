@@ -695,6 +695,10 @@ proc getEditor*(session: EditorSession): Buffer =
   let globals = session.query(rules.getGlobals)
   return globals.buffers[Editor.ord]
 
+proc getSelectedBuffer*(session: EditorSession): Buffer =
+  let globals = session.query(rules.getGlobals)
+  return globals.buffers[globals.selectedBuffer]
+
 proc isEmpty*(session: EditorSession): bool =
   let buffer = getEditor(session)
   buffer.lines[].len == 1 and post.joinLines(buffer.lines).stripCodes == ""
