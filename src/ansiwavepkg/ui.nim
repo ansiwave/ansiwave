@@ -891,7 +891,7 @@ proc buttonView(ctx: var context.Context, id: string, node: JsonNode, children: 
     text = node["text"].str
     focused = if "focused" in node: node["focused"].bval else: false
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
-  nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
+  nimwave.render(ctx, %* {"type": "hbox", "border": if focused: "double" else: "single", "children": [text]})
 
 proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
   var
@@ -900,7 +900,7 @@ proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: se
     remainingChildren = children.len
   for child in children:
     let initialHeight = int(remainingHeight / remainingChildren)
-    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2), (false, false, true, false))
+    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2))
     nimwave.render(childContext, child)
     let actualHeight = iw.height(childContext.tb)
     y += actualHeight

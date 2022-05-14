@@ -36,7 +36,7 @@ type
     Board, Client, Hash,
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
-    View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
+    View, ViewCommands, ViewFocusAreas, MidiProgress,
     HasDrafts, HasSent,
   ViewFocusAreaSeq = seq[context.ViewFocusArea]
   Page = tuple
@@ -47,7 +47,6 @@ type
     scrollY: int
     view: JsonNode
     viewCommands: CommandTreesRef
-    viewHeight: int
     viewFocusAreas: ViewFocusAreaSeq
     midiProgress: MidiProgressType
   PageTable = ref Table[string, Page]
@@ -75,7 +74,6 @@ schema Fact(Id, Attr):
   ScrollY: int
   View: JsonNode
   ViewCommands: CommandTreesRef
-  ViewHeight: int
   ViewFocusAreas: ViewFocusAreaSeq
   MidiProgress: MidiProgressType
 
@@ -159,7 +157,6 @@ let (initSession, rules) =
         (id, ScrollY, scrollY)
         (id, View, view)
         (id, ViewCommands, viewCommands)
-        (id, ViewHeight, viewHeight)
         (id, ViewFocusAreas, viewFocusAreas)
         (id, MidiProgress, midiProgress)
       thenFinally:
@@ -210,7 +207,6 @@ proc insertPage(session: var BbsSession, comp: ui.Component, sig: string) =
   session.insert(id, ScrollY, 0)
   session.insert(id, View, cast[JsonNode](nil))
   session.insert(id, ViewCommands, cast[CommandTreesRef](nil))
-  session.insert(id, ViewHeight, 0)
   session.insert(id, ViewFocusAreas, @[])
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
   session.goToPage(sig)
@@ -798,10 +794,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
             scrollY = limit
           if iw.y(page.viewFocusAreas[focusIndex].tb) > scrollY + contentHeight:
             focusIndex -= 1
-        # if we're at the bottom of the last focus area, make sure scrollY is at the max
-        # since there could be non-focusable text that is still not visible
-        elif focusIndex + 1 == page.viewFocusAreas.len and scrollY + height < page.viewHeight:
-          scrollY = page.viewHeight - height
       else:
         discard
     if focusIndex > 0 and focusIndex > page.viewFocusAreas.len - 1:
@@ -812,7 +804,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   ctx.data.focusIndex = focusIndex
 
   # render
-  var y = - scrollY
   if page.isEditor:
     let filteredInput =
       if page.focusIndex == 0:
@@ -894,7 +885,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
-    nimwave.render(ctx, %* [{"type": "vbox", "children": [{"type": "navbar"}, {"type": "editor"}]}])
+    nimwave.render(ctx, %* {"type": "vbox", "children": [{"type": "navbar"}, {"type": "editor"}]})
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
@@ -904,7 +895,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ui.addComponents(ctx)
 
     proc contentView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
-      let grow = if defined(emscripten): (false, true, true, false) else: (false, false, false, false)
+      let grow = if defined(emscripten): (false, false, true, false) else: (false, false, false, false)
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
       nimwave.render(ctx, %* {"type": "vbox", "children": view})
     ctx.components["content"] = contentView
@@ -914,16 +905,15 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView
 
-    nimwave.render(ctx, %* [{"type": "vbox", "children": [{"type": "navbar"}, {"type": "content"}]}])
+    nimwave.render(ctx, %* {"type": "vbox", "children": [{"type": "navbar"}, {"type": "content"}]})
 
   # update values if necessary
   if focusIndex != page.focusIndex:
     session.insert(page.id, FocusIndex, focusIndex)
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
-  if page.viewFocusAreas != ctx.data.focusAreas[] or page.viewHeight != scrollY + y:
+  if page.viewFocusAreas != ctx.data.focusAreas[]:
     session.insert(page.id, ViewFocusAreas, ctx.data.focusAreas[])
-    session.insert(page.id, ViewHeight, scrollY + y)
 
   finished = finishedLoading
 
