@@ -893,7 +893,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
-    nimwave.render(ctx, %* [{"type": "vbox"}, {"type": "navbar"}, {"type": "editor"}])
+    nimwave.render(ctx, %* [{"type": "vbox", "children": [{"type": "navbar"}, {"type": "editor"}]}])
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
@@ -907,7 +907,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     proc contentView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       let grow = if defined(emscripten): (false, true, true, false) else: (false, false, false, false)
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
-      nimwave.render(ctx, view)
+      nimwave.render(ctx, %* {"type": "vbox", "children": view})
     ctx.components["content"] = contentView
 
     proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
@@ -915,7 +915,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView
 
-    nimwave.render(ctx, %* [{"type": "vbox"}, {"type": "navbar"}, {"type": "content"}])
+    nimwave.render(ctx, %* [{"type": "vbox", "children": [{"type": "navbar"}, {"type": "content"}]}])
 
   # update values if necessary
   if focusIndex != page.focusIndex:

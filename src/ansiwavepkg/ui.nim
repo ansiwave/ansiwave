@@ -523,7 +523,6 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       (comp.sig == comp.board or comp.user.ready)
     var parsed: post.Parsed
     %*[
-      {"type": "vbox"},
       if comp.sig != comp.board:
         client.get(comp.user)
         if not comp.user.ready or
@@ -894,11 +893,20 @@ proc buttonView(ctx: var nimwave.Context, id: string, node: JsonNode, children: 
   nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
 
 proc rectView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
-  let
-    text = "this is a rect"
-    focused = if "focused" in node: node["focused"].bval else: false
-  ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
-  nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
+  var
+    y = 1
+    remainingHeight = iw.height(ctx.tb).int
+    remainingChildren = children.len
+  for child in children:
+    let initialHeight = int(remainingHeight / remainingChildren)
+    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2))
+    nimwave.render(childContext, child)
+    let actualHeight = iw.height(childContext.tb)
+    y += actualHeight
+    remainingHeight -= actualHeight
+    remainingChildren -= 1
+  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y)
+  iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1)
 
 proc addComponents*(ctx: var nimwave.Context) =
   ctx.components["button"] = buttonView
