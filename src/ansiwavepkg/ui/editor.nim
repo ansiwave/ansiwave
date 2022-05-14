@@ -1496,5 +1496,5 @@ proc tick*(session: var EditorSession, ctx: var nimwave.Context, rawInput: tuple
         discard renderButton(sess, ctx.tb, text, textX, 0, input.key, cb)
   ctx.components["bottom-bar"] = bottomBarView
 
-  nimwave.render(ctx, %* ["vbox", ["top-bar"], ["buffer"], ["bottom-bar"]])
+  nimwave.render(ctx, %* [{"type": "vbox"}, {"type": "top-bar"}, {"type": "buffer"}, {"type": "bottom-bar"}])
 

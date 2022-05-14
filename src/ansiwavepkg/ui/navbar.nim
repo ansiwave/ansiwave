@@ -61,19 +61,19 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
         buttons[text].cb()
     elif input.key == iw.Key.Enter and focused:
       buttons[text].cb()
-    nimwave.render(ctx, %* ["hbox", {"border": if focused: "double" else: "single"}, text])
+    nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
 
-  var leftBox = %* ["hbox"]
+  var leftBox = %* [{"type": "hbox"}]
   for (text, _) in leftButtons:
-    leftBox.add(%* ["nav-button", {"text": text}])
-  var rightBox = %* ["hbox"]
+    leftBox.add(%* {"type": "nav-button", "text": text})
+  var rightBox = %* [{"type": "hbox"}]
   for (text, _) in rightButtons:
-    rightBox.add(%* ["nav-button", {"text": text}])
+    rightBox.add(%* {"type": "nav-button", "text": text})
 
   let
     spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
     spacer = strutils.repeat(' ', spacerWidth)
 
   ctx.components["nav-button"] = navButton
-  nimwave.render(ctx, %* ["hbox", leftBox, spacer, rightBox])
+  nimwave.render(ctx, %* [{"type": "hbox"}, leftBox, spacer, rightBox])
 

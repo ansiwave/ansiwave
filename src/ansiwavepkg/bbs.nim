@@ -893,7 +893,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
-    nimwave.render(ctx, %* ["vbox", ["navbar"], ["editor"]])
+    nimwave.render(ctx, %* [{"type": "vbox"}, {"type": "navbar"}, {"type": "editor"}])
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
@@ -913,7 +913,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView
 
-    nimwave.render(ctx, %* ["vbox", ["navbar"], ["content"]])
+    nimwave.render(ctx, %* [{"type": "vbox"}, {"type": "navbar"}, {"type": "content"}])
 
   # update values if necessary
   if focusIndex != page.focusIndex:
