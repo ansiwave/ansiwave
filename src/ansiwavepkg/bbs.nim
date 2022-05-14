@@ -38,7 +38,7 @@ type
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewHeight, ViewFocusAreas, MidiProgress,
     HasDrafts, HasSent,
-  ViewFocusAreaSeq = seq[ui.ViewFocusArea]
+  ViewFocusAreaSeq = seq[context.ViewFocusArea]
   Page = tuple
     id: int
     sig: string
@@ -696,11 +696,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         for i in 0 ..< page.viewFocusAreas.len:
           let area = page.viewFocusAreas[i]
-          if info.x >= area.left and
-              info.x <= area.right and
-              info.y + scrollY - navbar.height >= area.top and
-              info.y + scrollY - navbar.height <= area.bottom - 1 and
-              info.y >= navbar.height:
+          if iw.contains(area.tb, info):
             action = (area.action, area.actionData)
             focusIndex = i
             ui.showPasteText = false
@@ -779,25 +775,28 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       # only scroll maxScroll rows and update the focusIndex.
       case key:
       of iw.Key.Up:
-        if page.viewFocusAreas[focusIndex].top < page.scrollY:
-          scrollY = page.viewFocusAreas[focusIndex].top
+        if iw.y(page.viewFocusAreas[focusIndex].tb) < page.scrollY:
+          scrollY = iw.y(page.viewFocusAreas[focusIndex].tb)
           let limit = page.scrollY - maxScroll
           if scrollY < limit:
             scrollY = limit
-          if page.viewFocusAreas[focusIndex].bottom < scrollY:
+          let bottom = iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)
+          if bottom < scrollY:
             focusIndex += 1
         # if we're at the top of the first focus area, make sure scrollY is 0
         # since there could be non-focusable text that is still not visible
         elif focusIndex == 0 and scrollY > 0:
           scrollY = 0
       of iw.Key.Down:
-        let contentHeight = height - navbar.height
-        if page.viewFocusAreas[focusIndex].bottom > page.scrollY + contentHeight:
-          scrollY = page.viewFocusAreas[focusIndex].bottom - contentHeight
+        let
+          contentHeight = height - navbar.height
+          bottom = iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)
+        if bottom > page.scrollY + contentHeight:
+          scrollY = bottom - contentHeight
           let limit = page.scrollY + maxScroll
           if scrollY > limit:
             scrollY = limit
-          if page.viewFocusAreas[focusIndex].top > scrollY + contentHeight:
+          if iw.y(page.viewFocusAreas[focusIndex].tb) > scrollY + contentHeight:
             focusIndex -= 1
         # if we're at the bottom of the last focus area, make sure scrollY is at the max
         # since there could be non-focusable text that is still not visible
@@ -808,13 +807,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     if focusIndex > 0 and focusIndex > page.viewFocusAreas.len - 1:
       focusIndex = page.viewFocusAreas.len - 1
 
-  # render
-  var
-    y = - scrollY
-    areas: seq[ui.ViewFocusArea]
-  if page.isEditor:
-    result = iw.initTerminalBuffer(width, height)
+  result = iw.initTerminalBuffer(width, height)
+  var ctx = context.initContext(result)
+  ctx.data.focusIndex = focusIndex
 
+  # render
+  var y = - scrollY
+  if page.isEditor:
     let filteredInput =
       if page.focusIndex == 0:
         input
@@ -829,6 +828,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         (iw.Key.None, 0'u32)
 
     var ctx = context.initContext(result)
+    ctx.data.focusIndex = focusIndex
     ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:
@@ -899,8 +899,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    result = iw.initTerminalBuffer(width, height)
-    var ctx = context.initContext(result)
     ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
 
     ui.addComponents(ctx)
@@ -923,8 +921,8 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     session.insert(page.id, FocusIndex, focusIndex)
   if scrollY != page.scrollY:
     session.insert(page.id, ScrollY, scrollY)
-  if page.viewFocusAreas != areas or page.viewHeight != scrollY + y:
-    session.insert(page.id, ViewFocusAreas, areas)
+  if page.viewFocusAreas != ctx.data.focusAreas[] or page.viewHeight != scrollY + y:
+    session.insert(page.id, ViewFocusAreas, ctx.data.focusAreas[])
     session.insert(page.id, ViewHeight, scrollY + y)
 
   finished = finishedLoading

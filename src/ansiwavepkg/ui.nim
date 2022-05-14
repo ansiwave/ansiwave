@@ -907,7 +907,18 @@ proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: se
     remainingHeight -= actualHeight
     remainingChildren -= 1
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y)
-  iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1)
+  let currIndex = ctx.data.focusAreas[].len
+  var area: context.ViewFocusArea
+  area.tb = ctx.tb
+  if node.hasKey("action"):
+    area.action = node["action"].str
+    area.actionData = node["action-data"].fields
+  if node.hasKey("copyable-text"):
+    for line in node["copyable-text"]:
+      area.copyableText.add(line.str)
+  ctx.data.focusAreas[].add(area)
+  let focused = currIndex == ctx.data.focusIndex
+  iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
 
 proc addComponents*(ctx: var context.Context) =
   ctx.components["button"] = buttonView
