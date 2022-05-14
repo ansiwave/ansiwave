@@ -899,7 +899,7 @@ proc rectView(ctx: var nimwave.Context, id: string, node: JsonNode, children: se
     remainingChildren = children.len
   for child in children:
     let initialHeight = int(remainingHeight / remainingChildren)
-    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2))
+    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2), (false, false, true, false))
     nimwave.render(childContext, child)
     let actualHeight = iw.height(childContext.tb)
     y += actualHeight
