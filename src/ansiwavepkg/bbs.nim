@@ -831,7 +831,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:
-      proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       ctx.components["navbar"] = navbarView
     else:
@@ -884,12 +884,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
         navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
       ctx.components["navbar"] = navbarView
 
-    proc editorView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    proc editorView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
@@ -902,13 +902,15 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     var ctx = nimwave.initContext(result)
     ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
 
-    proc contentView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    ui.addComponents(ctx)
+
+    proc contentView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       let grow = if defined(emscripten): (false, true, true, false) else: (false, false, false, false)
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
-      ui.render(ctx.tb, view, 0, y, y, focusIndex, areas)
+      nimwave.render(ctx, view)
     ctx.components["content"] = contentView
 
-    proc navbarView(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+    proc navbarView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView

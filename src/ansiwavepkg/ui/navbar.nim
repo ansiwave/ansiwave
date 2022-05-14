@@ -50,9 +50,9 @@ proc render*(ctx: var nimwave.Context, input: tuple[key: iw.Key, codepoint: uint
     buttonFocus -= 1
     rightButtonsWidth += text.runeLen + 2
 
-  proc navButton(ctx: var nimwave.Context, id: string, opts: JsonNode, children: seq[JsonNode]) =
+  proc navButton(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
     let
-      text = opts["text"].str
+      text = node["text"].str
       focused = buttons[text].focused
     ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, iw.height(ctx.tb))
     if input.key == iw.Key.Mouse:

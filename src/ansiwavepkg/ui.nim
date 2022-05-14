@@ -20,6 +20,7 @@ from algorithm import nil
 from chrono import nil
 from urlly import nil
 from terminal import nil
+from nimwave import nil
 from nimwave/tui import nil
 
 type
@@ -522,6 +523,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       (comp.sig == comp.board or comp.user.ready)
     var parsed: post.Parsed
     %*[
+      {"type": "vbox"},
       if comp.sig != comp.board:
         client.get(comp.user)
         if not comp.user.ready or
@@ -549,7 +551,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
             elif comp.limbo and comp.sig == user.pubKey:
-              % "You're in \"limbo\"...a mod will add you to the board shortly."
+              % "you're in \"limbo\"...a mod will add you to the board shortly."
             else:
               % (" " & header(comp.user.value.valid))
       else:
@@ -883,6 +885,24 @@ proc toHash*(comp: Component, board: string): string =
     of Editor, Login, Logout, Message:
       newSeq[(string, string)]()
   createHash(pairs)
+
+proc buttonView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  let
+    text = node["text"].str
+    focused = if "focused" in node: node["focused"].bval else: false
+  ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
+  nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
+
+proc rectView(ctx: var nimwave.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  let
+    text = "this is a rect"
+    focused = if "focused" in node: node["focused"].bval else: false
+  ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
+  nimwave.render(ctx, %* [{"type": "hbox", "border": if focused: "double" else: "single"}, text])
+
+proc addComponents*(ctx: var nimwave.Context) =
+  ctx.components["button"] = buttonView
+  ctx.components["rect"] = rectView
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
