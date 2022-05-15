@@ -889,7 +889,7 @@ proc toHash*(comp: Component, board: string): string =
 proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   let text = node["text"].str
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
-  nimwave.render(ctx, %* {"type": "hbox", "border": node["border"].str, "children": [text]})
+  nimwave.render(ctx, %* {"type": "hbox", "border": (if "border" in node: node["border"].str else: "single"), "children": [text]})
 
 proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   var
