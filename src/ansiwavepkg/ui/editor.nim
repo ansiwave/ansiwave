@@ -1326,7 +1326,7 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
 
   # render top bar
   if globals.midiProgress == nil:
-    proc topBarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc topBarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
       case bufferId:
       of Editor:
@@ -1398,7 +1398,7 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
         discard
     ctx.components["top-bar"] = topBarView
   else:
-    proc midiProgressView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc midiProgressView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
       if not globals.midiProgress[].messageDisplayed:
         globals.midiProgress.messageDisplayed = true
@@ -1440,7 +1440,7 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
         sess.insert(selectedBuffer.id, Prompt, StopPlaying)
     ctx.components["top-bar"] = midiProgressView
 
-  proc bufferView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc bufferView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
     let
       parentHeight =
         if ctx.parent == nil:
@@ -1454,7 +1454,7 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
   ctx.components["buffer"] = bufferView
 
   # render bottom bar
-  proc bottomBarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+  proc bottomBarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
     ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 1)
     var x = 0
     if selectedBuffer.prompt != StopPlaying:

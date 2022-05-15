@@ -819,7 +819,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:
-      proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       ctx.components["navbar"] = navbarView
     else:
@@ -872,12 +872,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
         rightButtons.add((" send ", sendAction))
       var leftButtons: seq[(string, proc ())]
       leftButtons.add((" ← ", backAction))
-      proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+      proc navbarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
         ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
         navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
       ctx.components["navbar"] = navbarView
 
-    proc editorView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc editorView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
@@ -890,12 +890,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
 
     ui.addComponents(ctx)
 
-    proc contentView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc contentView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
       nimwave.render(ctx, %* {"type": "vbox", "children": view})
     ctx.components["content"] = contentView
 
-    proc navbarView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+    proc navbarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView

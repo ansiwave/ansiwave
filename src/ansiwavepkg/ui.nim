@@ -886,14 +886,14 @@ proc toHash*(comp: Component, board: string): string =
       newSeq[(string, string)]()
   createHash(pairs)
 
-proc buttonView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   let
     text = node["text"].str
     focused = if "focused" in node: node["focused"].bval else: false
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
   nimwave.render(ctx, %* {"type": "hbox", "border": if focused: "double" else: "single", "children": [text]})
 
-proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
+proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   var
     y = 1
     remainingHeight = iw.height(ctx.tb).int
