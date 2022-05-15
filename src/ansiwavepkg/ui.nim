@@ -887,11 +887,9 @@ proc toHash*(comp: Component, board: string): string =
   createHash(pairs)
 
 proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
-  let
-    text = node["text"].str
-    focused = if "focused" in node: node["focused"].bval else: false
+  let text = node["text"].str
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
-  nimwave.render(ctx, %* {"type": "hbox", "border": if focused: "double" else: "single", "children": [text]})
+  nimwave.render(ctx, %* {"type": "hbox", "border": node["border"].str, "children": [text]})
 
 proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   var
@@ -920,9 +918,35 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
   let focused = currIndex == ctx.data.focusIndex
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
 
+proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+  let currIndex = ctx.data.focusAreas[].len
+  var area: context.ViewFocusArea
+  area.tb = ctx.tb
+  if node.hasKey("action"):
+    area.action = node["action"].str
+    area.actionData = node["action-data"].fields
+  ctx.data.focusAreas[].add(area)
+  let focused = currIndex == ctx.data.focusIndex
+  var
+    tabs = newJArray()
+    tabIndex = 0
+  for tab in node["text"]:
+    let border =
+      if tabIndex == node["index"].num:
+        if focused:
+          "double"
+        else:
+          "single"
+      else:
+        "none"
+    tabs.add(%* {"type": "button", "text": tab.str, "border": border})
+    tabIndex += 1
+  nimwave.render(ctx, %* {"type": "hbox", "children": tabs})
+
 proc addComponents*(ctx: var context.Context) =
   ctx.components["button"] = buttonView
   ctx.components["rect"] = rectView
+  ctx.components["tabs"] = tabsView
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes
