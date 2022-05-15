@@ -904,7 +904,7 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
     y += actualHeight
     remainingHeight -= actualHeight
     remainingChildren -= 1
-  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y)
+  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
   let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
   area.tb = ctx.tb
