@@ -771,28 +771,24 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       # only scroll maxScroll rows and update the focusIndex.
       case key:
       of iw.Key.Up:
-        if iw.y(page.viewFocusAreas[focusIndex].tb) < page.scrollY:
-          scrollY = iw.y(page.viewFocusAreas[focusIndex].tb)
-          let limit = page.scrollY - maxScroll
-          if scrollY < limit:
+        let top = - iw.y(page.viewFocusAreas[focusIndex].tb) + navbar.height + scrollY
+        if scrollY < top:
+          scrollY = top
+          let limit = page.scrollY + maxScroll
+          if scrollY > limit:
             scrollY = limit
-          let bottom = iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)
-          if bottom < scrollY:
             focusIndex += 1
         # if we're at the top of the first focus area, make sure scrollY is 0
         # since there could be non-focusable text that is still not visible
         elif focusIndex == 0 and scrollY > 0:
           scrollY = 0
       of iw.Key.Down:
-        let
-          contentHeight = height - navbar.height
-          bottom = iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)
-        if bottom > page.scrollY + contentHeight:
-          scrollY = bottom - contentHeight
-          let limit = page.scrollY + maxScroll
-          if scrollY > limit:
+        let bottom = height - (iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)) + scrollY
+        if scrollY > bottom:
+          scrollY = bottom
+          let limit = page.scrollY - maxScroll
+          if scrollY < limit:
             scrollY = limit
-          if iw.y(page.viewFocusAreas[focusIndex].tb) > scrollY + contentHeight:
             focusIndex -= 1
       else:
         discard
@@ -895,8 +891,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ui.addComponents(ctx)
 
     proc contentView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
-      let grow = if defined(emscripten): (false, false, true, false) else: (false, false, false, false)
-      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb), grow)
+      ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
       nimwave.render(ctx, %* {"type": "vbox", "children": view})
     ctx.components["content"] = contentView
 
