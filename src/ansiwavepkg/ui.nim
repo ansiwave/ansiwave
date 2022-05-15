@@ -886,14 +886,14 @@ proc toHash*(comp: Component, board: string): string =
       newSeq[(string, string)]()
   createHash(pairs)
 
-proc buttonView(ctx: var context.Context, data: ref context.State, node: JsonNode, children: seq[JsonNode]) =
+proc buttonView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
   let
     text = node["text"].str
     focused = if "focused" in node: node["focused"].bval else: false
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
   nimwave.render(ctx, %* {"type": "hbox", "border": if focused: "double" else: "single", "children": [text]})
 
-proc rectView(ctx: var context.Context, data: ref context.State, node: JsonNode, children: seq[JsonNode]) =
+proc rectView(ctx: var context.Context, id: string, node: JsonNode, children: seq[JsonNode]) =
   var
     y = 1
     remainingHeight = iw.height(ctx.tb).int
@@ -907,7 +907,7 @@ proc rectView(ctx: var context.Context, data: ref context.State, node: JsonNode,
     remainingHeight -= actualHeight
     remainingChildren -= 1
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y)
-  let currIndex = ctx.globalData[].focusAreas.len
+  let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
   area.tb = ctx.tb
   if node.hasKey("action"):
@@ -916,8 +916,8 @@ proc rectView(ctx: var context.Context, data: ref context.State, node: JsonNode,
   if node.hasKey("copyable-text"):
     for line in node["copyable-text"]:
       area.copyableText.add(line.str)
-  ctx.globalData[].focusAreas.add(area)
-  let focused = currIndex == ctx.globalData[].focusIndex
+  ctx.data.focusAreas[].add(area)
+  let focused = currIndex == ctx.data.focusIndex
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
 
 proc addComponents*(ctx: var context.Context) =
