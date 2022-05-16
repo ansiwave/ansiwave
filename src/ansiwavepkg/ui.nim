@@ -243,6 +243,7 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
       %* {
         "type": "button",
         "text": "previous page",
+        "align": "right",
         "action": "change-page",
         "action-data": {"offset-change": -entities.limit},
       }
@@ -280,6 +281,7 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
       %* {
         "type": "button",
         "text": "next page",
+        "align": "right",
         "action": "change-page",
         "action-data": {"offset-change": entities.limit},
       }
@@ -365,6 +367,7 @@ proc toJson*(draft: Draft, board: string): JsonNode =
     {
       "type": "button",
       "text": if isNew: "see post that this is replying to" else: "see post that this is editing",
+      "align": "right",
       "action": "show-post",
       "action-data": {"type": "post", "sig": originalSig},
     },
@@ -390,6 +393,7 @@ proc toJson*(posts: seq[Recent], offset: int): JsonNode =
       %* {
         "type": "button",
         "text": "previous page",
+        "align": "right",
         "action": "change-page",
         "action-data": {"offset-change": -entities.limit},
       }
@@ -403,6 +407,7 @@ proc toJson*(posts: seq[Recent], offset: int): JsonNode =
       %* {
         "type": "button",
         "text": "next page",
+        "align": "right",
         "action": "change-page",
         "action-data": {"offset-change": entities.limit},
       }
@@ -467,6 +472,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 "edit post"
             ,
+            "align": "right",
             "action": "show-editor",
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
@@ -478,6 +484,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           %* {
             "type": "button",
             "text": "see user",
+            "align": "right",
             "action": "show-post",
             "action-data": {"type": "user", "sig": parsed.key},
             "accessible-text": "see user",
@@ -494,6 +501,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %* {
           "type": "button",
           "text": "write new post",
+          "align": "right",
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
@@ -585,6 +593,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           %* {
             "type": "button",
             "text": "edit banner",
+            "align": "right",
             "action": "show-editor",
             "action-data": {
               "sig": comp.sig & "." & parsed.sig & ".edit",
@@ -598,6 +607,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         %* {
           "type": "button",
           "text": "create banner",
+          "align": "right",
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & "." & comp.sig & ".edit",
@@ -616,6 +626,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
             else:
               "write new journal post"
           ,
+          "align": "right",
           "action": "show-editor",
           "action-data": {
             "sig": comp.sig & ".new",
@@ -712,6 +723,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           {
             "type": "button",
             "text": "save login key",
+            "align": "right",
             "action": "create-user",
             "action-data": {},
           },
@@ -723,6 +735,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           {
             "type": "button",
             "text": "create account",
+            "align": "right",
             "action": "create-user",
             "action-data": {},
           },
@@ -735,6 +748,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
           {
             "type": "button",
             "text": "add existing login key",
+            "align": "right",
             "action": "login",
             "action-data": {},
           },
@@ -761,6 +775,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         {
           "type": "button",
           "text": "cancel",
+          "align": "right",
           "action": "go-back",
           "action-data": {},
         },
@@ -768,6 +783,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         {
           "type": "button",
           "text": "continue logout",
+          "align": "right",
           "action": "logout",
           "action-data": {},
         },
@@ -915,8 +931,16 @@ proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode
         "double"
       else:
         "single"
-  let text = node["text"].str
-  ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
+  let
+    text = node["text"].str
+    buttonWidth = text.runeLen + 2
+    parentWidth = iw.width(ctx.tb)
+    x =
+      if "align" in node and node["align"].str == "right":
+        parentWidth - buttonWidth
+      else:
+        0
+  ctx = nimwave.slice(ctx, x, 0, buttonWidth, 3)
   nimwave.render(ctx, %* {"type": "hbox", "border": border, "children": [text]})
 
 var showPasteText*: bool
