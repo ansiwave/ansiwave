@@ -104,6 +104,7 @@ proc simpleEditorView*(ctx: var context.Context, node: JsonNode, children: seq[J
     setContent(session, node["initial-value"].str)
   return
     proc (ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
       let currIndex = ctx.data.focusAreas[].len
       var area: context.ViewFocusArea
       area.tb = ctx.tb
