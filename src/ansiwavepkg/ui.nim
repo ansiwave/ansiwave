@@ -820,7 +820,6 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "action": "change-search-type",
         "action-data": {},
       },
-      "", # spacer
       if comp.showResults:
         if not comp.searchResults.ready:
           %"searching"
@@ -1028,6 +1027,7 @@ proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
         "none"
     tabs.add(%* {"type": "button", "text": tab.str, "border": border})
     tabIndex += 1
+  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
   nimwave.render(ctx, %* {"type": "hbox", "children": tabs})
 
 proc addComponents*(ctx: var context.Context) =
