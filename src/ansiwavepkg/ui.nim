@@ -3,7 +3,7 @@ import ./constants
 import unicode
 from ansiutils/codes import stripCodes
 import json
-import tables, sets
+import tables
 from wavecorepkg/db/entities import nil
 from wavecorepkg/client import nil
 from wavecorepkg/common import nil
@@ -20,9 +20,7 @@ from ./ui/simpleeditor import nil
 from algorithm import nil
 from chrono import nil
 from urlly import nil
-from terminal import nil
 from nimwave import nil
-from nimwave/tui import nil
 
 type
   ComponentKind* = enum
@@ -1000,111 +998,4 @@ proc addComponents*(ctx: var context.Context) =
   ctx.components["tabs"] = tabsView
   ctx.components["cursor"] = simpleeditor.cursorView
   ctx.statefulComponents["simple-editor"] = simpleeditor.simpleEditorView
-
-proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
-  var runes = node.toRunes
-  codes.deleteAfter(runes, editorWidth - 1)
-  tui.writeMaybe(tb, x, y, $runes)
-  y += 1
-
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea])
-
-proc render*(tb: var iw.TerminalBuffer, node: OrderedTable[string, JsonNode], x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea]) =
-  let
-    isFocused = focusIndex == areas.len
-    yStart = y
-    nodeType = node["type"].str
-  var
-    xStart = x
-    xEnd = x + editorWidth + 1
-  case nodeType:
-  of "rect":
-    y += 1
-    for child in node["children"]:
-      render(tb, child, x + 1, y, yOffset, focusIndex, areas)
-    iw.drawRect(tb, xStart, yStart, xEnd, y, doubleStyle = isFocused)
-    if node.hasKey("children-after"):
-      for child in node["children-after"]:
-        var y = yStart + 1
-        render(tb, child, x + 1, y, yOffset, focusIndex, areas)
-    if node.hasKey("top-left") and node["top-left"].str != "":
-      let text = " " & node["top-left"].str & " "
-      iw.write(tb, x + 1, yStart, text)
-    if node.hasKey("top-right") and node["top-right"].str != "":
-      let text = " " & node["top-right"].str & " "
-      iw.write(tb, xEnd - text.runeLen, yStart, text)
-    if isFocused and node.hasKey("bottom-left-focused") and node["bottom-left-focused"].str != "":
-      let text = " " & node["bottom-left-focused"].str & " "
-      iw.write(tb, x + 1, y, text)
-    elif node.hasKey("bottom-left") and node["bottom-left"].str != "":
-      let text = " " & node["bottom-left"].str & " "
-      iw.write(tb, x + 1, y, text)
-    when not defined(emscripten):
-      if isFocused and node.hasKey("copyable-text"):
-        let bottomRightText =
-          if showPasteText:
-            " now you can paste in the editor with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v") & " "
-          else:
-            " copy with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c") & " "
-        iw.write(tb, xEnd - bottomRightText.runeLen, y, bottomRightText)
-    y += 1
-  of "button":
-    xStart = max(x, editorWidth - node["text"].str.len + 1)
-    y += 1
-    render(tb, node["text"].str, xStart, y)
-    iw.drawRect(tb, xStart - 1, yStart, xEnd, y, doubleStyle = isFocused)
-    y += 1
-  of "tabs":
-    xStart += 1
-    var
-      tabX = 0
-      tabIndex = 0
-    for tab in node["text"]:
-      tui.writeMaybe(tb, xStart + tabX, y+1, tab.str)
-      if tabIndex == node["index"].num:
-        iw.drawRect(tb, xStart + tabX - 1, yStart, xStart + tabX + tab.str.runeLen, y+2, doubleStyle = isFocused)
-      tabX += tab.str.runeLen + 2
-      tabIndex += 1
-    y += 3
-  of "cursor":
-    if isFocused:
-      let
-        col = int(x + node["x"].num)
-        row = int(y + node["y"].num)
-      var ch = tb[col, row]
-      ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
-      if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
-        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
-      elif $ch.ch == "█":
-        ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
-      tb[col, row] = ch
-      iw.setCursorPos(tb, col, row)
-  of "editor":
-    discard
-  const focusables = ["rect", "button", "tabs", "editor"].toHashSet
-  if nodeType in focusables:
-    var area: ViewFocusArea
-    area.top = yStart - yOffset
-    area.bottom = y - yOffset
-    area.left = xStart
-    area.right = xEnd
-    if node.hasKey("action"):
-      area.action = node["action"].str
-      area.actionData = node["action-data"].fields
-    if node.hasKey("copyable-text"):
-      for line in node["copyable-text"]:
-        area.copyableText.add(line.str)
-    areas.add(area)
-
-proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea]) =
-  case node.kind:
-  of JString:
-    render(tb, node.str, x, y)
-  of JObject:
-    render(tb, node.fields, x, y, yOffset, focusIndex, areas)
-  of JArray:
-    for item in node.elems:
-      render(tb, item, x, y, yOffset, focusIndex, areas)
-  else:
-    raise newException(Exception, "Unhandled JSON type")
 
