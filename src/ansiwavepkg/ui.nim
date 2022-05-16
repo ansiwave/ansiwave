@@ -907,6 +907,8 @@ proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
   nimwave.render(ctx, %* {"type": "hbox", "border": (if "border" in node: node["border"].str else: "single"), "children": [text]})
 
+var showPasteText*: bool
+
 proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   var
     y = 1
@@ -922,11 +924,6 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
     remainingChildren -= 1
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
 
-  if node.hasKey("children-after"):
-    for child in node["children-after"]:
-      var childContext = nimwave.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
-      nimwave.render(childContext, child)
-
   let focused =
     if "focused" in node:
       node["focused"].bval
@@ -937,12 +934,40 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
       if node.hasKey("action"):
         area.action = node["action"].str
         area.actionData = node["action-data"].fields
-      if node.hasKey("copyable-text"):
+      if "copyable-text" in node:
         for line in node["copyable-text"]:
           area.copyableText.add(line.str)
       ctx.data.focusAreas[].add(area)
       currIndex == ctx.data.focusIndex
+
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
+
+  if "children-after" in node:
+    for child in node["children-after"]:
+      var childContext = nimwave.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
+      nimwave.render(childContext, child)
+
+  if "top-left" in node and node["top-left"].str != "":
+    let text = " " & node["top-left"].str & " "
+    iw.write(ctx.tb, iw.width(ctx.tb)-1, 0, text)
+  if "top-right" in node and node["top-right"].str != "":
+    let text = " " & node["top-right"].str & " "
+    iw.write(ctx.tb, iw.width(ctx.tb) - 1 - text.runeLen, 0, text)
+  if focused and "bottom-left-focused" in node and node["bottom-left-focused"].str != "":
+    let text = " " & node["bottom-left-focused"].str & " "
+    iw.write(ctx.tb, 1, iw.height(ctx.tb)-1, text)
+  elif "bottom-left" in node and node["bottom-left"].str != "":
+    let text = " " & node["bottom-left"].str & " "
+    iw.write(ctx.tb, 1, iw.height(ctx.tb)-1, text)
+
+  when not defined(emscripten):
+    if focused and "copyable-text" in node:
+      let bottomRightText =
+        if showPasteText:
+          " now you can paste in the editor with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v") & " "
+        else:
+          " copy with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c") & " "
+      iw.write(ctx.tb, iw.width(ctx.tb) - 1 - bottomRightText.runeLen, iw.height(ctx.tb)-1, bottomRightText)
 
 proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
   let currIndex = ctx.data.focusAreas[].len
@@ -981,8 +1006,6 @@ proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   codes.deleteAfter(runes, editorWidth - 1)
   tui.writeMaybe(tb, x, y, $runes)
   y += 1
-
-var showPasteText*: bool
 
 proc render*(tb: var iw.TerminalBuffer, node: JsonNode, x: int, y: var int, yOffset: int, focusIndex: int, areas: var seq[ViewFocusArea])
 

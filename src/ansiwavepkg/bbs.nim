@@ -5,7 +5,6 @@ from wavecorepkg/client import nil
 from os import nil
 from ./ui import Component
 from ./ui/editor import nil
-from ./ui/simpleeditor import nil
 from ./ui/navbar import nil
 from ./ui/context import nil
 from ./constants import nil
