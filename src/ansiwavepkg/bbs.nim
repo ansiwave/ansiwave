@@ -17,7 +17,7 @@ from ./storage import nil
 from wavecorepkg/paths import nil
 from wavecorepkg/common import nil
 from wavecorepkg/wavescript import nil
-from ./post import CommandTreesRef
+from ./post import nil
 from times import nil
 from ./midi import nil
 from ./sound import nil
@@ -37,8 +37,9 @@ type
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
     Signature, ComponentData, FocusIndex, ScrollY,
     View, ViewCommands, ViewFocusAreas, MidiProgress,
-    HasDrafts, HasSent,
+    HasDrafts, HasSent, UiContext,
   ViewFocusAreaSeq = seq[context.ViewFocusArea]
+  ContextRef = ref context.Context
   Page = tuple
     id: int
     sig: string
@@ -46,9 +47,10 @@ type
     focusIndex: int
     scrollY: int
     view: JsonNode
-    viewCommands: CommandTreesRef
+    viewCommands: post.CommandTreesRef
     viewFocusAreas: ViewFocusAreaSeq
     midiProgress: MidiProgressType
+    context: ContextRef
   PageTable = ref Table[string, Page]
   StringSeq = seq[string]
   MidiProgressType = ref object
@@ -73,9 +75,10 @@ schema Fact(Id, Attr):
   FocusIndex: int
   ScrollY: int
   View: JsonNode
-  ViewCommands: CommandTreesRef
+  ViewCommands: post.CommandTreesRef
   ViewFocusAreas: ViewFocusAreaSeq
   MidiProgress: MidiProgressType
+  UiContext: ContextRef
 
 proc routeHash(session: var auto, clnt: client.Client, hash: string)
 
@@ -159,6 +162,7 @@ let (initSession, rules) =
         (id, ViewCommands, viewCommands)
         (id, ViewFocusAreas, viewFocusAreas)
         (id, MidiProgress, midiProgress)
+        (id, UiContext, context)
       thenFinally:
         var t: PageTable
         new t
@@ -206,9 +210,10 @@ proc insertPage(session: var BbsSession, comp: ui.Component, sig: string) =
   session.insert(id, FocusIndex, 0)
   session.insert(id, ScrollY, 0)
   session.insert(id, View, cast[JsonNode](nil))
-  session.insert(id, ViewCommands, cast[CommandTreesRef](nil))
+  session.insert(id, ViewCommands, cast[post.CommandTreesRef](nil))
   session.insert(id, ViewFocusAreas, @[])
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
+  session.insert(id, UiContext, cast[ContextRef](nil))
   session.goToPage(sig)
 
 proc routeHash(session: var BbsSession, clnt: client.Client, hash: Table[string, string]) =
@@ -664,7 +669,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   if page.viewCommands == nil:
     let content = ui.getContent(page.data)
     if content != "":
-      var cmds: CommandTreesRef
+      var cmds: post.CommandTreesRef
       new cmds
       for tree in post.linesToTrees(strutils.splitLines(content)):
         case tree.kind:
@@ -798,6 +803,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   result = iw.initTerminalBuffer(width, height)
   var ctx = context.initContext(result)
   ctx.data.focusIndex = focusIndex
+  ctx.data.input = input
 
   # render
   if page.isEditor:
@@ -814,8 +820,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       else:
         (iw.Key.None, 0'u32)
 
-    var ctx = context.initContext(result)
-    ctx.data.focusIndex = focusIndex
     ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
     if isPlaying:

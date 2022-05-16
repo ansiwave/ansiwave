@@ -783,7 +783,12 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     if comp.showResults:
       client.get(comp.searchResults)
     %* [
-      simpleeditor.toJson(comp.searchField, "press enter to search", "search"),
+      {
+        "type": "simple-editor",
+        "id": "search-field",
+        "prompt": "press enter to search",
+        "action": "search",
+      },
       {
         "type": "tabs",
         "text": ["posts", "users", "tags"],
@@ -905,6 +910,12 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
     remainingHeight -= actualHeight
     remainingChildren -= 1
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
+
+  if node.hasKey("children-after"):
+    for child in node["children-after"]:
+      var childContext = nimwave.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
+      nimwave.render(childContext, child)
+
   let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
   area.tb = ctx.tb
@@ -947,6 +958,8 @@ proc addComponents*(ctx: var context.Context) =
   ctx.components["button"] = buttonView
   ctx.components["rect"] = rectView
   ctx.components["tabs"] = tabsView
+  ctx.components["cursor"] = simpleeditor.cursorView
+  ctx.statefulComponents["simple-editor"] = simpleeditor.simpleEditorView
 
 proc render*(tb: var iw.TerminalBuffer, node: string, x: int, y: var int) =
   var runes = node.toRunes

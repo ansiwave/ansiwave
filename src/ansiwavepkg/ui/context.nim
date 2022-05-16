@@ -7,7 +7,9 @@ type
   State* = object
     focusIndex*: int
     focusAreas*: ref seq[ViewFocusArea]
+    input*: tuple[key: iw.Key, codepoint: uint32]
   Context* = nimwave.Context[State]
+  RenderProc* = nimwave.RenderProc[State]
 
 proc initContext*(tb: iw.TerminalBuffer): Context =
   result = nimwave.initContext[State](tb)

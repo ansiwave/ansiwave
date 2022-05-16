@@ -3,6 +3,9 @@ import pararules
 from pararules/engine import Session, Vars
 import json
 import unicode
+from ./context import nil
+from nimwave import nil
+from terminal import nil
 
 type
   Id = enum
@@ -107,4 +110,39 @@ proc toJson*(session: EditorSession, prompt: string, action: string): JsonNode =
     "action": action,
     "action-data": {},
   }
+
+proc simpleEditorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]): context.RenderProc =
+  var session = init()
+  return
+    proc (ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+      let editor = session.query(rules.getEditor)
+      nimwave.render(ctx,
+        %*{
+          "type": "rect",
+          "children": [editor.line],
+          "children-after": [
+            {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
+          ],
+          "bottom-left-focused": node["prompt"].str,
+          "bottom-left": "",
+          "action": node["action"].str,
+          "action-data": {},
+        }
+      )
+
+proc cursorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+  let currIndex = ctx.data.focusAreas[].len
+  let focused = currIndex == ctx.data.focusIndex
+  if focused:
+    let
+      col = int(node["x"].num)
+      row = int(node["y"].num)
+    var ch = ctx.tb[col, row]
+    ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
+    if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
+      ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
+    elif $ch.ch == "█":
+      ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
+    ctx.tb[col, row] = ch
+    iw.setCursorPos(ctx.tb, col, row)
 
