@@ -5,7 +5,6 @@ import json
 import unicode
 from ./context import nil
 from nimwave import nil
-from terminal import nil
 import tables
 
 type
@@ -138,11 +137,11 @@ proc cursorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNod
     col = int(node["x"].num)
     row = int(node["y"].num)
   var ch = ctx.tb[col, row]
-  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
-  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
+  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
+  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
   elif $ch.ch == "█":
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
   ctx.tb[col, row] = ch
   iw.setCursorPos(ctx.tb, col, row)
 
