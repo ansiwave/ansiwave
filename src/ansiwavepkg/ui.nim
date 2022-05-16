@@ -984,7 +984,7 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
 
   if "top-left" in node and node["top-left"].str != "":
     let text = " " & node["top-left"].str & " "
-    iw.write(ctx.tb, iw.width(ctx.tb)-1, 0, text)
+    iw.write(ctx.tb, 1, 0, text)
   if "top-right" in node and node["top-right"].str != "":
     let text = " " & node["top-right"].str & " "
     iw.write(ctx.tb, iw.width(ctx.tb) - 1 - text.runeLen, 0, text)
