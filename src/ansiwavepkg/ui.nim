@@ -900,9 +900,24 @@ proc toHash*(comp: Component, board: string): string =
   createHash(pairs)
 
 proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+  let border =
+    if "border" in node:
+      node["border"].str
+    else:
+      let currIndex = ctx.data.focusAreas[].len
+      var area: context.ViewFocusArea
+      area.tb = ctx.tb
+      if node.hasKey("action"):
+        area.action = node["action"].str
+        area.actionData = node["action-data"].fields
+      ctx.data.focusAreas[].add(area)
+      if currIndex == ctx.data.focusIndex:
+        "double"
+      else:
+        "single"
   let text = node["text"].str
   ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, 3)
-  nimwave.render(ctx, %* {"type": "hbox", "border": (if "border" in node: node["border"].str else: "single"), "children": [text]})
+  nimwave.render(ctx, %* {"type": "hbox", "border": border, "children": [text]})
 
 var showPasteText*: bool
 
