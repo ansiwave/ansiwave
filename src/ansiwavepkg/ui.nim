@@ -915,6 +915,16 @@ proc toHash*(comp: Component, board: string): string =
   createHash(pairs)
 
 proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+  let
+    text = node["text"].str
+    buttonWidth = text.runeLen + 2
+    parentWidth = iw.width(ctx.tb)
+    x =
+      if "align" in node and node["align"].str == "right":
+        parentWidth - buttonWidth
+      else:
+        0
+  ctx = nimwave.slice(ctx, x, 0, buttonWidth, 3)
   let border =
     if "border" in node:
       node["border"].str
@@ -930,16 +940,6 @@ proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode
         "double"
       else:
         "single"
-  let
-    text = node["text"].str
-    buttonWidth = text.runeLen + 2
-    parentWidth = iw.width(ctx.tb)
-    x =
-      if "align" in node and node["align"].str == "right":
-        parentWidth - buttonWidth
-      else:
-        0
-  ctx = nimwave.slice(ctx, x, 0, buttonWidth, 3)
   nimwave.render(ctx, %* {"type": "hbox", "border": border, "children": [text]})
 
 var showPasteText*: bool
@@ -1005,6 +1005,7 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
       iw.write(ctx.tb, iw.width(ctx.tb) - 1 - bottomRightText.runeLen, iw.height(ctx.tb)-1, bottomRightText)
 
 proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
   let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
   area.tb = ctx.tb
@@ -1027,7 +1028,6 @@ proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
         "none"
     tabs.add(%* {"type": "button", "text": tab.str, "border": border})
     tabIndex += 1
-  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
   nimwave.render(ctx, %* {"type": "hbox", "children": tabs})
 
 proc addComponents*(ctx: var context.Context) =
