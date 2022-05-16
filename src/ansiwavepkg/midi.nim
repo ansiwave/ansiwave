@@ -3,7 +3,6 @@ import paramidi
 import paramidi/tsf
 import paramidi_soundfonts
 import json
-from os import nil
 
 when defined(emscripten):
   from wavecorepkg/client import nil
