@@ -67,7 +67,6 @@ type
     initialValue*: string
     sig*: string
     request*: client.ChannelValue[client.Response]
-  ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode], copyableText: seq[string]]
   Draft = object
     target: string
     content: string
