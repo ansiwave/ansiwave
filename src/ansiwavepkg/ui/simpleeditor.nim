@@ -6,6 +6,7 @@ import unicode
 from ./context import nil
 from nimwave import nil
 from terminal import nil
+import tables
 
 type
   Id = enum
@@ -33,7 +34,7 @@ let rules =
 proc getContent*(session: EditorSession): string =
   session.query(rules.getEditor).line
 
-proc init*(): EditorSession =
+proc init(): EditorSession =
   result = initSession(Fact, autoFire = false)
   for r in rules.fields:
     result.add(r)
@@ -41,13 +42,13 @@ proc init*(): EditorSession =
   result.insert(Editor, CursorY, 0)
   result.insert(Editor, Line, "")
 
-proc setContent*(session: var EditorSession, content: string) =
+proc setContent(session: var EditorSession, content: string) =
   session.insert(Editor, CursorX, 0)
   session.insert(Editor, CursorY, 0)
   session.insert(Editor, Line, content)
   session.fireRules
 
-proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
+proc onInput(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
   case key:
   of iw.Key.Backspace:
     if buffer.cursorX > 0:
@@ -77,7 +78,7 @@ proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
     return false
   true
 
-proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
+proc onInput(session: var EditorSession, code: uint32, buffer: tuple): bool =
   if code < 32:
     return false
   let
@@ -89,60 +90,58 @@ proc onInput*(session: var EditorSession, code: uint32, buffer: tuple): bool =
   session.insert(Editor, CursorX, buffer.cursorX + 1)
   true
 
-proc onInput*(session: var EditorSession, input: tuple[key: iw.Key, codepoint: uint32]) =
+proc onInput(session: var EditorSession, input: tuple[key: iw.Key, codepoint: uint32]) =
   let buffer = session.query(rules.getEditor)
-  if input.codepoint != 0:
+  if input.key notin {iw.Key.None, iw.Key.Mouse}:
+    discard onInput(session, input.key, buffer)
+  elif input.codepoint != 0:
     discard onInput(session, input.codepoint, buffer)
-  elif input.key notin {iw.Key.None, iw.Key.Mouse}:
-    discard onInput(session, input.key, buffer) or onInput(session, input.key.ord.uint32, buffer)
   session.fireRules
-
-proc toJson*(session: EditorSession, prompt: string, action: string): JsonNode =
-  let editor = session.query(rules.getEditor)
-  %*{
-    "type": "rect",
-    "children": [editor.line],
-    "children-after": [
-      {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
-    ],
-    "bottom-left-focused": prompt,
-    "bottom-left": "",
-    "action": action,
-    "action-data": {},
-  }
 
 proc simpleEditorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]): context.RenderProc =
   var session = init()
+  if "initial-value" in node:
+    setContent(session, node["initial-value"].str)
   return
     proc (ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+      let currIndex = ctx.data.focusAreas[].len
+      var area: context.ViewFocusArea
+      area.tb = ctx.tb
+      if node.hasKey("action"):
+        area.action = node["action"].str
+        area.actionData = {"term": % getContent(session)}.toOrderedTable
+      ctx.data.focusAreas[].add(area)
+      let focused = currIndex == ctx.data.focusIndex
+      if focused:
+        onInput(session, ctx.data.input)
+
       let editor = session.query(rules.getEditor)
       nimwave.render(ctx,
         %*{
           "type": "rect",
           "children": [editor.line],
-          "children-after": [
-            {"type": "cursor", "x": editor.cursorX, "y": editor.cursorY},
-          ],
+          "children-after":
+            if focused:
+              %* [{"type": "cursor", "x": editor.cursorX, "y": editor.cursorY}]
+            else:
+              %* []
+          ,
           "bottom-left-focused": node["prompt"].str,
           "bottom-left": "",
-          "action": node["action"].str,
-          "action-data": {},
+          "focused": focused,
         }
       )
 
 proc cursorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
-  let currIndex = ctx.data.focusAreas[].len
-  let focused = currIndex == ctx.data.focusIndex
-  if focused:
-    let
-      col = int(node["x"].num)
-      row = int(node["y"].num)
-    var ch = ctx.tb[col, row]
-    ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
-    if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
-      ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
-    elif $ch.ch == "█":
-      ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
-    ctx.tb[col, row] = ch
-    iw.setCursorPos(ctx.tb, col, row)
+  let
+    col = int(node["x"].num)
+    row = int(node["y"].num)
+  var ch = ctx.tb[col, row]
+  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: terminal.bgYellow)
+  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow):
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgWhite)
+  elif $ch.ch == "█":
+    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: terminal.fgYellow)
+  ctx.tb[col, row] = ch
+  iw.setCursorPos(ctx.tb, col, row)
 

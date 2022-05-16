@@ -355,12 +355,10 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
     result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
       if input.key == iw.Key.Enter:
-        page.data.searchTerm = simpleeditor.getContent(page.data.searchField)
+        page.data.searchTerm = actionData["term"].str
         page.data.showResults = true
         page.data.offset = 0
         refresh(session, clnt, page)
-      else:
-        simpleeditor.onInput(page.data.searchField, input)
   of "edit-tags":
     result = input.key notin {iw.Key.Up, iw.Key.Down}
     if result:
@@ -369,10 +367,8 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       elif input.key == iw.Key.Enter:
         let
           headers = common.headers(user.pubKey, page.data.editTags.sig, common.Tags, page.data.board)
-          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.editTags.field))
+          (body, sig) = common.sign(user.keyPair, headers, actionData["term"].str)
         page.data.editTags.request = client.submit(clnt, "ansiwave", body)
-      else:
-        simpleeditor.onInput(page.data.editTags.field, input)
   of "edit-extra-tags":
     result = input.key notin {iw.Key.Up, iw.Key.Down}
     if result:
@@ -381,10 +377,8 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       elif input.key == iw.Key.Enter:
         let
           headers = common.headers(user.pubKey, page.data.editExtraTags.sig, common.ExtraTags, page.data.board)
-          (body, sig) = common.sign(user.keyPair, headers, simpleeditor.getContent(page.data.editExtraTags.field))
+          (body, sig) = common.sign(user.keyPair, headers, actionData["term"].str)
         page.data.editExtraTags.request = client.submit(clnt, "ansiwave", body)
-      else:
-        simpleeditor.onInput(page.data.editExtraTags.field, input)
   of "go-back":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
     if result:
@@ -741,13 +735,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       if page.data.kind == ui.User:
         if page.data.user.ready and page.data.user.value.kind != client.Error:
           let tags = page.data.user.value.valid.tags
-          simpleeditor.setContent(page.data.editTags.field, tags.value)
+          page.data.editTags.initialValue = tags.value
           page.data.editTags.sig = tags.sig
           session.insert(page.id, View, cast[JsonNode](nil))
       elif page.data.kind == ui.Post:
         if page.data.post.ready and page.data.post.value.kind != client.Error:
           let tags = page.data.post.value.valid.extra_tags
-          simpleeditor.setContent(page.data.editExtraTags.field, tags.value)
+          page.data.editExtraTags.initialValue = tags.value
           page.data.editExtraTags.sig = tags.sig
           session.insert(page.id, View, cast[JsonNode](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
@@ -804,6 +798,12 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   var ctx = context.initContext(result)
   ctx.data.focusIndex = focusIndex
   ctx.data.input = input
+  if page.context != nil:
+    ctx.mountedComponents = page.context[].mountedComponents
+  var ctxRef: ref context.Context
+  new ctxRef
+  ctxRef[] = ctx
+  session.insert(page.id, UiContext, ctxRef)
 
   # render
   if page.isEditor:
@@ -960,7 +960,12 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
       if key != iw.Key.None or t - secs >= constants.displaySecs:
         var tb: iw.TerminalBuffer
         while true:
-          tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), (key, 0'u32))
+          let input =
+            if key in {iw.Key.Space .. iw.Key.Tilde}:
+              (iw.Key.None, key.ord.uint32)
+            else:
+              (key, 0'u32)
+          tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), input)
           if key == iw.Key.None:
             break
           key = iw.getKey()

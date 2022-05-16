@@ -57,7 +57,6 @@ type
     of Message:
       message: string
     of Search:
-      searchField*: simpleeditor.EditorSession
       searchTerm*: string
       searchKind*: entities.SearchKind
       searchResults*: client.ChannelValue[seq[entities.Post]]
@@ -67,7 +66,7 @@ type
     of Drafts, Sent, Login, Logout:
       discard
   TagState = object
-    field*: simpleeditor.EditorSession
+    initialValue*: string
     sig*: string
     request*: client.ChannelValue[client.Response]
   ViewFocusArea* = tuple[top: int, bottom: int, left: int, right: int, action: string, actionData: OrderedTable[string, JsonNode], copyableText: seq[string]]
@@ -120,11 +119,11 @@ proc refresh*(clnt: client.Client, comp: Component, board: string) =
     discard
 
 proc initPost*(clnt: client.Client, board: string, sig: string, limbo: bool = false): Component =
-  result = Component(kind: Post, client: clnt, board: board, sig: sig, limbo: limbo, editExtraTags: TagState(field: simpleeditor.init()))
+  result = Component(kind: Post, client: clnt, board: board, sig: sig, limbo: limbo, editExtraTags: TagState())
   refresh(clnt, result, board)
 
 proc initUser*(clnt: client.Client, board: string, key: string, limbo: bool = false): Component =
-  result = Component(kind: User, client: clnt, board: board, sig: key, limbo: limbo, editTags: TagState(field: simpleeditor.init()))
+  result = Component(kind: User, client: clnt, board: board, sig: key, limbo: limbo, editTags: TagState())
   refresh(clnt, result, board)
 
 proc initEditor*(width: int, height: int, board: string, sig: string, headers: string): Component =
@@ -154,7 +153,7 @@ proc initMessage*(message: string): Component =
   Component(kind: Message, message: message)
 
 proc initSearch*(clnt: client.Client, board: string): Component =
-  Component(kind: Search, client: clnt, board: board, searchField: simpleeditor.init())
+  Component(kind: Search, client: clnt, board: board)
 
 proc initLimbo*(clnt: client.Client, board: string): Component =
   result = Component(kind: Limbo, client: clnt, board: board, limbo: true)
@@ -437,7 +436,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               else:
                 %"editing extra tags..."
             else:
-              simpleeditor.toJson(comp.editExtraTags.field, "press enter to edit extra tags or esc to cancel", "edit-extra-tags")
+              %* {
+                "type": "simple-editor",
+                "id": "extra-tag-field",
+                "initial-value": comp.editExtraTags.initialValue,
+                "prompt": "press enter to edit extra tags or esc to cancel",
+                "action": "edit-extra-tags",
+              }
           else:
             if comp.post.value.valid.parent != comp.board:
               % (" " & header(comp.post.value.valid))
@@ -549,7 +554,13 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
                 else:
                   %"editing tags..."
               else:
-                simpleeditor.toJson(comp.editTags.field, "press enter to edit tags or esc to cancel", "edit-tags")
+                %* {
+                  "type": "simple-editor",
+                  "id": "tag-field",
+                  "initial-value": comp.editTags.initialValue,
+                  "prompt": "press enter to edit tags or esc to cancel",
+                  "action": "edit-tags",
+                }
             elif comp.limbo and comp.sig == user.pubKey:
               % "you're in \"limbo\"...a mod will add you to the board shortly."
             else:
@@ -916,17 +927,21 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
       var childContext = nimwave.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
       nimwave.render(childContext, child)
 
-  let currIndex = ctx.data.focusAreas[].len
-  var area: context.ViewFocusArea
-  area.tb = ctx.tb
-  if node.hasKey("action"):
-    area.action = node["action"].str
-    area.actionData = node["action-data"].fields
-  if node.hasKey("copyable-text"):
-    for line in node["copyable-text"]:
-      area.copyableText.add(line.str)
-  ctx.data.focusAreas[].add(area)
-  let focused = currIndex == ctx.data.focusIndex
+  let focused =
+    if "focused" in node:
+      node["focused"].bval
+    else:
+      let currIndex = ctx.data.focusAreas[].len
+      var area: context.ViewFocusArea
+      area.tb = ctx.tb
+      if node.hasKey("action"):
+        area.action = node["action"].str
+        area.actionData = node["action-data"].fields
+      if node.hasKey("copyable-text"):
+        for line in node["copyable-text"]:
+          area.copyableText.add(line.str)
+      ctx.data.focusAreas[].add(area)
+      currIndex == ctx.data.focusIndex
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
 
 proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
