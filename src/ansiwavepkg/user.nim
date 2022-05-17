@@ -148,7 +148,7 @@ proc createImage*(privateKey: ed25519.PrivateKey): seq[uint8] =
       if paths.address != "":
         paths.address
       else:
-        "http://bbs.ansiwave.net/bbs/"
+        "https://bbs.ansiwave.net/bbs/"
     address = baseAddress & "#" & strutils.join(fragments, ",")
 
   var qrcode: array[qrcodegen.qrcodegen_BUFFER_LEN_MAX, uint8]
