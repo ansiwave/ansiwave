@@ -787,11 +787,11 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
   if col < 0 or row < 0:
     return
   var ch = tb[col, row]
-  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
-  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
+  ch.bg = iw.bgYellow
+  if ch.fg == iw.fgYellow:
+    ch.fg = iw.fgWhite
   elif $ch.ch == "█":
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
+    ch.fg = iw.fgYellow
   ch.cursor = true
   tb[col, row] = ch
   iw.setCursorPos(tb, col, row)

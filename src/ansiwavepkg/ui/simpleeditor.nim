@@ -137,11 +137,11 @@ proc cursorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNod
     col = int(node["x"].num)
     row = int(node["y"].num)
   var ch = ctx.tb[col, row]
-  ch.bg = iw.BackgroundColor(kind: iw.SimpleColor, simpleColor: iw.bgYellow)
-  if ch.fg == iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow):
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgWhite)
+  ch.bg = iw.bgYellow
+  if ch.fg == iw.fgYellow:
+    ch.fg = iw.fgWhite
   elif $ch.ch == "█":
-    ch.fg = iw.ForegroundColor(kind: iw.SimpleColor, simpleColor: iw.fgYellow)
+    ch.fg = iw.fgYellow
   ctx.tb[col, row] = ch
   iw.setCursorPos(ctx.tb, col, row)
 
