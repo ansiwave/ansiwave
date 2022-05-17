@@ -769,17 +769,17 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       # only scroll maxScroll rows and update the focusIndex.
       case key:
       of iw.Key.Up:
-        let top = - iw.y(page.viewFocusAreas[focusIndex].tb) + navbar.height + scrollY
+        let top = navbar.height - iw.y(page.viewFocusAreas[focusIndex].tb) + scrollY
         if scrollY < top:
           scrollY = top
           let limit = page.scrollY + maxScroll
           if scrollY > limit:
             scrollY = limit
             focusIndex += 1
-        # if we're at the top of the first focus area, make sure scrollY is 0
-        # since there could be non-focusable text that is still not visible
-        elif focusIndex == 0 and scrollY > 0:
-          scrollY = 0
+        # if we're at the top of the first focus area but there is more scrollable context,
+        # scroll up more since there is non-focusable text that is still not visible
+        elif focusIndex == 0 and scrollY < 0:
+          scrollY = max(0, scrollY - maxScroll)
       of iw.Key.Down:
         let bottom = height - (iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)) + scrollY
         if scrollY > bottom:
@@ -896,6 +896,10 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     proc contentView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
       ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
       nimwave.render(ctx, %* {"type": "vbox", "children": view})
+      # add pointless focus area at the end so non-focusable content becomes visible via scrolling
+      var area: context.ViewFocusArea
+      area.tb = ctx.tb
+      ctx.data.focusAreas[].add(area)
     ctx.components["content"] = contentView
 
     proc navbarView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
