@@ -97,12 +97,12 @@ proc onInput(session: var EditorSession, input: tuple[key: iw.Key, codepoint: ui
     discard onInput(session, input.codepoint, buffer)
   session.fireRules
 
-proc simpleEditorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]): context.RenderProc =
+proc simpleEditorView*(ctx: var context.Context, node: JsonNode): context.RenderProc =
   var session = init()
   if "initial-value" in node:
     setContent(session, node["initial-value"].str)
   return
-    proc (ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+    proc (ctx: var context.Context, node: JsonNode) =
       ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
       let currIndex = ctx.data.focusAreas[].len
       var area: context.ViewFocusArea
@@ -132,7 +132,7 @@ proc simpleEditorView*(ctx: var context.Context, node: JsonNode, children: seq[J
         }
       )
 
-proc cursorView*(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+proc cursorView*(ctx: var context.Context, node: JsonNode) =
   let
     col = int(node["x"].num)
     row = int(node["y"].num)

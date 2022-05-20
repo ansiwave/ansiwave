@@ -914,7 +914,7 @@ proc toHash*(comp: Component, board: string): string =
       newSeq[(string, string)]()
   createHash(pairs)
 
-proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+proc buttonView(ctx: var context.Context, node: JsonNode) =
   let
     text = node["text"].str
     buttonWidth = text.runeLen + 2
@@ -944,7 +944,8 @@ proc buttonView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode
 
 var showPasteText*: bool
 
-proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+proc rectView(ctx: var context.Context, node: JsonNode) =
+  let children = if "children" in node: node["children"].elems else: @[]
   var
     y = 1
     remainingHeight = iw.height(ctx.tb).int
@@ -1004,7 +1005,7 @@ proc rectView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode])
           " copy with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c") & " "
       iw.write(ctx.tb, iw.width(ctx.tb) - 1 - bottomRightText.runeLen, iw.height(ctx.tb)-1, bottomRightText)
 
-proc tabsView(ctx: var context.Context, node: JsonNode, children: seq[JsonNode]) =
+proc tabsView(ctx: var context.Context, node: JsonNode) =
   ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
   let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
