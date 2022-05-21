@@ -425,7 +425,6 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
           else:
             if iw.gIllwaveInitialized:
               editor.copyLink(url)
-              iw.setDoubleBuffering(false)
   else:
     discard
 
@@ -534,7 +533,6 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
         let url = paths.address & "#" & globals.hash
         editor.copyLines(@[url])
         editor.copyLink(url)
-        iw.setDoubleBuffering(false)
       leftButtons.add((" copy link ", copyLinkAction))
   if page.midiProgress == nil:
     if page.viewCommands != nil and page.viewCommands[].len > 0:
@@ -955,6 +953,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
 
   # start loop
   var secs = 0.0
+  var prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
   while true:
     var key = iw.getKey()
     try:
@@ -972,9 +971,8 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
           if key == iw.Key.None:
             break
           key = iw.getKey()
-        iw.display(tb)
-        # in case double buffering was temporarily disabled
-        iw.setDoubleBuffering(true)
+        iw.display(tb, prevTb)
+        prevTb = tb
         secs = t
     except Exception as ex:
       when defined(release):

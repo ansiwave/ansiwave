@@ -234,7 +234,9 @@ proc main*() =
         session = editor.init(opts, terminal.terminalWidth(), terminal.terminalHeight(), hash)
       except Exception as ex:
         exitClean(ex.msg)
-      var secs = 0.0
+      var
+        secs = 0.0
+        prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
       while true:
         # only render once per displaySecs unless a key was pressed
         var key = iw.getKey()
@@ -250,7 +252,8 @@ proc main*() =
             if key == iw.Key.None:
               break
             key = iw.getKey()
-          iw.display(tb)
+          iw.display(tb, prevTb)
+          prevTb = tb
           saveEditor(session, opts)
           secs = t
         os.sleep(sleepMsecs)

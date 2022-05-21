@@ -1386,13 +1386,11 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
           copyLinkCallback = proc () =
             let buffer = globals.buffers[Editor.ord]
             copyLink(initLink(post.joinLines(buffer.lines)))
-            iw.setDoubleBuffering(false)
             var
               tb = iw.initTerminalBuffer(width, height)
               ctx = context.initContext(tb)
             tick(sess, ctx, (iw.Key.None, 0'u32), focused)
             iw.display(ctx.tb)
-            iw.setDoubleBuffering(true)
         discard renderButton(sess, ctx.tb, "↕ copy link", titleX, 0, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
       else:
         discard
