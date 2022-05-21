@@ -1327,7 +1327,6 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
   # render top bar
   if globals.midiProgress == nil:
     proc topBarView(ctx: var context.Context, node: JsonNode) =
-      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
       case bufferId:
       of Editor:
         let playX =
@@ -1439,21 +1438,11 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
     ctx.components["top-bar"] = midiProgressView
 
   proc bufferView(ctx: var context.Context, node: JsonNode) =
-    let
-      parentHeight =
-        if ctx.parent == nil:
-          iw.height(ctx.tb)
-        else:
-          iw.height(ctx.parent[].tb)
-      topBarHeight = if bufferId == Editor: 2 else: 1
-      bottomBarHeight = 1
-    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), parentHeight-topBarHeight-bottomBarHeight)
     renderBuffer(sess, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
   ctx.components["buffer"] = bufferView
 
   # render bottom bar
   proc bottomBarView(ctx: var context.Context, node: JsonNode) =
-    ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 1)
     var x = 0
     if selectedBuffer.prompt != StopPlaying:
       let
@@ -1495,5 +1484,20 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
         discard renderButton(sess, ctx.tb, text, textX, 0, input.key, cb)
   ctx.components["bottom-bar"] = bottomBarView
 
-  nimwave.render(ctx, %* [{"type": "vbox", "children": [{"type": "top-bar"}, {"type": "buffer"}, {"type": "bottom-bar"}]}])
+  proc editorView(ctx: var context.Context, node: JsonNode) =
+    let
+      top = node["top"]
+      mid = node["middle"]
+      btm = node["bottom"]
+      topBarHeight = if bufferId == Editor: 2 else: 1
+      bottomBarHeight = 1
+      middleHeight = iw.height(ctx.tb) - topBarHeight - bottomBarHeight
+    var y = 0
+    for (node, height) in [(top, topBarHeight), (mid, middleHeight), (btm, bottomBarHeight)]:
+      var childContext = nimwave.slice(ctx, 0, y, max(0, iw.width(ctx.tb)), height)
+      nimwave.render(childContext, node)
+      y += height
+  ctx.components["editor"] = editorView
+
+  nimwave.render(ctx, %* [{"type": "editor", "top": {"type": "top-bar"}, "middle": {"type": "buffer"}, "bottom": {"type": "bottom-bar"}}])
 
