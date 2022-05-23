@@ -801,7 +801,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       ]
   of Message:
     finishedLoading = false # don't cache
-    % comp.message
+    %* [comp.message]
   of Search:
     finishedLoading = false # so the editor will always refresh
     if comp.showResults:
