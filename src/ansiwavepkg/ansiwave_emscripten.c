@@ -16,6 +16,10 @@ EM_JS(void, ansiwave_browse_file, (const char* callback), {
 
       // call c function
       Module.ccall(UTF8ToString(callback), null, ['string', 'number', 'number'], [file.name, arrayOnWasmHeap, bytes.byteLength]);
+
+      // sometimes the mouse can get "stuck" in a mousedown state because mouseup
+      // is not sent due to the dialog box, so manually send it.
+      Module.ccall("onMouseUp", null, ['number', 'number'], [0, 0]);
     };
     if (file instanceof File) {
       reader.readAsArrayBuffer(file);
