@@ -657,11 +657,7 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     ]
   of Editor:
     finishedLoading = true
-    %*{
-      "type": "editor",
-      "action": "edit",
-      "action-data": {},
-    }
+    %* []
   of Drafts:
     finishedLoading = false # don't cache
     var json = JsonNode(kind: JArray)
