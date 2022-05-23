@@ -390,6 +390,12 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       user.createUser()
       let globals = session.query(rules.getGlobals)
       session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+      session.fireRules
+      block:
+        let
+          globals = session.query(rules.getGlobals)
+          page = globals.pages[globals.selectedPage]
+        refresh(session, clnt, page)
   of "login":
     when defined(emscripten):
       result = input.key in {iw.Key.Mouse, iw.Key.Enter}
@@ -399,6 +405,11 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
           let globals = sess.query(rules.getGlobals)
           if globals.breadcrumbsIndex > 0:
             sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+            sess.fireRules
+            let
+              globals = sess.query(rules.getGlobals)
+              page = globals.pages[globals.selectedPage]
+            refresh(sess, clnt, page)
         )
   of "logout":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
