@@ -143,5 +143,4 @@ proc cursorView*(ctx: var context.Context, node: JsonNode) =
   elif $ch.ch == "█":
     ch.fg = iw.fgYellow
   ctx.tb[col, row] = ch
-  iw.setCursorPos(ctx.tb, col, row)
 

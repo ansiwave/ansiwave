@@ -794,7 +794,6 @@ proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
     ch.fg = iw.fgYellow
   ch.cursor = true
   tb[col, row] = ch
-  iw.setCursorPos(tb, col, row)
 
 proc onInput*(session: var EditorSession, key: iw.Key, buffer: tuple): bool =
   let editable = buffer.editable and buffer.mode == 0
