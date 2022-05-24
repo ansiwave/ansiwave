@@ -689,7 +689,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     scrollY = page.scrollY
   if (input.key != iw.Key.None or input.codepoint > 0):
     if input.key == iw.Key.Mouse:
-      let info = iw.getMouse()
+      let info = context.mouseInfo
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         for i in 0 ..< page.viewFocusAreas.len:
           let area = page.viewFocusAreas[i]
@@ -708,7 +708,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   if not handleAction(session, clnt, page, width, height, input, action.actionName, action.actionData, focusIndex):
     let key =
       if input.key == iw.Key.Mouse and not page.isEditor:
-        case iw.getMouse().scrollDir:
+        case context.mouseInfo.scrollDir:
         of iw.ScrollDirection.sdUp:
           iw.Key.Up
         of iw.ScrollDirection.sdDown:
@@ -813,7 +813,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       if page.focusIndex == 0:
         input
       elif input.key == iw.Key.Mouse:
-        let info = iw.getMouse()
+        let info = context.mouseInfo
         if info.button == iw.MouseButton.mbLeft and
             info.action == iw.MouseButtonAction.mbaPressed and
             info.y >= navbar.height:
@@ -960,7 +960,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var secs = 0.0
   var prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
   while true:
-    var key = iw.getKey()
+    var key = iw.getKey(context.mouseInfo)
     try:
       # only render once per displaySecs unless a key was pressed
       let t = times.cpuTime()
@@ -975,7 +975,7 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
           tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), input)
           if key == iw.Key.None:
             break
-          key = iw.getKey()
+          key = iw.getKey(context.mouseInfo)
         iw.display(tb, prevTb)
         prevTb = tb
         secs = t

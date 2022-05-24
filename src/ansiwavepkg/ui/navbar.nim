@@ -57,7 +57,7 @@ proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint
       focused = buttons[text].focused
     ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, iw.height(ctx.tb))
     if input.key == iw.Key.Mouse:
-      let info = iw.getMouse()
+      let info = context.mouseInfo
       if info.action == iw.MouseButtonAction.mbaPressed and iw.contains(ctx.tb, info):
         buttons[text].cb()
     elif input.key == iw.Key.Enter and focused:

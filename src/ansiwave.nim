@@ -212,7 +212,7 @@ proc main*() =
     convert(opts)
     quit(0)
   # initialize illwave
-  iw.init(fullscreen=true, mouse=true)
+  iw.init()
   setControlCHook(exitClean)
   terminal.hideCursor()
   var
@@ -239,7 +239,7 @@ proc main*() =
         prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
       while true:
         # only render once per displaySecs unless a key was pressed
-        var key = iw.getKey()
+        var key = iw.getKey(context.mouseInfo)
         let t = times.cpuTime()
         if key != iw.Key.None or t - secs >= displaySecs:
           var
@@ -251,7 +251,7 @@ proc main*() =
             session.fireRules
             if key == iw.Key.None:
               break
-            key = iw.getKey()
+            key = iw.getKey(context.mouseInfo)
           iw.display(tb, prevTb)
           prevTb = tb
           saveEditor(session, opts)

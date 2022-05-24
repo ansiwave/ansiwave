@@ -780,7 +780,7 @@ proc copyLink*(link: string) =
   echo "Copy the link above, and then press Enter to return to ANSIWAVE."
   var s: TaintedString
   discard readLine(stdin, s)
-  iw.init(fullscreen=true, mouse=true)
+  iw.init()
   terminal.hideCursor()
 
 proc setCursor*(tb: var iw.TerminalBuffer, col: int, row: int) =
@@ -971,7 +971,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
         let linkY = 1 + screenLine
         iw.write(tb, 0, linkY, $buffer.links[i].icon)
         if input.key == iw.Key.Mouse:
-          let info = iw.getMouse()
+          let info = context.mouseInfo
           if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
             if info.x == bufferX and info.y == bufferY + linkY:
               session.insert(buffer.id, WrappedCursorX, 0)
@@ -994,7 +994,7 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     screenLine += 1
 
   if input.key == iw.Key.Mouse:
-    let info = iw.getMouse()
+    let info = context.mouseInfo
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       session.insert(buffer.id, Prompt, None)
       if info.x >= bufferX and
@@ -1091,7 +1091,7 @@ proc renderRadioButtons(session: var EditorSession, tb: var iw.TerminalBuffer, x
       oldY = yy
       newY = if horiz: yy else: yy + 1
     if key == iw.Key.Mouse:
-      let info = iw.getMouse()
+      let info = context.mouseInfo
       if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
         if info.x >= iw.x(tb) + oldX and
             info.x <= iw.x(tb) + newX and
@@ -1119,7 +1119,7 @@ proc renderButton(session: var EditorSession, tb: var iw.TerminalBuffer, text: s
   tui.write(tb, x, y, text)
   result = x + text.stripCodes.runeLen + 2
   if key == iw.Key.Mouse:
-    let info = iw.getMouse()
+    let info = context.mouseInfo
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.x >= iw.x(tb) + x and
           info.x < iw.x(tb) + result and
@@ -1167,7 +1167,7 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
   iw.write(tb, colorX + fgIndex * 3, colorY + 1, "↑")
   tui.write(tb, colorX + bgIndex * 3 + 1, colorY + 1, "↑")
   if input.key == iw.Key.Mouse:
-    let info = iw.getMouse()
+    let info = context.mouseInfo
     if info.y == iw.y(tb) + colorY:
       if info.action == iw.MouseButtonAction.mbaPressed:
         if info.button == iw.MouseButton.mbLeft:
@@ -1233,7 +1233,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
   tui.write(tb, brushX, brushY, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, brushY + 1, "↑")
   if key == iw.Key.Mouse:
-    let info = iw.getMouse()
+    let info = context.mouseInfo
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.y == brushY:
         let index = int((info.x - brushX) / 2)
