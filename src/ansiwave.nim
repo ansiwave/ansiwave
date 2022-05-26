@@ -237,14 +237,14 @@ proc main*() =
       var
         secs = 0.0
         prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
+        ctx = context.initContext()
       while true:
         # only render once per displaySecs unless a key was pressed
         var key = iw.getKey(context.mouseInfo)
         let t = times.cpuTime()
         if key != iw.Key.None or t - secs >= displaySecs:
-          var
-            tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
-            ctx = context.initContext(tb)
+          var tb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
+          ctx.tb = tb
           ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
           while true:
             editor.tick(session, ctx, (key, 0'u32), true)

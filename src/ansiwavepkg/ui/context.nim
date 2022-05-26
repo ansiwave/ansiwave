@@ -13,6 +13,5 @@ type
   Context* = nimwave.Context[State]
   RenderProc* = nimwave.RenderProc[State]
 
-proc initContext*(tb: iw.TerminalBuffer): Context =
-  result = nimwave.initContext[State](tb)
-  new result.data.focusAreas
+proc initContext*(): Context =
+  nimwave.initContext[State]()

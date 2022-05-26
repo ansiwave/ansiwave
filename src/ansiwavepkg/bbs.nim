@@ -796,16 +796,19 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     if focusIndex > 0 and focusIndex > page.viewFocusAreas.len - 1:
       focusIndex = page.viewFocusAreas.len - 1
 
-  result = iw.initTerminalBuffer(width, height)
-  var ctx = context.initContext(result)
+  var ctx: context.Context
+  if page.context != nil:
+    ctx = page.context[]
+  else:
+    ctx = context.initContext()
+    var ctxRef: ref context.Context
+    new ctxRef
+    ctxRef[] = ctx
+    session.insert(page.id, UiContext, ctxRef)
   ctx.data.focusIndex = focusIndex
   ctx.data.input = input
-  if page.context != nil:
-    ctx.mountedComponents = page.context[].mountedComponents
-  var ctxRef: ref context.Context
-  new ctxRef
-  ctxRef[] = ctx
-  session.insert(page.id, UiContext, ctxRef)
+  new ctx.data.focusAreas
+  ctx.tb = iw.initTerminalBuffer(width, height)
 
   # render
   if page.isEditor:
@@ -921,6 +924,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     session.insert(page.id, ViewFocusAreas, ctx.data.focusAreas[])
 
   finished = finishedLoading
+  ctx.tb
 
 proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
   var finished: bool

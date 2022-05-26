@@ -1386,7 +1386,8 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
             copyLink(initLink(post.joinLines(buffer.lines)))
             var
               tb = iw.initTerminalBuffer(width, height)
-              ctx = context.initContext(tb)
+              ctx = context.initContext()
+            ctx.tb = tb
             tick(sess, ctx, (iw.Key.None, 0'u32), focused)
             iw.display(ctx.tb)
         discard renderButton(sess, ctx.tb, "↕ copy link", titleX, 0, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
