@@ -283,6 +283,8 @@ proc refresh(session: var BbsSession, clnt: client.Client, page: Page) =
   let globals = session.query(rules.getGlobals)
   ui.refresh(clnt, page.data, globals.board)
 
+var disableDoubleBuffering = false
+
 proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
   case actionName:
   of "show-post":
@@ -430,6 +432,7 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
           else:
             if iw.gIllwaveInitialized:
               editor.copyLink(url)
+              disableDoubleBuffering = true
   else:
     discard
 
@@ -538,6 +541,7 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
         let url = paths.address & "#" & globals.hash
         editor.copyLines(@[url])
         editor.copyLink(url)
+        disableDoubleBuffering = true
       leftButtons.add((" copy link ", copyLinkAction))
   if page.midiProgress == nil:
     if page.viewCommands != nil and page.viewCommands[].len > 0:
@@ -980,7 +984,11 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
           if key == iw.Key.None:
             break
           key = iw.getKey(context.mouseInfo)
-        iw.display(tb, prevTb)
+        if disableDoubleBuffering:
+          iw.display(tb)
+          disableDoubleBuffering = false
+        else:
+          iw.display(tb, prevTb)
         prevTb = tb
         secs = t
     except Exception as ex:
