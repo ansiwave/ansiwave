@@ -900,7 +900,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb))
+    ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
 
     proc contentView(ctx: var context.Context, node: JsonNode) =
       ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
