@@ -896,7 +896,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
     ctx.components["editor"] = editorView
 
-    nimwave.render(ctx, %* {"type": "vbox", "children": [{"type": "navbar"}, {"type": "editor"}]})
+    nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": [{"type": "navbar"}, {"type": "editor"}]})
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
@@ -905,7 +905,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
 
     proc contentView(ctx: var context.Context, node: JsonNode) =
       ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
-      nimwave.render(ctx, %* {"type": "vbox", "children": view})
+      nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": view})
       # add pointless focus area at the end so non-focusable content becomes visible via scrolling
       var area: context.ViewFocusArea
       area.tb = ctx.tb
@@ -917,7 +917,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
     ctx.components["navbar"] = navbarView
 
-    nimwave.render(ctx, %* {"type": "vbox", "children": [{"type": "navbar"}, {"type": "content"}]})
+    nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": [{"type": "navbar"}, {"type": "content"}]})
 
   # update values if necessary
   if focusIndex != page.focusIndex:

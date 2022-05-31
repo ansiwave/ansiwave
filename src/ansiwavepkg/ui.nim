@@ -936,7 +936,7 @@ proc buttonView(ctx: var context.Context, node: JsonNode) =
         "double"
       else:
         "single"
-  nimwave.render(ctx, %* {"type": "hbox", "border": border, "children": [text]})
+  nimwave.render(ctx, %* {"type": "nimwave.hbox", "border": border, "children": [text]})
 
 var showPasteText*: bool
 
@@ -1025,7 +1025,7 @@ proc tabsView(ctx: var context.Context, node: JsonNode) =
         "none"
     tabs.add(%* {"type": "button", "text": tab.str, "border": border})
     tabIndex += 1
-  nimwave.render(ctx, %* {"type": "hbox", "children": tabs})
+  nimwave.render(ctx, %* {"type": "nimwave.hbox", "children": tabs})
 
 proc addComponents*(ctx: var context.Context) =
   ctx.components["button"] = buttonView

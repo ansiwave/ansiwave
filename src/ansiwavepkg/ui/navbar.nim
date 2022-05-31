@@ -62,17 +62,17 @@ proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint
         buttons[text].cb()
     elif input.key == iw.Key.Enter and focused:
       buttons[text].cb()
-    nimwave.render(ctx, %* {"type": "hbox", "border": if focused: "double" else: "single", "children": [text]})
+    nimwave.render(ctx, %* {"type": "nimwave.hbox", "border": if focused: "double" else: "single", "children": [text]})
   ctx.components["nav-button"] = navButton
 
   var leftBoxChildren = %* []
   for (text, _) in leftButtons:
     leftBoxChildren.add(%* {"type": "nav-button", "text": text})
-  var leftBox = %* {"type": "hbox", "children": leftBoxChildren}
+  var leftBox = %* {"type": "nimwave.hbox", "children": leftBoxChildren}
   var rightBoxChildren = %* []
   for (text, _) in rightButtons:
     rightBoxChildren.add(%* {"type": "nav-button", "text": text})
-  var rightBox = %* {"type": "hbox", "children": rightBoxChildren}
+  var rightBox = %* {"type": "nimwave.hbox", "children": rightBoxChildren}
 
   let
     spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
@@ -81,5 +81,5 @@ proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint
     ctx = nimwave.slice(ctx, 0, 0, spacer.runeLen, iw.height(ctx.tb))
   ctx.components["spacer"] = spacerView
 
-  nimwave.render(ctx, %* [{"type": "hbox", "children": [leftBox, {"type": "spacer"}, rightBox]}])
+  nimwave.render(ctx, %* [{"type": "nimwave.hbox", "children": [leftBox, {"type": "spacer"}, rightBox]}])
 
