@@ -1499,5 +1499,5 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
       y += height
   ctx.components["editor"] = editorView
 
-  nimwave.render(ctx, %* [{"type": "editor", "top": {"type": "top-bar"}, "middle": {"type": "buffer"}, "bottom": {"type": "bottom-bar"}}])
+  nimwave.render(ctx, %* {"type": "editor", "top": {"type": "top-bar"}, "middle": {"type": "buffer"}, "bottom": {"type": "bottom-bar"}})
 
