@@ -969,32 +969,26 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var prevTb = iw.initTerminalBuffer(terminal.terminalWidth(), terminal.terminalHeight())
   while true:
     var key = iw.getKey(context.mouseInfo)
-    try:
-      # only render once per displaySecs unless a key was pressed
-      let t = times.cpuTime()
-      if key != iw.Key.None or t - secs >= constants.displaySecs:
-        var tb: iw.TerminalBuffer
-        while true:
-          let input =
-            if key in {iw.Key.Space .. iw.Key.Tilde}:
-              (iw.Key.None, key.ord.uint32)
-            else:
-              (key, 0'u32)
-          tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), input)
-          if key == iw.Key.None:
-            break
-          key = iw.getKey(context.mouseInfo)
-        if disableDoubleBuffering:
-          iw.display(tb)
-          disableDoubleBuffering = false
-        else:
-          iw.display(tb, prevTb)
-        prevTb = tb
-        secs = t
-    except Exception as ex:
-      when defined(release):
-        discard
+    # only render once per displaySecs unless a key was pressed
+    let t = times.cpuTime()
+    if key != iw.Key.None or t - secs >= constants.displaySecs:
+      var tb: iw.TerminalBuffer
+      while true:
+        let input =
+          if key in {iw.Key.Space .. iw.Key.Tilde}:
+            (iw.Key.None, key.ord.uint32)
+          else:
+            (key, 0'u32)
+        tb = tick(session, clnt, terminal.terminalWidth(), terminal.terminalHeight(), input)
+        if key == iw.Key.None:
+          break
+        key = iw.getKey(context.mouseInfo)
+      if disableDoubleBuffering:
+        iw.display(tb)
+        disableDoubleBuffering = false
       else:
-        raise ex
+        iw.display(tb, prevTb)
+      prevTb = tb
+      secs = t
     os.sleep(constants.sleepMsecs)
 
