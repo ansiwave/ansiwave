@@ -35,6 +35,8 @@ type
       message*: string
   PlayResult* = tuple[secs: float, playResult: sound.PlayResult]
 
+const endRestSeconds = 10.0
+
 proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileResult =
   # add a quarter note rest to prevent it from ending abruptly
   var s = score
@@ -42,6 +44,11 @@ proc compileScore*(ctx: var Context, score: JsonNode, padding: bool): CompileRes
     s = JsonNode(kind: JArray, elems: @[s])
     s.elems.add(JsonNode(kind: JFloat, fnum: 1/4))
     s.elems.add(JsonNode(kind: JString, str: "r"))
+    # on native, add 10 seconds to lengthen the clip,
+    # because very short audio data doesn't play correctly for some reason
+    when not defined(emscripten):
+      s.elems.add(JsonNode(kind: JFloat, fnum: endRestSeconds / 2))
+      s.elems.add(JsonNode(kind: JString, str: "r"))
   let compiledScore =
     try:
       paramidi.compile(ctx, s)
@@ -88,7 +95,7 @@ proc play*(events: seq[Event], outputFile: string = ""): PlayResult =
       emscripten.playAudio("data:audio/wav;base64," & base64.encode(wav))
       (secs: res.seconds, playResult: sound.PlayResult(kind: sound.Valid, addrs: sound.Addrs(kind: sound.FromWeb)))
     else:
-      (secs: res.seconds, playResult: sound.play(wav))
+      (secs: res.seconds - endRestSeconds, playResult: sound.play(wav))
 
 proc stop*(addrs: sound.Addrs) =
   when defined(emscripten):
