@@ -963,7 +963,10 @@ proc renderBuffer(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     else:
       line = @[]
     codes.deleteAfter(line, buffer.width - 1)
-    tui.writeMaybe(tb, 1, 1 + screenLine, $line)
+    try:
+      tui.write(tb, 1, 1 + screenLine, $line)
+    except Exception as ex:
+      discard
     if buffer.prompt != StopPlaying and buffer.mode == 0:
       # press gutter button with mouse or Tab
       if buffer.links[].contains(i):
