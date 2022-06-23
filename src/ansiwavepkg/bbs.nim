@@ -346,6 +346,12 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       page.data.searchKind = newKind
       page.data.offset = 0
       refresh(session, clnt, page)
+  of "edit":
+    if focusIndex == 0:
+      if input.key == iw.Key.Up and editor.getSelectedBuffer(page.data.session).wrappedCursorY == 0:
+        focusIndex -= 1
+      else:
+        result = input.key notin {iw.Key.Escape}
   of "search":
     result = input.key notin {iw.Key.Escape, iw.Key.Up, iw.Key.Down}
     if result:
