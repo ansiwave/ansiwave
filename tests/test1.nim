@@ -42,15 +42,20 @@ from ./ansiwavepkg/ui/editor import nil
 from illwave as iw import `[]`, `[]=`, `==`
 from times import nil
 import pararules
+from ./ansiwavepkg/ui/context import nil
 
 test "editor perf":
   let t1 = times.cpuTime()
-  var session = editor.init(editor.Options(), 80, 40)
+  var
+    session = editor.init(editor.Options(), 80, 40)
+    ctx = context.initContext()
+    focused = false
+  ctx.tb = iw.initTerminalBuffer(80, 40)
   for _ in 0 ..< 10:
     for _ in 0 ..< 10:
-      discard editor.tick(session, 0, 0, 80, 40, (iw.Key.A, 0'u32))
+      editor.tick(session, ctx, (iw.Key.A, 0'u32), focused)
       session.fireRules
-    discard editor.tick(session, 0, 0, 80, 40, (iw.Key.Enter, 0'u32))
+    editor.tick(session, ctx, (iw.Key.Enter, 0'u32), focused)
     session.fireRules
   let t2 = times.cpuTime()
   echo t2 - t1, " seconds"
