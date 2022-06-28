@@ -40,7 +40,7 @@ when defined(chafa):
     {.passC: "-I" & dir.joinPath("glib-emscripten").}
   elif defined(windows):
     {.passC: "-I" & dir.joinPath("glib-windows").}
-    {.passL: "-luuid -lintl -lws2_32 -lole32"}
+    {.passL: "-luuid -lintl -lws2_32 -lole32 -liconv"}
   elif defined(macosx):
     {.passC: "-I" & dir.joinPath("glib-macos").}
     {.passL: "-liconv -lintl -framework CoreFoundation -framework AppKit"}
