@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2020-2021 Hans Petter Jansson
+/* Copyright (C) 2020-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -19,6 +19,8 @@
 
 #include "config.h"
 #include "chafa.h"
+#include <stdlib.h>  /* strtoul */
+#include <string.h>  /* strlen, strncmp, strcmp, memcpy */
 
 /**
  * SECTION:chafa-term-db
@@ -52,6 +54,7 @@ static const SeqStr vt220_seqs [] =
     { CHAFA_TERM_SEQ_RESET_TERMINAL_HARD, "\033c" },
     { CHAFA_TERM_SEQ_RESET_ATTRIBUTES, "\033[0m" },
     { CHAFA_TERM_SEQ_CLEAR, "\033[2J" },
+    { CHAFA_TERM_SEQ_ENABLE_BOLD, "\033[1m" },
     { CHAFA_TERM_SEQ_INVERT_COLORS, "\033[7m" },
     { CHAFA_TERM_SEQ_CURSOR_TO_TOP_LEFT, "\033[0H" },
     { CHAFA_TERM_SEQ_CURSOR_TO_BOTTOM_LEFT, "\033[9999;1H" },
@@ -94,6 +97,8 @@ static const SeqStr sixel_seqs [] =
 {
     { CHAFA_TERM_SEQ_BEGIN_SIXELS, "\033P%1;%2;%3q" },
     { CHAFA_TERM_SEQ_END_SIXELS, "\033\\" },
+    { CHAFA_TERM_SEQ_ENABLE_SIXEL_SCROLLING, "\033[?80l" },
+    { CHAFA_TERM_SEQ_DISABLE_SIXEL_SCROLLING, "\033[?80h" },
 
     { CHAFA_TERM_SEQ_MAX, NULL }
 };
@@ -125,11 +130,21 @@ static const SeqStr color_16_seqs [] =
     { CHAFA_TERM_SEQ_MAX, NULL }
 };
 
+static const SeqStr color_8_seqs [] =
+{
+    { CHAFA_TERM_SEQ_SET_COLOR_FG_8, "\033[%1m" },
+    { CHAFA_TERM_SEQ_SET_COLOR_BG_8, "\033[%1m" },
+    { CHAFA_TERM_SEQ_SET_COLOR_FGBG_8, "\033[%1;%2m" },
+
+    { CHAFA_TERM_SEQ_MAX, NULL }
+};
+
 static const SeqStr *color_direct_list [] =
 {
     color_direct_seqs,
     color_256_seqs,
     color_16_seqs,
+    color_8_seqs,
     NULL
 };
 
@@ -137,12 +152,14 @@ static const SeqStr *color_256_list [] =
 {
     color_256_seqs,
     color_16_seqs,
+    color_8_seqs,
     NULL
 };
 
 static const SeqStr *color_16_list [] =
 {
     color_16_seqs,
+    color_8_seqs,
     NULL
 };
 
@@ -161,6 +178,7 @@ static const SeqStr color_fbterm_seqs [] =
 static const SeqStr *color_fbterm_list [] =
 {
     color_fbterm_seqs,
+    color_8_seqs,
     NULL
 };
 
@@ -188,6 +206,7 @@ static const SeqStr *fallback_list [] =
     color_direct_seqs,
     color_256_seqs,
     color_16_seqs,
+    color_8_seqs,
     sixel_seqs,
     kitty_seqs,
     iterm2_seqs,
@@ -227,11 +246,14 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
 {
     const gchar *term;
     const gchar *colorterm;
+    const gchar *konsole_version;
     const gchar *vte_version;
     const gchar *term_program;
+    const gchar *term_name;
     const gchar *tmux;
     const gchar *ctx_backend;
     const gchar *lc_terminal;
+    gchar *comspec = NULL;
     const SeqStr **color_seq_list = color_256_list;
     const SeqStr *gfx_seqs = NULL;
     const SeqStr *rep_seqs_local = NULL;
@@ -244,11 +266,17 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
     colorterm = g_environ_getenv (envp, "COLORTERM");
     if (!colorterm) colorterm = "";
 
+    konsole_version = g_environ_getenv (envp, "KONSOLE_VERSION");
+    if (!konsole_version) konsole_version = "";
+
     vte_version = g_environ_getenv (envp, "VTE_VERSION");
     if (!vte_version) vte_version = "";
 
     term_program = g_environ_getenv (envp, "TERM_PROGRAM");
     if (!term_program) term_program = "";
+
+    term_name = g_environ_getenv (envp, "TERMINAL_NAME");
+    if (!term_name) term_name = "";
 
     tmux = g_environ_getenv (envp, "TMUX");
     if (!tmux) tmux = "";
@@ -258,6 +286,19 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
 
     lc_terminal = g_environ_getenv (envp, "LC_TERMINAL");
     if (!lc_terminal) lc_terminal = "";
+
+    /* The MS Windows 10 TH2 (v1511+) console supports ANSI escape codes,
+     * including AIX and DirectColor sequences. We detect this early and allow
+     * TERM to override, if present. */
+    comspec = (gchar *) g_environ_getenv (envp, "ComSpec");
+    if (comspec)
+    {
+        comspec = g_ascii_strdown (comspec, -1);
+        if (g_str_has_suffix (comspec, "\\cmd.exe"))
+            color_seq_list = color_direct_list;
+        g_free (comspec);
+        comspec = NULL;
+    }
 
     /* Some terminals set COLORTERM=truecolor. However, this env var can
      * make its way into environments where truecolor is not desired
@@ -277,6 +318,13 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
         if (g_ascii_strtoull (vte_version, NULL, 10) >= 5202
             && !strcmp (term, "xterm-256color"))
             rep_seqs_local = rep_seqs;
+    }
+
+    /* Konsole exports KONSOLE_VERSION */
+    if (strtoul (konsole_version, NULL, 10) >= 220370)
+    {
+        /* Konsole version 22.03.70+ supports sixel graphics */
+        gfx_seqs = sixel_seqs;
     }
 
     /* The ctx terminal (https://ctx.graphics/) understands REP */
@@ -300,11 +348,21 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
         gfx_seqs = kitty_seqs;
 
     /* iTerm2 supports truecolor and has a unique graphics protocol */
-    if (!strcasecmp (lc_terminal, "iTerm2")
-        || !strcasecmp (term_program, "iTerm.app"))
+    if (!g_ascii_strcasecmp (lc_terminal, "iTerm2")
+        || !g_ascii_strcasecmp (term_program, "iTerm.app"))
     {
         color_seq_list = color_direct_list;
         gfx_seqs = iterm2_seqs;
+    }
+
+    if (!g_ascii_strcasecmp (term_program, "WezTerm"))
+    {
+        gfx_seqs = sixel_seqs;
+    }
+
+    if (!g_ascii_strcasecmp (term_name, "contour"))
+    {
+        gfx_seqs = sixel_seqs;
     }
 
     /* Apple Terminal sets TERM=xterm-256color, and does not support truecolor */
@@ -326,7 +384,7 @@ detect_capabilities (ChafaTermInfo *ti, gchar **envp)
         gfx_seqs = sixel_seqs;
     }
 
-    if (!strcmp(term, "foot") || !strcmp(term, "foot-direct"))
+    if (!strcmp (term, "foot") || !strncmp (term, "foot-", 5))
         gfx_seqs = sixel_seqs;
 
     /* rxvt 256-color really is 256 colors only */

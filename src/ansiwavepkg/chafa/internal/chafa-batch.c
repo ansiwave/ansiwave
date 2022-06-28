@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2019-2021 Hans Petter Jansson
+/* Copyright (C) 2019-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -19,6 +19,9 @@
 
 #include "config.h"
 
+#include <string.h>
+#include <glib.h>
+
 #include "chafa.h"
 #include "internal/chafa-batch.h"
 
@@ -30,7 +33,7 @@ chafa_process_batches (gpointer ctx, GFunc batch_func, GFunc post_func, gint n_r
     gint n_threads;
     gint n_units;
     gfloat units_per_batch;
-    gfloat ofs [2] = { .0, .0 };
+    gfloat ofs [2] = { .0f, .0f };
     gint i;
 
     g_assert (n_batches >= 1);
@@ -39,12 +42,7 @@ chafa_process_batches (gpointer ctx, GFunc batch_func, GFunc post_func, gint n_r
     if (n_rows < 1)
         return;
 
-    n_threads = chafa_get_n_threads ();
-    if (n_threads < 0)
-        n_threads = g_get_num_processors ();
-    if (n_threads <= 0)
-        n_threads = 1;
-
+    n_threads = MIN (chafa_get_n_actual_threads (), n_batches);
     n_units = (n_rows + batch_unit - 1) / batch_unit;
     units_per_batch = (gfloat) n_units / (gfloat) n_batches;
 
@@ -77,14 +75,19 @@ chafa_process_batches (gpointer ctx, GFunc batch_func, GFunc post_func, gint n_r
         row_ofs [0] *= batch_unit;
         row_ofs [1] *= batch_unit;
 
-        if (row_ofs [1] > n_rows)
+        if (row_ofs [1] > n_rows || i == n_batches - 1)
         {
             ofs [1] = n_rows + 0.5;
             row_ofs [1] = n_rows;
         }
 
         if (row_ofs [0] >= row_ofs [1])
+        {
+            /* Save the number of batches actually produced to use in
+             * post_func loop later. */
+            n_batches = i;
             break;
+        }
 
         batch = &batches [i++];
         batch->first_row = row_ofs [0];

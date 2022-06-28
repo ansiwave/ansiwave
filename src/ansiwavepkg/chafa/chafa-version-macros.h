@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2019-2021 Hans Petter Jansson
+/* Copyright (C) 2019-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -38,6 +38,7 @@ G_BEGIN_DECLS
 #define CHAFA_VERSION_1_6 (G_ENCODE_VERSION (1, 6))
 #define CHAFA_VERSION_1_8 (G_ENCODE_VERSION (1, 8))
 #define CHAFA_VERSION_1_10 (G_ENCODE_VERSION (1, 10))
+#define CHAFA_VERSION_1_12 (G_ENCODE_VERSION (1, 12))
 
 /* Evaluates to the current stable version; for development cycles,
  * this means the next stable target. */
@@ -199,6 +200,20 @@ G_BEGIN_DECLS
 # define CHAFA_AVAILABLE_IN_1_10                G_UNAVAILABLE(1, 10)
 #else
 # define CHAFA_AVAILABLE_IN_1_10                _CHAFA_EXTERN
+#endif
+
+#if CHAFA_VERSION_MIN_REQUIRED >= CHAFA_VERSION_1_12
+# define CHAFA_DEPRECATED_IN_1_12               G_DEPRECATED
+# define CHAFA_DEPRECATED_IN_1_12_FOR(f)        G_DEPRECATED_FOR(f)
+#else
+# define CHAFA_DEPRECATED_IN_1_12               _CHAFA_EXTERN
+# define CHAFA_DEPRECATED_IN_1_12_FOR(f)        _CHAFA_EXTERN
+#endif
+
+#if CHAFA_VERSION_MAX_ALLOWED < CHAFA_VERSION_1_12
+# define CHAFA_AVAILABLE_IN_1_12                G_UNAVAILABLE(1, 12)
+#else
+# define CHAFA_AVAILABLE_IN_1_12                _CHAFA_EXTERN
 #endif
 
 G_END_DECLS

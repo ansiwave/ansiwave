@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2021 Hans Petter Jansson
+/* Copyright (C) 2021-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -27,6 +27,10 @@
 #include "internal/chafa-indexed-image.h"
 #include "internal/chafa-iterm2-canvas.h"
 #include "internal/chafa-string-util.h"
+
+/* We support iTerm2 images by embedding them as uncompressed TIFF files.
+ *
+ * See: https://www.adobe.io/open/standards/TIFF.html */
 
 typedef enum
 {
@@ -163,8 +167,10 @@ chafa_iterm2_canvas_draw_all_pixels (ChafaIterm2Canvas *iterm2_canvas, ChafaPixe
                            (GFunc) draw_pixels_worker,
                            NULL,
                            iterm2_canvas->height,
-                           g_get_num_processors (),
+                           chafa_get_n_actual_threads (),
                            1);
+
+    smol_scale_destroy (ctx.scale_ctx);
 }
 
 static void
@@ -223,7 +229,15 @@ chafa_iterm2_canvas_build_ansi (ChafaIterm2Canvas *iterm2_canvas, ChafaTermInfo 
 
     generate_tag (&base64, out_str, TIFF_TAG_IMAGE_WIDTH, TIFF_TYPE_LONG, 1, iterm2_canvas->width);
     generate_tag (&base64, out_str, TIFF_TAG_IMAGE_LENGTH, TIFF_TYPE_LONG, 1, iterm2_canvas->height);
-    generate_tag (&base64, out_str, TIFF_TAG_BITS_PER_SAMPLE, TIFF_TYPE_SHORT, 1, 8);
+
+    /* For BitsPerSample, the data field points to external data towards the end of file */
+    generate_tag (&base64, out_str, TIFF_TAG_BITS_PER_SAMPLE, TIFF_TYPE_SHORT, 4,
+                  iterm2_canvas->width * iterm2_canvas->height * sizeof (guint32)
+                  + sizeof (guint32) * 2
+                  + sizeof (guint16)
+                  + sizeof (TiffTag) * 11 /* Tag count */
+                  + sizeof (guint32));
+
     generate_tag (&base64, out_str, TIFF_TAG_PHOTOMETRIC_INTERPRETATION, TIFF_TYPE_SHORT, 1, TIFF_PHOTOMETRIC_INTERPRETATION_RGB);
     generate_tag (&base64, out_str, TIFF_TAG_STRIP_OFFSETS, TIFF_TYPE_LONG, 1, sizeof (guint32) * 2);
     generate_tag (&base64, out_str, TIFF_TAG_ORIENTATION, TIFF_TYPE_SHORT, 1, TIFF_ORIENTATION_TOPLEFT);
@@ -238,6 +252,14 @@ chafa_iterm2_canvas_build_ansi (ChafaIterm2Canvas *iterm2_canvas, ChafaTermInfo 
 
     u32 = GUINT32_TO_LE (0);
     chafa_base64_encode (&base64, out_str, &u32, sizeof (u32));
+
+    /* Bits per sample external data */
+
+    u16 = GUINT16_TO_LE (8);
+    chafa_base64_encode (&base64, out_str, &u16, sizeof (u16));
+    chafa_base64_encode (&base64, out_str, &u16, sizeof (u16));
+    chafa_base64_encode (&base64, out_str, &u16, sizeof (u16));
+    chafa_base64_encode (&base64, out_str, &u16, sizeof (u16));
 
     chafa_base64_encode_end (&base64, out_str);
     chafa_base64_deinit (&base64);

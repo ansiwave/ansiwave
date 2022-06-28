@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2020-2021 Hans Petter Jansson
+/* Copyright (C) 2020-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -44,7 +44,7 @@
  * @CHAFA_TERM_SEQ_RESET_TERMINAL_HARD: Reset the terminal to factory defaults.
  * @CHAFA_TERM_SEQ_RESET_ATTRIBUTES: Reset active graphics rendition (colors and other attributes) to terminal defaults.
  * @CHAFA_TERM_SEQ_CLEAR: Clear the screen.
- * @CHAFA_TERM_SEQ_INVERT_COLORS: Invert foreground and background colors.
+ * @CHAFA_TERM_SEQ_INVERT_COLORS: Invert foreground and background colors (disable with RESET_ATTRIBUTES).
  * @CHAFA_TERM_SEQ_CURSOR_TO_TOP_LEFT: Move cursor to top left of screen.
  * @CHAFA_TERM_SEQ_CURSOR_TO_BOTTOM_LEFT: Move cursor to bottom left of screen.
  * @CHAFA_TERM_SEQ_CURSOR_TO_POS: Move cursor to specific position.
@@ -89,6 +89,12 @@
  * @CHAFA_TERM_SEQ_END_KITTY_IMAGE_CHUNK: End Kitty image data chunk.
  * @CHAFA_TERM_SEQ_BEGIN_ITERM2_IMAGE: Begin iTerm2 image data.
  * @CHAFA_TERM_SEQ_END_ITERM2_IMAGE: End of iTerm2 image data.
+ * @CHAFA_TERM_SEQ_ENABLE_SIXEL_SCROLLING: Enable sixel scrolling.
+ * @CHAFA_TERM_SEQ_DISABLE_SIXEL_SCROLLING: Disable sixel scrolling.
+ * @CHAFA_TERM_SEQ_ENABLE_BOLD: Enable boldface (disable with RESET_ATTRIBUTES).
+ * @CHAFA_TERM_SEQ_SET_COLOR_FG_8: Set foreground color (8 colors).
+ * @CHAFA_TERM_SEQ_SET_COLOR_BG_8: Set background color (8 colors).
+ * @CHAFA_TERM_SEQ_SET_COLOR_FGBG_8: Set foreground and background colors (8 colors).
  * @CHAFA_TERM_SEQ_MAX: Last control sequence plus one.
  *
  * An enumeration of the control sequences supported by #ChafaTermInfo.
@@ -618,6 +624,14 @@ gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *d
 gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg) \
 { return emit_seq_1_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg); }
 
+#define DEFINE_EMIT_SEQ_1_8fg_guint8(func_name, seq_name) \
+gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg) \
+{ return emit_seq_1_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg + 30); }
+
+#define DEFINE_EMIT_SEQ_1_8bg_guint8(func_name, seq_name) \
+gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg) \
+{ return emit_seq_1_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg + 40); }
+
 #define DEFINE_EMIT_SEQ_1_aix16fg_guint8(func_name, seq_name) \
 gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg) \
 { return emit_seq_1_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg + (arg < 8 ? 30 : (90 - 8))); }
@@ -637,6 +651,10 @@ gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *d
 #define DEFINE_EMIT_SEQ_2_none_guint8(func_name, seq_name) \
 gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg0, guint8 arg1) \
 { return emit_seq_2_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg0, arg1); }
+
+#define DEFINE_EMIT_SEQ_2_8fgbg_guint8(func_name, seq_name) \
+gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg0, guint8 arg1) \
+{ return emit_seq_2_args_uint8 (term_info, dest, CHAFA_TERM_SEQ_##seq_name, arg0 + 30, arg1 + 40); }
 
 #define DEFINE_EMIT_SEQ_2_aix16fgbg_guint8(func_name, seq_name) \
 gchar *chafa_term_info_emit_##func_name(const ChafaTermInfo *term_info, gchar *dest, guint8 arg0, guint8 arg1) \

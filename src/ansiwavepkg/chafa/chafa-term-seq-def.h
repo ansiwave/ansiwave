@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2020-2021 Hans Petter Jansson
+/* Copyright (C) 2020-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -859,7 +859,7 @@ CHAFA_TERM_SEQ_DEF(repeat_char, REPEAT_CHAR, 1, none, guint, CHAFA_TERM_SEQ_ARGS
  * @width_cells: Target width in cells
  * @height_cells: Target height in cells
  *
- * Prints the control sequence for #CHAFA_TERM_SEQ_BEGIN_KITTY_IMAGE_IMMEDITATE.
+ * Prints the control sequence for #CHAFA_TERM_SEQ_BEGIN_KITTY_IMMEDIATE_IMAGE_V1.
  *
  * @dest must have enough space to hold
  * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
@@ -939,7 +939,7 @@ CHAFA_TERM_SEQ_DEF(end_kitty_image_chunk, END_KITTY_IMAGE_CHUNK, 0, none, void)
  * @width: Image width in character cells
  * @height: Image height in character cells
  *
- * Prints the control sequence for #CHAFA_TERM_SEQ_BEGIN_ITERM2_IMAGE_IMMEDITATE.
+ * Prints the control sequence for #CHAFA_TERM_SEQ_BEGIN_ITERM2_IMAGE.
  *
  * @dest must have enough space to hold
  * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
@@ -972,6 +972,122 @@ CHAFA_TERM_SEQ_DEF(begin_iterm2_image, BEGIN_ITERM2_IMAGE, 2, none, guint, CHAFA
  * Since: 1.8
  **/
 CHAFA_TERM_SEQ_DEF(end_iterm2_image, END_ITERM2_IMAGE, 0, none, void)
+
+/* --- Available in 1.10+ --- */
+
+#undef CHAFA_TERM_SEQ_AVAILABILITY
+#define CHAFA_TERM_SEQ_AVAILABILITY CHAFA_AVAILABLE_IN_1_10
+
+/**
+ * chafa_term_info_emit_enable_sixel_scrolling:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_ENABLE_SIXEL_SCROLLING.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.10
+ **/
+CHAFA_TERM_SEQ_DEF(enable_sixel_scrolling, ENABLE_SIXEL_SCROLLING, 0, none, void)
+
+/**
+ * chafa_term_info_emit_disable_sixel_scrolling:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_DISABLE_SIXEL_SCROLLING.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.10
+ **/
+CHAFA_TERM_SEQ_DEF(disable_sixel_scrolling, DISABLE_SIXEL_SCROLLING, 0, none, void)
+
+/* --- Available in 1.12+ --- */
+
+#undef CHAFA_TERM_SEQ_AVAILABILITY
+#define CHAFA_TERM_SEQ_AVAILABILITY CHAFA_AVAILABLE_IN_1_12
+
+/**
+ * chafa_term_info_emit_enable_bold:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_ENABLE_BOLD.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.12
+ **/
+CHAFA_TERM_SEQ_DEF(enable_bold, ENABLE_BOLD, 0, none, void)
+
+/**
+ * chafa_term_info_emit_set_color_fg_8:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ * @pen: Pen number, 0-7
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_SET_COLOR_FG_8.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.12
+ **/
+CHAFA_TERM_SEQ_DEF(set_color_fg_8, SET_COLOR_FG_8, 1, 8fg, guint8, CHAFA_TERM_SEQ_ARGS guint8 pen)
+
+/**
+ * chafa_term_info_emit_set_color_bg_8:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ * @pen: Pen number, 0-7
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_SET_COLOR_BG_8.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.12
+ **/
+CHAFA_TERM_SEQ_DEF(set_color_bg_8, SET_COLOR_BG_8, 1, 8bg, guint8, CHAFA_TERM_SEQ_ARGS guint8 pen)
+
+/**
+ * chafa_term_info_emit_set_color_fgbg_8:
+ * @term_info: A #ChafaTermInfo
+ * @dest: String destination
+ * @fg_pen: Foreground pen number, 0-7
+ * @bg_pen: Background pen number, 0-7
+ *
+ * Prints the control sequence for #CHAFA_TERM_SEQ_SET_COLOR_FGBG_8.
+ *
+ * @dest must have enough space to hold
+ * #CHAFA_TERM_SEQ_LENGTH_MAX bytes, even if the emitted sequence is
+ * shorter. The output will not be zero-terminated.
+ *
+ * Returns: Pointer to first byte after emitted string
+ *
+ * Since: 1.12
+ **/
+CHAFA_TERM_SEQ_DEF(set_color_fgbg_8, SET_COLOR_FGBG_8, 2, 8fgbg, guint8, CHAFA_TERM_SEQ_ARGS guint8 fg_pen, guint8 bg_pen)
 
 #undef CHAFA_TERM_SEQ_AVAILABILITY
 

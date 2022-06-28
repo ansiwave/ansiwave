@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -150,6 +150,7 @@ static const UnicharRange meta_ranges [] =
 static const ChafaSymbolDef symbol_defs [] =
 {
 #include "chafa-symbols-ascii.h"
+#include "chafa-symbols-latin.h"
 #include "chafa-symbols-block.h"
 #include "chafa-symbols-kana.h"
 #include "chafa-symbols-misc-narrow.h"

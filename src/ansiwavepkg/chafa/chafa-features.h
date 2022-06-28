@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -47,6 +47,9 @@ CHAFA_AVAILABLE_IN_1_10
 gint chafa_get_n_threads (void);
 CHAFA_AVAILABLE_IN_1_10
 void chafa_set_n_threads (gint n);
+
+CHAFA_AVAILABLE_IN_1_10
+gint chafa_get_n_actual_threads (void);
 
 G_END_DECLS
 

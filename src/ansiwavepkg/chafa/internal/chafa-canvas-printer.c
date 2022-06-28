@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2020-2021 Hans Petter Jansson
+/* Copyright (C) 2020-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -30,6 +30,7 @@ typedef struct
     gunichar cur_char;
     gint n_reps;
     guint cur_inverted : 1;
+    guint cur_bold : 1;
     guint32 cur_fg;
     guint32 cur_bg;
 
@@ -115,6 +116,7 @@ reset_attributes (PrintCtx *ctx, gchar *out)
     out = chafa_term_info_emit_reset_attributes (ctx->term_info, out);
 
     ctx->cur_inverted = FALSE;
+    ctx->cur_bold = FALSE;
     ctx->cur_fg = CHAFA_PALETTE_INDEX_TRANSPARENT;
     ctx->cur_bg = CHAFA_PALETTE_INDEX_TRANSPARENT;
     ctx->cur_fg_direct.ch [3] = 0;
@@ -239,15 +241,19 @@ emit_ansi_truecolor (PrintCtx *ctx, gchar *out, gint i, gint i_max)
 }
 
 G_GNUC_WARN_UNUSED_RESULT static gchar *
-handle_inverted_with_reuse (PrintCtx *ctx, gchar *out,
-                            guint32 fg, guint32 bg, gboolean inverted)
+handle_attrs_with_reuse (PrintCtx *ctx, gchar *out,
+                         guint32 fg, guint32 bg,
+                         gboolean inverted, gboolean bold)
 {
-    /* We must check fg_only_enabled because we can run into the situation where
-     * fg is set to transparent. */
-    if (!ctx->canvas->config.fg_only_enabled
-        && ((ctx->cur_inverted && !inverted)
-            || (ctx->cur_fg != CHAFA_PALETTE_INDEX_TRANSPARENT && fg == CHAFA_PALETTE_INDEX_TRANSPARENT)
-            || (ctx->cur_bg != CHAFA_PALETTE_INDEX_TRANSPARENT && bg == CHAFA_PALETTE_INDEX_TRANSPARENT)))
+    /* In FG-only mode, we can't use inverse color or bold because the
+     * attribute reset would mess with the background color. */
+    if (ctx->canvas->config.fg_only_enabled)
+        return out;
+
+    if ((ctx->cur_inverted && !inverted)
+        || (ctx->cur_bold && !bold)
+        || (ctx->cur_fg != CHAFA_PALETTE_INDEX_TRANSPARENT && fg == CHAFA_PALETTE_INDEX_TRANSPARENT)
+        || (ctx->cur_bg != CHAFA_PALETTE_INDEX_TRANSPARENT && bg == CHAFA_PALETTE_INDEX_TRANSPARENT))
     {
         out = flush_chars (ctx, out);
         out = reset_attributes (ctx, out);
@@ -259,6 +265,12 @@ handle_inverted_with_reuse (PrintCtx *ctx, gchar *out,
         out = chafa_term_info_emit_invert_colors (ctx->term_info, out);
     }
 
+    if (!ctx->cur_bold && bold)
+    {
+        out = flush_chars (ctx, out);
+        out = chafa_term_info_emit_enable_bold (ctx->term_info, out);
+    }
+
     return out;
 }
 
@@ -268,7 +280,7 @@ emit_attributes_256 (PrintCtx *ctx, gchar *out,
 {
     if (ctx->canvas->config.optimizations & CHAFA_OPTIMIZATION_REUSE_ATTRIBUTES)
     {
-        out = handle_inverted_with_reuse (ctx, out, fg, bg, inverted);
+        out = handle_attrs_with_reuse (ctx, out, fg, bg, inverted, FALSE);
 
         if (fg != ctx->cur_fg)
         {
@@ -360,7 +372,7 @@ emit_attributes_16 (PrintCtx *ctx, gchar *out,
 {
     if (ctx->canvas->config.optimizations & CHAFA_OPTIMIZATION_REUSE_ATTRIBUTES)
     {
-        out = handle_inverted_with_reuse (ctx, out, fg, bg, inverted);
+        out = handle_attrs_with_reuse (ctx, out, fg, bg, inverted, FALSE);
 
         if (fg != ctx->cur_fg)
         {
@@ -431,6 +443,102 @@ emit_ansi_16 (PrintCtx *ctx, gchar *out, gint i, gint i_max)
             out = emit_attributes_16 (ctx, out, bg, fg, TRUE);
         else
             out = emit_attributes_16 (ctx, out, fg, bg, FALSE);
+
+        if (fg == CHAFA_PALETTE_INDEX_TRANSPARENT && bg == CHAFA_PALETTE_INDEX_TRANSPARENT)
+        {
+            out = queue_char (ctx, out, ' ');
+            if (i < i_max - 1 && ctx->canvas->cells [i + 1].c == 0)
+                out = queue_char (ctx, out, ' ');
+        }
+        else
+        {
+            out = queue_char (ctx, out, cell->c);
+        }
+    }
+
+    return out;
+}
+
+G_GNUC_WARN_UNUSED_RESULT static gchar *
+emit_attributes_16_8 (PrintCtx *ctx, gchar *out,
+                          guint32 fg, guint32 bg, gboolean inverted)
+{
+    if (ctx->canvas->config.optimizations & CHAFA_OPTIMIZATION_REUSE_ATTRIBUTES)
+    {
+        out = handle_attrs_with_reuse (ctx, out, fg, bg, inverted, fg > 7 && fg < 256 ? TRUE : FALSE);
+
+        if (fg != ctx->cur_fg)
+        {
+            if (bg != ctx->cur_bg && bg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+            {
+                out = flush_chars (ctx, out);
+                out = chafa_term_info_emit_set_color_fgbg_8 (ctx->term_info, out, fg & 7, bg);
+            }
+            else if (fg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+            {
+                out = flush_chars (ctx, out);
+                out = chafa_term_info_emit_set_color_fg_8 (ctx->term_info, out, fg & 7);
+            }
+        }
+        else if (bg != ctx->cur_bg && bg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+        {
+            out = flush_chars (ctx, out);
+            out = chafa_term_info_emit_set_color_bg_8 (ctx->term_info, out, bg);
+        }
+    }
+    else
+    {
+        out = flush_chars (ctx, out);
+        out = reset_attributes (ctx, out);
+        if (inverted)
+            out = chafa_term_info_emit_invert_colors (ctx->term_info, out);
+        if (fg > 7)
+            out = chafa_term_info_emit_enable_bold (ctx->term_info, out);
+
+        if (fg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+        {
+            if (bg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+            {
+                out = chafa_term_info_emit_set_color_fgbg_8 (ctx->term_info, out, fg & 7, bg);
+            }
+            else
+            {
+                out = chafa_term_info_emit_set_color_fg_8 (ctx->term_info, out, fg & 7);
+            }
+        }
+        else if (bg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+        {
+            out = chafa_term_info_emit_set_color_bg_8 (ctx->term_info, out, bg);
+        }
+    }
+
+    ctx->cur_fg = fg;
+    ctx->cur_bg = bg;
+    ctx->cur_inverted = inverted;
+    ctx->cur_bold = fg > 7 && fg < 256 ? TRUE : FALSE;
+    return out;
+}
+
+/* Uses bold for bright FG colors. */
+G_GNUC_WARN_UNUSED_RESULT static gchar *
+emit_ansi_16_8 (PrintCtx *ctx, gchar *out, gint i, gint i_max)
+{
+    for ( ; i < i_max; i++)
+    {
+        ChafaCanvasCell *cell = &ctx->canvas->cells [i];
+        guint32 fg, bg;
+
+        /* Wide symbols have a zero code point in the rightmost cell */
+        if (cell->c == 0)
+            continue;
+
+        fg = cell->fg_color;
+        bg = cell->bg_color;
+
+        if (fg == CHAFA_PALETTE_INDEX_TRANSPARENT && bg != CHAFA_PALETTE_INDEX_TRANSPARENT)
+            out = emit_attributes_16_8 (ctx, out, bg, fg, TRUE);
+        else
+            out = emit_attributes_16_8 (ctx, out, fg, bg, FALSE);
 
         if (fg == CHAFA_PALETTE_INDEX_TRANSPARENT && bg == CHAFA_PALETTE_INDEX_TRANSPARENT)
         {
@@ -592,6 +700,9 @@ build_ansi_gstring (ChafaCanvas *canvas, ChafaTermInfo *ti)
                 break;
             case CHAFA_CANVAS_MODE_INDEXED_16:
                 out = emit_ansi_16 (&ctx, out, i, i_next);
+                break;
+            case CHAFA_CANVAS_MODE_INDEXED_16_8:
+                out = emit_ansi_16_8 (&ctx, out, i, i_next);
                 break;
             case CHAFA_CANVAS_MODE_INDEXED_8:
                 out = emit_ansi_16 (&ctx, out, i, i_next);

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -45,6 +45,17 @@ struct ChafaCanvas
     ChafaCanvasCell *cells;
     guint have_alpha : 1;
     guint needs_clear : 1;
+
+    /* Whether to consider inverted symbols; FALSE if using FG only */
+    guint consider_inverted : 1;
+
+    /* Whether to extract symbol colors; FALSE if using default colors */
+    guint extract_colors : 1;
+
+    /* Whether to quantize colors before calculating error (slower, but
+     * yields better results in palettized modes, especially 16/8) */
+    guint use_quantized_error : 1;
+
     ChafaColorPair default_colors;
     guint work_factor_int;
 
@@ -52,16 +63,24 @@ struct ChafaCanvas
      * space, but could be something else depending on the symbol map. */
     gunichar blank_char;
 
+    /* Character to use in cells where fg color == bg color and the color
+     * is only legal in FG. Typically 0x2588 (solid block), but could be
+     * something else depending on the symbol map. Can be zero if there is
+     * no good candidate! */
+    gunichar solid_char;
+
     ChafaCanvasConfig config;
 
     /* Used when setting pixel data */
     ChafaDither dither;
 
-    /* Set if we're in sixel (ChafaSixelCanvas *) or Kitty (ChafaKittyCanvas *) mode */
+    /* This is NULL in CHAFA_PIXEL_MODE_SYMBOLS, otherwise one of:
+     * (ChafaSixelCanvas *), (ChafaKittyCanvas *), (ChafaIterm2Canvas *) */
     gpointer pixel_canvas;
 
-    /* Our palette. Kind of a big structure, so it goes last. */
-    ChafaPalette palette;
+    /* Our palettes. Kind of a big structure, so they go last. */
+    ChafaPalette fg_palette;
+    ChafaPalette bg_palette;
 };
 
 G_END_DECLS

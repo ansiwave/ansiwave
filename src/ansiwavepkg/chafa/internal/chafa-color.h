@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -120,8 +120,6 @@ ChafaColorCandidates;
 
 /* Internal API */
 
-void chafa_init_palette (void);
-
 guint32 chafa_pack_color (const ChafaColor *color) G_GNUC_PURE;
 void chafa_unpack_color (guint32 packed, ChafaColor *color_out);
 
@@ -135,34 +133,9 @@ G_STMT_START { \
   + ((gint) (col_b)->ch [1] - (gint) (col_a)->ch [1]) * ((gint) (col_b)->ch [1] - (gint) (col_a)->ch [1]) \
   + ((gint) (col_b)->ch [2] - (gint) (col_a)->ch [2]) * ((gint) (col_b)->ch [2] - (gint) (col_a)->ch [2]))
 
-/* Required to get alpha right */
-gint chafa_color_diff_slow (const ChafaColor *col_a, const ChafaColor *col_b, ChafaColorSpace color_space) G_GNUC_PURE;
-
 void chafa_color_accum_div_scalar (ChafaColorAccum *color, gint scalar);
 
 void chafa_color_rgb_to_din99d (const ChafaColor *rgb, ChafaColor *din99);
-
-/* Ratio is in the range 0-1000 */
-void chafa_color_mix (ChafaColor *out, const ChafaColor *a, const ChafaColor *b, gint ratio);
-
-/* Takes values 0-255 for r, g, b and returns a universal palette index 0-255 */
-void chafa_pick_color_256 (const ChafaColor *color, ChafaColorSpace color_space, ChafaColorCandidates *candidates);
-
-/* Takes values 0-255 for r, g, b and returns a universal palette index 16-255 */
-void chafa_pick_color_240 (const ChafaColor *color, ChafaColorSpace color_space, ChafaColorCandidates *candidates);
-
-/* Takes values 0-255 for r, g, b and returns a universal palette index 0-15 */
-void chafa_pick_color_16 (const ChafaColor *color, ChafaColorSpace color_space, ChafaColorCandidates *candidates);
-
-/* Takes values 0-255 for r, g, b and returns a universal palette index 0-7 */
-void chafa_pick_color_8 (const ChafaColor *color, ChafaColorSpace color_space, ChafaColorCandidates *candidates);
-
-/* Takes values 0-255 for r, g, b and returns CHAFA_PALETTE_INDEX_FG or CHAFA_PALETTE_INDEX_BG */
-void chafa_pick_color_fgbg (const ChafaColor *color, ChafaColorSpace color_space,
-                            const ChafaColor *fg_color, const ChafaColor *bg_color,
-                            ChafaColorCandidates *candidates);
-
-const ChafaColor *chafa_get_palette_color_256 (guint index, ChafaColorSpace color_space) G_GNUC_CONST;
 
 G_END_DECLS
 

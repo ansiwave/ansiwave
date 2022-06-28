@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -69,7 +69,7 @@ chafa_calc_canvas_geometry (gint src_width,
 
     g_return_if_fail (src_width >= 0);
     g_return_if_fail (src_height >= 0);
-    g_return_if_fail (font_ratio > 0.0);
+    g_return_if_fail (font_ratio > 0.0f);
 
     if (dest_width_inout)
         dest_width = *dest_width_inout;

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2019-2021 Hans Petter Jansson
+/* Copyright (C) 2019-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -18,6 +18,10 @@
  * along with Chafa.  If not, see <http://www.gnu.org/licenses/>. */
 
 #include "config.h"
+
+#include <string.h>
+#include <glib.h>
+
 #include "chafa.h"
 #include "internal/chafa-dither.h"
 #include "internal/chafa-private.h"

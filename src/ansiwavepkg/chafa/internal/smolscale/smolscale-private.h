@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright © 2019-2021 Hans Petter Jansson. See COPYING for details. */
+/* Copyright © 2019-2022 Hans Petter Jansson. See COPYING for details. */
 
 #include <stdint.h>
 #include "smolscale.h"
@@ -13,6 +13,14 @@ extern "C" {
 #endif
 
 #include "config.h"
+
+#ifdef SMOL_USE_ALLOCA
+# define _SMOL_ALLOC(n) alloca (n)
+# define _SMOL_FREE(p)
+#else
+# define _SMOL_ALLOC(n) malloc (n)
+# define _SMOL_FREE(p) free (p)
+#endif
 
 /* Enum switches must handle every value */
 #ifdef __GNUC__
@@ -65,9 +73,11 @@ typedef unsigned int SmolBool;
 #define SMOL_ASSUME_ALIGNED_TO(x, t, n) (x) = (t) __builtin_assume_aligned ((x), (n))
 #define SMOL_ASSUME_ALIGNED(x, t) SMOL_ASSUME_ALIGNED_TO ((x), t, SMOL_ALIGNMENT)
 
-#define smol_alloca_aligned_to(s, a) \
-  ({ void *p = alloca ((s) + (a)); p = (void *) (((uintptr_t) (p) + (a)) & ~((a) - 1)); (p); })
-#define smol_alloca_aligned(s) smol_alloca_aligned_to (s, SMOL_ALIGNMENT)
+/* Pointer to beginning of storage is stored in *r. This must be passed to smol_free() later. */
+#define smol_alloc_aligned_to(s, a, r) \
+  ({ void *p; *(r) = _SMOL_ALLOC ((s) + (a)); p = (void *) (((uintptr_t) (*(r)) + (a)) & ~((a) - 1)); (p); })
+#define smol_alloc_aligned(s, r) smol_alloc_aligned_to ((s), SMOL_ALIGNMENT, (r))
+#define smol_free(p) _SMOL_FREE(p)
 
 typedef enum
 {
@@ -98,7 +108,8 @@ SmolFilterType;
 typedef struct
 {
     uint32_t in_ofs;
-    uint64_t *parts_row [3];
+    uint64_t *parts_row [4];
+    uint64_t *row_storage [4];
 }
 SmolVerticalCtx;
 

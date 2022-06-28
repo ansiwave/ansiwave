@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -59,6 +59,7 @@ typedef enum
     CHAFA_SYMBOL_TAG_LEGACY      = (1 << 21),
     CHAFA_SYMBOL_TAG_SEXTANT     = (1 << 22),
     CHAFA_SYMBOL_TAG_WEDGE       = (1 << 23),
+    CHAFA_SYMBOL_TAG_LATIN       = (1 << 24),
     CHAFA_SYMBOL_TAG_EXTRA       = (1 << 30),
     CHAFA_SYMBOL_TAG_BAD         = CHAFA_SYMBOL_TAG_AMBIGUOUS | CHAFA_SYMBOL_TAG_UGLY,
     CHAFA_SYMBOL_TAG_ALL         = ~(CHAFA_SYMBOL_TAG_EXTRA | CHAFA_SYMBOL_TAG_BAD)
@@ -109,6 +110,14 @@ void chafa_symbol_map_add_glyph (ChafaSymbolMap *symbol_map,
                                  gpointer pixels,
                                  gint width, gint height,
                                  gint rowstride);
+
+CHAFA_AVAILABLE_IN_1_12
+gboolean chafa_symbol_map_get_glyph (ChafaSymbolMap *symbol_map,
+                                     gunichar code_point,
+                                     ChafaPixelType pixel_format,
+                                     gpointer *pixels_out,
+                                     gint *width_out, gint *height_out,
+                                     gint *rowstride_out);
 
 G_END_DECLS
 

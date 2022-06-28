@@ -46,6 +46,7 @@ libchafa_internal_la_SOURCES = \
 	chafa-symbols-ascii.h \
 	chafa-symbols-block.h \
 	chafa-symbols-kana.h \
+	chafa-symbols-latin.h \
 	chafa-symbols-misc-narrow.h \
 	chafa-work-cell.c \
 	chafa-work-cell.h
@@ -74,7 +75,7 @@ libchafa_popcnt_la_CFLAGS = $(LIBCHAFA_CFLAGS) $(GLIB_CFLAGS) -mpopcnt -DCHAFA_C
 libchafa_popcnt_la_LDFLAGS = $(LIBCHAFA_LDFLAGS)
 endif
 
-## -- General ---
+## --- General ---
 
 ## Include $(top_builddir)/chafa to get generated chafaconfig.h.
 

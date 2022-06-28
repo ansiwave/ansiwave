@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -322,7 +322,6 @@ work_cell_get_dominant_channels_for_symbol (ChafaWorkCell *wcell, const ChafaSym
     *fg_ch_out = best_ch [1];
 }
 
-/* colors_out must point to an array of two elements */
 void
 chafa_work_cell_get_contrasting_color_pair (ChafaWorkCell *wcell, ChafaColorPair *color_pair_out)
 {

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2019-2021 Hans Petter Jansson
+/* Copyright (C) 2019-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -375,7 +375,7 @@ build_sixel_row_worker (ChafaBatchInfo *batch, const BuildSixelsCtx *ctx)
     gint i;
 
     n_sixel_rows = (batch->n_rows + SIXEL_CELL_HEIGHT - 1) / SIXEL_CELL_HEIGHT;
-    srow.data = g_alloca (sizeof (SixelData) * ctx->sixel_canvas->width);
+    srow.data = g_malloc (sizeof (SixelData) * ctx->sixel_canvas->width);
     chafa_bitfield_init (&srow.filter_bits, ((ctx->sixel_canvas->width + FILTER_BANK_WIDTH - 1) / FILTER_BANK_WIDTH) * 256);
 
     sixel_ansi = p = g_malloc (256 * (ctx->sixel_canvas->width + 5) * n_sixel_rows + 1);
@@ -396,6 +396,7 @@ build_sixel_row_worker (ChafaBatchInfo *batch, const BuildSixelsCtx *ctx)
     batch->ret_n = p - sixel_ansi;
 
     chafa_bitfield_deinit (&srow.filter_bits);
+    g_free (srow.data);
 }
 
 static void
@@ -458,6 +459,6 @@ chafa_sixel_canvas_build_ansi (ChafaSixelCanvas *sixel_canvas, GString *out_str)
                            (GFunc) build_sixel_row_worker,
                            (GFunc) build_sixel_row_post,
                            sixel_canvas->image->height,
-                           g_get_num_processors (),
+                           chafa_get_n_actual_threads (),
                            SIXEL_CELL_HEIGHT);
 }

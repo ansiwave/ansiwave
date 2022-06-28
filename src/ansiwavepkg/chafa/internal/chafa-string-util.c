@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2021 Hans Petter Jansson
+/* Copyright (C) 2021-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -80,7 +80,13 @@ const char chafa_ascii_dec_u8 [256] [4] =
  * harmlessly dumped past end-of-output. Avoiding initialization saves
  * us approx. 3%, enough to matter. */
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma clang diagnostic ignored "-Wuninitialized"
 
 gchar *
 chafa_format_dec_uint_0_to_9999 (char *dest, guint arg)
@@ -118,4 +124,5 @@ chafa_format_dec_uint_0_to_9999 (char *dest, guint arg)
     return dest + i;
 }
 
+#pragma clang diagnostic pop
 #pragma GCC diagnostic pop

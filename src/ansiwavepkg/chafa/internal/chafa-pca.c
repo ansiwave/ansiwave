@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2019-2021 Hans Petter Jansson
+/* Copyright (C) 2019-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <string.h>  /* memcpy */
 #include "internal/chafa-pca.h"
 
 #define PCA_POWER_MAX_ITERATIONS 1000
@@ -117,7 +118,7 @@ chafa_vec3f32_array_compute_pca (const ChafaVec3f32 *vecs_in, gint n_vecs,
     gfloat eigenvalue;
     gint i;
 
-    v = alloca (n_vecs * sizeof (ChafaVec3f32));
+    v = g_malloc (n_vecs * sizeof (ChafaVec3f32));
     memcpy (v, vecs_in, n_vecs * sizeof (ChafaVec3f32));
 
     /* Calculate average */
@@ -156,4 +157,6 @@ chafa_vec3f32_array_compute_pca (const ChafaVec3f32 *vecs_in, gint n_vecs,
 
     if (average_out)
         chafa_vec3f32_copy (average_out, &average);
+
+    g_free (v);
 }

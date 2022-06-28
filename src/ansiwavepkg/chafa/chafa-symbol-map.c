@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-/* Copyright (C) 2018-2021 Hans Petter Jansson
+/* Copyright (C) 2018-2022 Hans Petter Jansson
  *
  * This file is part of Chafa, a program that turns images into character art.
  *
@@ -24,8 +24,6 @@
 #include "chafa.h"
 #include "internal/chafa-private.h"
 #include "internal/smolscale/smolscale.h"
-
-#define DEBUG(x)
 
 /* Max number of candidates to return from chafa_symbol_map_find_candidates() */
 #define N_CANDIDATES_MAX 8
@@ -110,6 +108,7 @@ Glyph2;
  * @CHAFA_SYMBOL_TAG_LEGACY: Legacy computer symbols, including sextants, wedges and more.
  * @CHAFA_SYMBOL_TAG_SEXTANT: Sextant 2x3 mosaics.
  * @CHAFA_SYMBOL_TAG_WEDGE: Wedge shapes that align with sextants.
+ * @CHAFA_SYMBOL_TAG_LATIN: Latin and Latin-like symbols (superset of ASCII).
  * @CHAFA_SYMBOL_TAG_EXTRA: Symbols not in any other category.
  * @CHAFA_SYMBOL_TAG_BAD: Joint set of ugly and ambiguous characters. Always excluded unless specifically asked for.
  * @CHAFA_SYMBOL_TAG_ALL: Special value meaning all supported symbols.
@@ -244,29 +243,26 @@ coverage_to_bitmap (const guint8 *cov, gint rowstride)
     return bitmap;
 }
 
-G_GNUC_UNUSED static void
-dump_coverage (const guint8 *cov, gint width, gint height)
+static void
+bitmap_to_argb (guint64 bitmap, guint8 *argb, gint rowstride)
 {
-    gint i;
+    guint8 *p;
+    gint x, y;
 
-    for (i = 0; i < width * height; i++)
+    for (y = 0; y < CHAFA_SYMBOL_HEIGHT_PIXELS; y++)
     {
-        if (cov [i] > 127)
-        {
-            DEBUG (g_printerr ("@@"));
-        }
-        else
-        {
-            DEBUG (g_printerr ("--"));
-        }
+        p = argb + y * rowstride;
 
-        if (!((i + 1) % width))
+        for (x = 0; x < CHAFA_SYMBOL_WIDTH_PIXELS; x++)
         {
-            DEBUG (g_printerr ("\n"));
+            guint32 *p32 = (guint32 *) p;
+
+            /* Set = 0xffffffff, clear = 0x00000000 */
+            *p32 = (-(guint32) ((bitmap >> 63) & 1));
+            p += 4;
+            bitmap <<= 1;
         }
     }
-
-    DEBUG (g_printerr ("\n"));
 }
 
 static guint64
@@ -292,8 +288,6 @@ glyph_to_bitmap (gint width, gint height,
 
     pixels_to_coverage (scaled_pixels, pixel_format, cov, CHAFA_SYMBOL_N_PIXELS);
     sharpen_coverage (cov, sharpened_cov, CHAFA_SYMBOL_WIDTH_PIXELS, CHAFA_SYMBOL_HEIGHT_PIXELS);
-    DEBUG (dump_coverage (cov, CHAFA_SYMBOL_WIDTH_PIXELS, CHAFA_SYMBOL_HEIGHT_PIXELS));
-    DEBUG (dump_coverage (sharpened_cov, CHAFA_SYMBOL_WIDTH_PIXELS, CHAFA_SYMBOL_HEIGHT_PIXELS));
     bitmap = coverage_to_bitmap (sharpened_cov, CHAFA_SYMBOL_WIDTH_PIXELS);
 
     return bitmap;
@@ -323,8 +317,6 @@ glyph_to_bitmap_wide (gint width, gint height,
 
     pixels_to_coverage (scaled_pixels, pixel_format, cov, CHAFA_SYMBOL_N_PIXELS * 2);
     sharpen_coverage (cov, sharpened_cov, CHAFA_SYMBOL_WIDTH_PIXELS * 2, CHAFA_SYMBOL_HEIGHT_PIXELS);
-    DEBUG (dump_coverage (cov, CHAFA_SYMBOL_WIDTH_PIXELS * 2, CHAFA_SYMBOL_HEIGHT_PIXELS));
-    DEBUG (dump_coverage (sharpened_cov, CHAFA_SYMBOL_WIDTH_PIXELS * 2, CHAFA_SYMBOL_HEIGHT_PIXELS));
 
     *left_bitmap_out = coverage_to_bitmap (sharpened_cov,
                                            CHAFA_SYMBOL_WIDTH_PIXELS * 2);
@@ -835,6 +827,7 @@ parse_symbol_tag (const gchar *name, gint len, SelectorType *sel_type_out,
         { "alnum", CHAFA_SYMBOL_TAG_ALNUM },
         { "bad", CHAFA_SYMBOL_TAG_BAD },
         { "legacy", CHAFA_SYMBOL_TAG_LEGACY },
+        { "latin", CHAFA_SYMBOL_TAG_LATIN },
 
         { NULL, 0 }
     };
@@ -989,6 +982,12 @@ chafa_symbol_map_deinit (ChafaSymbolMap *symbol_map)
     for (i = 0; i < symbol_map->n_symbols; i++)
         g_free (symbol_map->symbols [i].coverage);
 
+    for (i = 0; i < symbol_map->n_symbols2; i++)
+    {
+        g_free (symbol_map->symbols2 [i].sym [0].coverage);
+        g_free (symbol_map->symbols2 [i].sym [1].coverage);
+    }
+
     g_hash_table_destroy (symbol_map->glyphs);
     g_hash_table_destroy (symbol_map->glyphs2);
     g_array_free (symbol_map->selectors, TRUE);
@@ -1098,7 +1097,7 @@ chafa_symbol_map_find_candidates (const ChafaSymbolMap *symbol_map, guint64 bitm
 
     g_return_if_fail (symbol_map != NULL);
 
-    ham_dist = g_alloca (sizeof (gint) * (symbol_map->n_symbols + 1));
+    ham_dist = g_new (gint, symbol_map->n_symbols + 1);
 
     chafa_hamming_distance_vu64 (bitmap, symbol_map->packed_bitmaps, ham_dist, symbol_map->n_symbols);
 
@@ -1153,6 +1152,8 @@ chafa_symbol_map_find_candidates (const ChafaSymbolMap *symbol_map, guint64 bitm
 
     i = *n_candidates_inout = MIN (i, *n_candidates_inout);
     memcpy (candidates_out, candidates, i * sizeof (ChafaCandidate));
+
+    g_free (ham_dist);
 }
 
 void
@@ -1175,7 +1176,7 @@ chafa_symbol_map_find_wide_candidates (const ChafaSymbolMap *symbol_map, const g
 
     g_return_if_fail (symbol_map != NULL);
 
-    ham_dist = g_alloca (sizeof (gint) * (symbol_map->n_symbols2 + 1));
+    ham_dist = g_new (gint, symbol_map->n_symbols2 + 1);
 
     chafa_hamming_distance_2_vu64 (bitmaps, symbol_map->packed_bitmaps2, ham_dist, symbol_map->n_symbols2);
 
@@ -1230,6 +1231,8 @@ chafa_symbol_map_find_wide_candidates (const ChafaSymbolMap *symbol_map, const g
 
     i = *n_candidates_inout = MIN (i, *n_candidates_inout);
     memcpy (candidates_out, candidates, i * sizeof (ChafaCandidate));
+
+    g_free (ham_dist);
 }
 
 /* Assumes symbols are sorted by ascending popcount */
@@ -1722,4 +1725,112 @@ chafa_symbol_map_add_glyph (ChafaSymbolMap *symbol_map,
     }
 
     symbol_map->need_rebuild = TRUE;
+}
+
+/**
+ * chafa_symbol_map_get_glyph:
+ * @symbol_map: A symbol map
+ * @code_point: A Unicode code point
+ * @pixel_format: Desired pixel format of @pixels_out
+ * @pixels_out: Storage for a pointer to exported glyph data
+ * @width_out: Storage for width of glyph, in pixels
+ * @height_out: Storage for height of glyph, in pixels
+ * @rowstride_out: Storage for offset from start of one row to the next, in bytes
+ *
+ * Returns data for the glyph corresponding to @code_point stored in @symbol_map.
+ * Any of @pixels_out, @width_out, @height_out and @rowstride_out can be NULL,
+ * in which case the corresponding data is not retrieved.
+ *
+ * If @pixels_out is not NULL, a pointer to freshly allocated memory containing
+ * height * rowstride bytes in the pixel format specified by @pixel_format
+ * will be stored at this address. It must be freed using g_free() when you're
+ * done with it.
+ *
+ * Monochrome glyphs (the only kind currently supported) will be rendered as
+ * opaque white on a transparent black background (0xffffffff for inked
+ * pixels and 0x00000000 for uninked).
+ *
+ * Since: 1.12
+ **/
+gboolean
+chafa_symbol_map_get_glyph (ChafaSymbolMap *symbol_map,
+                            gunichar code_point,
+                            ChafaPixelType pixel_format,
+                            gpointer *pixels_out,
+                            gint *width_out, gint *height_out,
+                            gint *rowstride_out)
+{
+    gboolean success = FALSE;
+    gint width, height, rowstride;
+
+    g_return_val_if_fail (symbol_map != NULL, FALSE);
+
+    if (g_unichar_iswide (code_point))
+    {
+        Glyph2 *glyph2;
+
+        glyph2 = g_hash_table_lookup (symbol_map->glyphs2, GUINT_TO_POINTER (code_point));
+        if (!glyph2)
+            goto out;
+
+        g_assert (glyph2->c == code_point);
+
+        if (pixels_out)
+        {
+            *pixels_out = g_malloc (CHAFA_SYMBOL_N_PIXELS * 4 * 2);
+            bitmap_to_argb (glyph2->bitmap [0], *pixels_out,
+                            CHAFA_SYMBOL_WIDTH_PIXELS * 4 * 2);
+            bitmap_to_argb (glyph2->bitmap [1], (*pixels_out) + CHAFA_SYMBOL_WIDTH_PIXELS * 4,
+                            CHAFA_SYMBOL_WIDTH_PIXELS * 4 * 2);
+        }
+
+        width = CHAFA_SYMBOL_WIDTH_PIXELS * 2;        
+        height = CHAFA_SYMBOL_HEIGHT_PIXELS;
+        rowstride = CHAFA_SYMBOL_WIDTH_PIXELS * 2 * 4;
+    }
+    else
+    {
+        Glyph *glyph;
+
+        glyph = g_hash_table_lookup (symbol_map->glyphs, GUINT_TO_POINTER (code_point));
+        if (!glyph)
+            goto out;
+
+        g_assert (glyph->c == code_point);
+
+        if (pixels_out)
+        {
+            *pixels_out = g_malloc (CHAFA_SYMBOL_N_PIXELS * 4);
+            bitmap_to_argb (glyph->bitmap, *pixels_out, CHAFA_SYMBOL_WIDTH_PIXELS * 4);
+        }
+
+        width = CHAFA_SYMBOL_WIDTH_PIXELS;
+        height = CHAFA_SYMBOL_HEIGHT_PIXELS;
+        rowstride = CHAFA_SYMBOL_WIDTH_PIXELS * 4;
+    }
+
+    if (width_out)
+        *width_out = width;
+    if (height_out)
+        *height_out = height;
+    if (rowstride_out)
+        *rowstride_out = rowstride;
+
+    if (pixels_out && pixel_format != CHAFA_PIXEL_ARGB8_PREMULTIPLIED)
+    {
+        gpointer temp_pixels = g_malloc (width * CHAFA_SYMBOL_HEIGHT_PIXELS * 4);
+
+        /* Convert to desired pixel format */
+        smol_scale_simple (SMOL_PIXEL_ARGB8_PREMULTIPLIED, *pixels_out,
+                           width, height, rowstride,
+                           (SmolPixelType) pixel_format, temp_pixels,
+                           width, height, rowstride);
+        g_free (*pixels_out);
+        *pixels_out = temp_pixels;
+    }
+
+    success = TRUE;
+
+out:
+    return success;
 }
