@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Chafa.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
+#include "generated_config.h"
 #include "internal/chafa-string-util.h"
 
 /* Generate a const table of the ASCII decimal numbers 0..255, avoiding leading
