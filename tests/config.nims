@@ -1,2 +1,3 @@
 switch("path", "$projectDir/../src")
---define:chafa
+when not defined(windows):
+  --define:chafa

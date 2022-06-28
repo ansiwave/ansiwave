@@ -13,10 +13,7 @@ from ./ansiwavepkg/chafa import nil
 const img = staticRead("aintgottaexplainshit.jpg")
 
 test "convert image to ansi art":
-  try:
-    echo chafa.imageToAnsi(img, 80)
-  except:
-    discard
+  echo chafa.imageToAnsi(img, 80)
 
 import ./ansiwavepkg/qrcodegen
 
