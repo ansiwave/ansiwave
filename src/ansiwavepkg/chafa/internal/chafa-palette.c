@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Chafa.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>  /* abs */
 #include <string.h>  /* memcpy, memset */

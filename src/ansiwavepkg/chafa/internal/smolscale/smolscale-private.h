@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#include "generated_config.h"
+#include "config.h"
 
 #ifdef SMOL_USE_ALLOCA
 # define _SMOL_ALLOC(n) alloca (n)
