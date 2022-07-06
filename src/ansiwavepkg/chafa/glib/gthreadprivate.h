@@ -21,7 +21,7 @@
 #ifndef __G_THREADPRIVATE_H__
 #define __G_THREADPRIVATE_H__
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "deprecated/gthread.h"
 

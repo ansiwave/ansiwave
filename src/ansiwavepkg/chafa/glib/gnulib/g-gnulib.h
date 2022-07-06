@@ -16,7 +16,7 @@
  */
 #ifndef __G_GNULIB_H__
 
-#include "generated_config.h"
+#include "config.h"
 #include <stdlib.h>
 #include "glib/glib.h"
 

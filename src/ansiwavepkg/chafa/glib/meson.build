@@ -1,4 +1,4 @@
-configure_file(input : 'glibconfig.h.in', output : 'glibconfig.h',
+glibconfig_h = configure_file(input : 'glibconfig.h.in', output : 'glibconfig.h',
   install_dir : join_paths(get_option('libdir'), 'glib-2.0/include'),
   configuration : glibconfig_conf)
 
@@ -20,14 +20,8 @@ libsysprof_capture_dep = dependency('sysprof-capture-4', version: '>= 3.38.0',
 )
 glib_conf.set('HAVE_SYSPROF', libsysprof_capture_dep.found())
 
-# TODO: gnulib_objects is a workaround for
-# <https://github.com/mesonbuild/meson/issues/3934> and
-# <https://github.com/mesonbuild/meson/issues/3937>. When we can depend
-# on a meson version where those are fixed, revert the commit that
-# introduced this workaround.
 if use_system_printf
   gnulib_lib = []
-  gnulib_objects = []
   gnulib_libm_dependency = []
   glib_conf.set ('gl_unused', '')
   glib_conf.set ('gl_extern_inline', '')
@@ -117,7 +111,6 @@ else
   endif
 
   subdir('gnulib')
-  gnulib_objects = [gnulib_lib.extract_all_objects()]
 endif
 
 glib_headers = files(
@@ -126,6 +119,10 @@ glib_headers = files(
   'glib-object.h',
 )
 install_headers(glib_headers, subdir : 'glib-2.0')
+
+# Expose as variable to be used by gobject-introspection
+# when it includes GLib as a subproject
+glib_unix_h = files('glib-unix.h')
 
 glib_deprecated_headers = files(
   'deprecated/gallocator.h',
@@ -317,14 +314,18 @@ glib_sources = files(
   'gprintf.c',
 )
 
+platform_deps = []
+
 if host_system == 'windows'
-  glib_win_rc = configure_file(
-    input: 'glib.rc.in',
-    output: 'glib.rc',
-    configuration: glibconfig_conf,
-  )
-  glib_win_res = windows.compile_resources(glib_win_rc)
-  glib_sources += [glib_win_res]
+  if get_option('default_library') == 'shared'
+    glib_win_rc = configure_file(
+      input: 'glib.rc.in',
+      output: 'glib.rc',
+      configuration: glibconfig_conf,
+    )
+    glib_win_res = windows.compile_resources(glib_win_rc)
+    glib_sources += [glib_win_res]
+  endif
   glib_sources += files('gwin32.c', 'gspawn-win32.c', 'giowin32.c')
   platform_deps = [winsock2, cc.find_library('winmm')]
   if cc.get_id() == 'msvc' or cc.get_id() == 'clang-cl'
@@ -337,6 +338,13 @@ endif
 
 if glib_have_cocoa
   glib_sources += files('gosxutils.m')
+  framework_dep = dependency('appleframeworks', modules : ['Foundation', 'CoreFoundation', 'AppKit'])
+  platform_deps += [framework_dep]
+endif
+
+if glib_have_carbon
+  framework_dep = dependency('appleframeworks', modules : 'Carbon')
+  platform_deps += [framework_dep]
 endif
 
 glib_sources += files('gthread-@0@.c'.format(threads_implementation))
@@ -359,7 +367,6 @@ glib_c_args = ['-DG_LOG_DOMAIN="GLib"', '-DGLIB_COMPILATION'] + pcre_static_args
 libglib = library('glib-2.0',
   glib_dtrace_obj, glib_dtrace_hdr,
   sources : [deprecated_sources, glib_sources],
-  objects : [charset_lib.extract_all_objects()] + gnulib_objects,
   version : library_version,
   soversion : soversion,
   darwin_versions : darwin_versions,
@@ -367,6 +374,7 @@ libglib = library('glib-2.0',
   # intl.lib is not compatible with SAFESEH
   link_args : [noseh_link_args, glib_link_flags, win32_ldflags],
   include_directories : configinc,
+  link_with: [charset_lib, gnulib_lib],
   dependencies : [pcre, thread_dep, librt] + libintl_deps + libiconv + platform_deps + [gnulib_libm_dependency, libm] + [libsysprof_capture_dep],
   c_args : glib_c_args,
   objc_args : glib_c_args,
@@ -380,7 +388,7 @@ libglib_dep = declare_dependency(
 
 pkg.generate(libglib,
   libraries : [libintl_deps],
-  libraries_private : [osx_ldflags, win32_ldflags],
+  libraries_private : [win32_ldflags],
   subdirs : ['glib-2.0'],
   extra_cflags : ['-I${libdir}/glib-2.0/include'] + win32_cflags,
   variables : ['bindir=' + join_paths('${prefix}', get_option('bindir')),
@@ -444,23 +452,34 @@ configure_file(
 
 install_data('glib_gdb.py', install_dir : join_paths(glib_pkgdatadir, 'gdb'))
 
+# This is needed to make gdb find glib_gdb.py
+if meson.version().version_compare('>=0.58')
+  env = environment()
+  env.prepend('PYTHONPATH', meson.current_source_dir())
+  meson.add_devenv(env)
+endif
+
 gdb_conf = configuration_data()
 gdb_conf.set('datadir', glib_datadir)
 # This is also used in gobject/meson.build
 if host_system != 'windows'
-  # XXX: We add a leading './' because glib_libdir is an absolute path and we
-  # need it to be a relative path so that join_paths appends it to the end.
-  gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
+  gdb_install = true
 else
   # FIXME: Cannot install on Windows because the path will contain a drive
   # letter and colons are not allowed in paths.
-  gdb_install_dir = false
+  gdb_install = false
 endif
+
+# XXX: We add a leading './' because glib_libdir is an absolute path and we
+# need it to be a relative path so that join_paths appends it to the end.
+gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
+
 configure_file(
   input: 'libglib-gdb.py.in',
   output: 'libglib-2.0.so.@0@-gdb.py'.format(library_version),
   configuration: gdb_conf,
   install_dir: gdb_install_dir,
+  install: gdb_install,
 )
 
 if enable_systemtap

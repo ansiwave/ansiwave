@@ -37,7 +37,7 @@
  * more freedom -- they can do as they please.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "gthread.h"
 

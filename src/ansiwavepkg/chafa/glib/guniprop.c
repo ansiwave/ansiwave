@@ -17,7 +17,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>
 #include <stddef.h>
@@ -421,8 +421,15 @@ g_unichar_iszerowidth (gunichar c)
   if (G_UNLIKELY (ISZEROWIDTHTYPE (TYPE (c))))
     return TRUE;
 
+  /* A few additional codepoints are zero-width:
+   *  - Part of the Hangul Jamo block covering medial/vowels/jungseong and
+   *    final/trailing_consonants/jongseong Jamo
+   *  - Jungseong and jongseong for Old Korean
+   *  - Zero-width space (U+200B)
+   */
   if (G_UNLIKELY ((c >= 0x1160 && c < 0x1200) ||
-		  c == 0x200B))
+                  (c >= 0xD7B0 && c < 0xD800) ||
+                  c == 0x200B))
     return TRUE;
 
   return FALSE;
@@ -1486,6 +1493,17 @@ static const guint32 iso15924_tags[] =
     PACK ('D', 'i', 'a', 'k'), /* G_UNICODE_SCRIPT_DIVES_AKURU */
     PACK ('K', 'i', 't', 's'), /* G_UNICODE_SCRIPT_KHITAN_SMALL_SCRIPT */
     PACK ('Y', 'e', 'z', 'i'), /* G_UNICODE_SCRIPT_YEZIDI */
+
+  /* Unicode 14.0 additions */
+    PACK ('C', 'p', 'm', 'n'), /* G_UNICODE_SCRIPT_CYPRO_MINOAN */
+    PACK ('O', 'u', 'g', 'r'), /* G_UNICODE_SCRIPT_OLD_UYHUR */
+    PACK ('T', 'n', 's', 'a'), /* G_UNICODE_SCRIPT_TANGSA */
+    PACK ('T', 'o', 't', 'o'), /* G_UNICODE_SCRIPT_TOTO */
+    PACK ('V', 'i', 't', 'h'), /* G_UNICODE_SCRIPT_VITHKUQI */
+
+  /* not really a Unicode script, but part of ISO 15924 */
+    PACK ('Z', 'm', 't', 'h'), /* G_UNICODE_SCRIPT_MATH */
+
 #undef PACK
 };
 

@@ -18,7 +18,7 @@
  * along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <errno.h>
 

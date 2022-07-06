@@ -17,7 +17,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>
 #ifdef HAVE_CODESET
@@ -271,10 +271,14 @@ g_utf8_strlen (const gchar *p,
  * g_utf8_substring:
  * @str: a UTF-8 encoded string
  * @start_pos: a character offset within @str
- * @end_pos: another character offset within @str
+ * @end_pos: another character offset within @str,
+ *   or `-1` to indicate the end of the string
  *
  * Copies a substring out of a UTF-8 encoded string.
  * The substring will contain @end_pos - @start_pos characters.
+ *
+ * Since GLib 2.72, `-1` can be passed to @end_pos to indicate the
+ * end of the string.
  *
  * Returns: (transfer full): a newly allocated copy of the requested
  *     substring. Free with g_free() when no longer needed.
@@ -288,8 +292,19 @@ g_utf8_substring (const gchar *str,
 {
   gchar *start, *end, *out;
 
+  g_return_val_if_fail (end_pos >= start_pos || end_pos == -1, NULL);
+
   start = g_utf8_offset_to_pointer (str, start_pos);
-  end = g_utf8_offset_to_pointer (start, end_pos - start_pos);
+
+  if (end_pos == -1)
+    {
+      glong length = g_utf8_strlen (start, -1);
+      end = g_utf8_offset_to_pointer (start, length);
+    }
+  else
+    {
+      end = g_utf8_offset_to_pointer (start, end_pos - start_pos);
+    }
 
   out = g_malloc (end - start + 1);
   memcpy (out, start, end - start);
@@ -574,7 +589,7 @@ static inline gunichar
 g_utf8_get_char_extended (const  gchar *p,
 			  gssize max_len)
 {
-  guint i, len;
+  gsize i, len;
   gunichar min_code;
   gunichar wc = (guchar) *p;
   const gunichar partial_sequence = (gunichar) -2;
@@ -623,9 +638,9 @@ g_utf8_get_char_extended (const  gchar *p,
       return malformed_sequence;
     }
 
-  if (G_UNLIKELY (max_len >= 0 && len > max_len))
+  if (G_UNLIKELY (max_len >= 0 && len > (gsize) max_len))
     {
-      for (i = 1; i < max_len; i++)
+      for (i = 1; i < (gsize) max_len; i++)
 	{
 	  if ((((guchar *)p)[i] & 0xc0) != 0x80)
 	    return malformed_sequence;
@@ -987,9 +1002,10 @@ g_ucs4_to_utf8 (const gunichar *str,
  *     words read, or %NULL. If %NULL, then %G_CONVERT_ERROR_PARTIAL_INPUT will
  *     be returned in case @str contains a trailing partial character. If
  *     an error occurs then the index of the invalid input is stored here.
+ *     It’s guaranteed to be non-negative.
  * @items_written: (out) (optional): location to store number
  *     of bytes written, or %NULL. The value stored here does not include the
- *     trailing 0 byte.
+ *     trailing 0 byte. It’s guaranteed to be non-negative.
  * @error: location to store the error occurring, or %NULL to ignore
  *     errors. Any of the errors in #GConvertError other than
  *     %G_CONVERT_ERROR_NO_CONVERSION may occur.

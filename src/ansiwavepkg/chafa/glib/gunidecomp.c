@@ -54,7 +54,7 @@
  *  * Unicode 13.0 was added in GLib 2.66
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>
 

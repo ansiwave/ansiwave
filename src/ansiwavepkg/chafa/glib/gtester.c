@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#include "generated_config.h"
+#include "config.h"
 
 #include <glib.h>
 #include <glib-unix.h>
@@ -668,8 +668,8 @@ parse_args (gint    *argc_p,
         }
     }
   /* collapse argv */
-  e = 1;
-  for (i = 1; i < argc; i++)
+  e = 0;
+  for (i = 0; i < argc; i++)
     if (argv[i])
       {
         argv[e++] = argv[i];

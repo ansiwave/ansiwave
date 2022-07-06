@@ -26,7 +26,7 @@
  * MT safe
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 /* we know we are deprecated here, no need for warnings */
 #ifndef GLIB_DISABLE_DEPRECATION_WARNINGS
@@ -463,7 +463,8 @@ main (int   argc,
   
   if (argc < 3)
     {
-      g_warning ("Usage: %s filename prefix1 [prefix2 ...]", argv[0]);
+      g_warning ("Usage: %s filename prefix1 [prefix2 ...]",
+                 (argc > 0) ? argv[0] : "gcompletion");
       return 1;
     }
   

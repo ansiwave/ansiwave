@@ -26,7 +26,7 @@
  * MT safe
  */
 
-#include "generated_config.h"
+#include "config.h"
 #include "glibconfig.h"
 
 #define DEBUG_MSG(x)	/* */
@@ -242,8 +242,8 @@
  * @G_DATE_SATURDAY: Saturday
  * @G_DATE_SUNDAY: Sunday
  *
- * Enumeration representing a day of the week; #G_DATE_MONDAY,
- * #G_DATE_TUESDAY, etc. #G_DATE_BAD_WEEKDAY is an invalid weekday.
+ * Enumeration representing a day of the week; %G_DATE_MONDAY,
+ * %G_DATE_TUESDAY, etc. %G_DATE_BAD_WEEKDAY is an invalid weekday.
  */
 
 /**
@@ -288,11 +288,14 @@ g_date_new (void)
  * @month: month of the year
  * @year: year
  *
- * Like g_date_new(), but also sets the value of the date. Assuming the
- * day-month-year triplet you pass in represents an existing day, the
- * returned date will be valid.
+ * Create a new #GDate representing the given day-month-year triplet.
  *
- * Returns: a newly-allocated #GDate initialized with @day, @month, and @year
+ * The triplet you pass in must represent a valid date. Use g_date_valid_dmy()
+ * if needed to validate it. The returned #GDate is guaranteed to be non-%NULL
+ * and valid.
+ *
+ * Returns: (transfer full) (not nullable): a newly-allocated #GDate
+ *   initialized with @day, @month, and @year
  */
 GDate*
 g_date_new_dmy (GDateDay   day, 
@@ -320,11 +323,14 @@ g_date_new_dmy (GDateDay   day,
  * g_date_new_julian:
  * @julian_day: days since January 1, Year 1
  *
- * Like g_date_new(), but also sets the value of the date. Assuming the
- * Julian day number you pass in is valid (greater than 0, less than an
- * unreasonably large number), the returned date will be valid.
+ * Create a new #GDate representing the given Julian date.
  *
- * Returns: a newly-allocated #GDate initialized with @julian_day
+ * The @julian_day you pass in must be valid. Use g_date_valid_julian() if
+ * needed to validate it. The returned #GDate is guaranteed to be non-%NULL and
+ * valid.
+ *
+ * Returns: (transfer full) (not nullable): a newly-allocated #GDate initialized
+ *   with @julian_day
  */
 GDate*
 g_date_new_julian (guint32 julian_day)
@@ -2550,9 +2556,7 @@ win32_strftime_helper (const GDate     *d,
 	      break;
 	    case 'Z':
 	      n = GetTimeZoneInformation (&tzinfo);
-	      if (n == TIME_ZONE_ID_UNKNOWN)
-		;
-	      else if (n == TIME_ZONE_ID_STANDARD)
+	      if (n == TIME_ZONE_ID_UNKNOWN || n == TIME_ZONE_ID_STANDARD)
 		g_array_append_vals (result, tzinfo.StandardName, wcslen (tzinfo.StandardName));
 	      else if (n == TIME_ZONE_ID_DAYLIGHT)
 		g_array_append_vals (result, tzinfo.DaylightName, wcslen (tzinfo.DaylightName));
@@ -2588,7 +2592,8 @@ win32_strftime_helper (const GDate     *d,
       return 0;
     }
   
-  if (slen <= convlen)
+  g_assert (convlen >= 0);
+  if ((gsize) convlen >= slen)
     {
       /* Ensure only whole characters are copied into the buffer. */
       gchar *end = g_utf8_find_prev_char (convbuf, convbuf + slen);

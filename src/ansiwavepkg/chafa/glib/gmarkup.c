@@ -17,7 +17,7 @@
  * along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdarg.h>
 #include <string.h>
@@ -1032,7 +1032,7 @@ emit_start_element (GMarkupParseContext  *context,
    */
   if ((context->flags & G_MARKUP_IGNORE_QUALIFIED) && strchr (current_element (context), ':'))
     {
-      static const GMarkupParser ignore_parser;
+      static const GMarkupParser ignore_parser = { 0 };
       g_markup_parse_context_push (context, &ignore_parser, NULL);
       clear_attributes (context);
       return;

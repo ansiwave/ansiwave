@@ -28,7 +28,7 @@
      ENABLE_UNISTDIO    Set to 1 to enable the unistdio extensions.  */
 
 #ifndef PRINTF_PARSE
-# include <generated_config.h>
+# include <config.h>
 #endif
 
 #include "g-gnulib.h"

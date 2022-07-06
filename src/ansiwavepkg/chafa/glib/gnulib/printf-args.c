@@ -21,7 +21,7 @@
      STATIC             Set to 'static' to declare the function static.  */
 
 #ifndef PRINTF_FETCHARGS
-# include <generated_config.h>
+# include <config.h>
 #endif
 
 #include "g-gnulib.h"

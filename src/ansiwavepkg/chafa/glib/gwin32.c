@@ -27,7 +27,7 @@
  * MT safe for the unix part, FIXME: make the win32 part MT safe as well.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "glibconfig.h"
 
@@ -491,6 +491,48 @@ G_GNUC_END_IGNORE_DEPRECATIONS
   return dirname;
 }
 
+/*
+ * private API to call Windows's RtlGetVersion(), which may need to be called
+ * via GetProcAddress()
+ */
+gboolean
+_g_win32_call_rtl_version (OSVERSIONINFOEXW *info)
+{
+  static OSVERSIONINFOEXW result;
+  static gsize inited = 0;
+
+  g_return_val_if_fail (info != NULL, FALSE);
+
+  if (g_once_init_enter (&inited))
+    {
+#if WINAPI_FAMILY != MODERN_API_FAMILY
+      /* For non-modern UI Apps, use the LoadLibraryW()/GetProcAddress() thing */
+      typedef NTSTATUS (WINAPI fRtlGetVersion) (PRTL_OSVERSIONINFOEXW);
+
+      fRtlGetVersion *RtlGetVersion;
+      HMODULE hmodule = LoadLibraryW (L"ntdll.dll");
+      g_return_val_if_fail (hmodule != NULL, FALSE);
+
+      RtlGetVersion = (fRtlGetVersion *) GetProcAddress (hmodule, "RtlGetVersion");
+      g_return_val_if_fail (RtlGetVersion != NULL, FALSE);
+#endif
+
+      memset (&result, 0, sizeof (OSVERSIONINFOEXW));
+      result.dwOSVersionInfoSize = sizeof (OSVERSIONINFOEXW);
+
+      RtlGetVersion (&result);
+
+#if WINAPI_FAMILY != MODERN_API_FAMILY
+      FreeLibrary (hmodule);
+#endif
+      g_once_init_leave (&inited, TRUE);
+    }
+
+  *info = result;
+
+  return TRUE;
+}
+
 /**
  * g_win32_check_windows_version:
  * @major: major version of Windows
@@ -526,41 +568,23 @@ g_win32_check_windows_version (const gint major,
   gboolean is_ver_checked = FALSE;
   gboolean is_type_checked = FALSE;
 
-#if WINAPI_FAMILY != MODERN_API_FAMILY
-  /* For non-modern UI Apps, use the LoadLibraryW()/GetProcAddress() thing */
-  typedef NTSTATUS (WINAPI fRtlGetVersion) (PRTL_OSVERSIONINFOEXW);
-
-  fRtlGetVersion *RtlGetVersion;
-  HMODULE hmodule;
-#endif
   /* We Only Support Checking for XP or later */
-  g_return_val_if_fail (major >= 5 && (major <=6 || major == 10), FALSE);
+  g_return_val_if_fail (major >= 5 && (major <= 6 || major == 10), FALSE);
   g_return_val_if_fail ((major >= 5 && minor >= 1) || major >= 6, FALSE);
 
   /* Check for Service Pack Version >= 0 */
   g_return_val_if_fail (spver >= 0, FALSE);
-
-#if WINAPI_FAMILY != MODERN_API_FAMILY
-  hmodule = LoadLibraryW (L"ntdll.dll");
-  g_return_val_if_fail (hmodule != NULL, FALSE);
-
-  RtlGetVersion = (fRtlGetVersion *) GetProcAddress (hmodule, "RtlGetVersion");
-  g_return_val_if_fail (RtlGetVersion != NULL, FALSE);
-#endif
-
-  memset (&osverinfo, 0, sizeof (OSVERSIONINFOEXW));
-  osverinfo.dwOSVersionInfoSize = sizeof (OSVERSIONINFOEXW);
-  RtlGetVersion (&osverinfo);
+  g_return_val_if_fail (_g_win32_call_rtl_version (&osverinfo), FALSE);
 
   /* check the OS and Service Pack Versions */
-  if (osverinfo.dwMajorVersion > major)
+  if (osverinfo.dwMajorVersion > (DWORD) major)
     is_ver_checked = TRUE;
-  else if (osverinfo.dwMajorVersion == major)
+  else if (osverinfo.dwMajorVersion == (DWORD) major)
     {
-      if (osverinfo.dwMinorVersion > minor)
+      if (osverinfo.dwMinorVersion > (DWORD) minor)
         is_ver_checked = TRUE;
-      else if (osverinfo.dwMinorVersion == minor)
-        if (osverinfo.wServicePackMajor >= spver)
+      else if (osverinfo.dwMinorVersion == (DWORD) minor)
+        if (osverinfo.wServicePackMajor >= (DWORD) spver)
           is_ver_checked = TRUE;
     }
 
@@ -587,10 +611,6 @@ g_win32_check_windows_version (const gint major,
             break;
         }
     }
-
-#if WINAPI_FAMILY != MODERN_API_FAMILY
-  FreeLibrary (hmodule);
-#endif
 
   return is_ver_checked && is_type_checked;
 }
@@ -1314,6 +1334,125 @@ g_crash_handler_win32_deinit (void)
     RemoveVectoredExceptionHandler (WinVEH_handle);
 
   WinVEH_handle = NULL;
+}
+
+/**
+ * g_win32_find_helper_executable_path:
+ * @executable_name: (transfer none): name of the helper executable to find
+ * (something like gspawn-win64-helper.exe or gdbus.exe for example).
+ * @dll_handle: handle of the DLL to use as searching base path. Pass NULL
+ * to take current process executable as searching base path.
+ *
+ * Find an external executable path and name starting in the same folder
+ * as a specified DLL or current process executable path. Helper executables
+ * (like gspawn-win64-helper.exe, gspawn-win64-helper-console.exe or
+ * gdbus.exe for example) are generally installed in the same folder as the
+ * corresponding DLL file.
+ *
+ * So, if package has been correctly installed, with a dynamic build of GLib,
+ * the helper executable should be in the same directory as the corresponding
+ * DLL file and searching should be straightforward.
+ *
+ * But if built statically, DLL handle is not available and we have to start
+ * searching from the directory holding current executable. It may be very
+ * different from the directory containing the helper program. In order to
+ * find the right helper program automatically in all common situations, we
+ * use this pattern:
+ *
+ * current directory
+ *             |-- ???
+ *             |-- bin
+ *             |    |-- ???
+ *             |-- lib
+ *             |    |-- ???
+ *             |-- glib
+ *             |    |-- ???
+ *             |-- gio
+ *                  |-- ???
+ *
+ * starting at base searching path (DLL or current executable directory) and
+ * getting up until the root path. If we cannot still find the helper program,
+ * we'll rely on PATH as the last resort.
+ *
+ * Returns: (transfer full) (type filename) (nullable): the helper executable
+ * path and name in the GLib filename encoding or NULL in case of error. It
+ * should be deallocated with g_free().
+ */
+gchar *
+g_win32_find_helper_executable_path (const gchar *executable_name, void *dll_handle)
+{
+  static const gchar *const subdirs[] = { "", "bin", "lib", "glib", "gio" };
+  static const gsize nb_subdirs = G_N_ELEMENTS (subdirs);
+
+  DWORD module_path_len;
+  wchar_t module_path[MAX_PATH + 2] = { 0 };
+  gchar *base_searching_path;
+  gchar *p;
+  gchar *executable_path;
+  gsize i;
+
+  g_return_val_if_fail (executable_name && *executable_name, NULL);
+
+  module_path_len = GetModuleFileNameW (dll_handle, module_path, MAX_PATH + 1);
+  /* The > MAX_PATH check prevents truncated module path usage */
+  if (module_path_len == 0 || module_path_len > MAX_PATH)
+    return NULL;
+
+  base_searching_path = g_utf16_to_utf8 (module_path, -1, NULL, NULL, NULL);
+  if (base_searching_path == NULL)
+    return NULL;
+
+  p = strrchr (base_searching_path, G_DIR_SEPARATOR);
+  if (p == NULL)
+    {
+      g_free (base_searching_path);
+      return NULL;
+    }
+  *p = '\0';
+
+  for (;;)
+    {
+      /* Search in subdirectories */
+      for (i = 0; i < nb_subdirs; ++i)
+        {
+          /* As this function is exclusively used on Windows, the
+           * executable_path is always an absolute path. At worse, when
+           * reaching the root of the filesystem, base_searching_path may
+           * equal something like "[Drive letter]:" but never "/" like on
+           * Linux or Mac.
+           * For the peace of mind we still assert this, just in case that
+           * one day someone tries to use this function on Linux or Mac.
+           */
+          executable_path = g_build_filename (base_searching_path, subdirs[i], executable_name, NULL);
+          g_assert (g_path_is_absolute (executable_path));
+          if (g_file_test (executable_path, G_FILE_TEST_IS_REGULAR))
+            break;
+
+          g_free (executable_path);
+          executable_path = NULL;
+        }
+
+      if (executable_path != NULL)
+        break;
+
+      /* Let's get one directory level up */
+      p = strrchr (base_searching_path, G_DIR_SEPARATOR);
+      if (p == NULL)
+        break;
+
+      *p = '\0';
+    }
+  g_free (base_searching_path);
+
+  if (executable_path == NULL)
+    {
+      /* Search in system PATH */
+      executable_path = g_find_program_in_path (executable_name);
+      if (executable_path == NULL)
+        executable_path = g_strdup (executable_name);
+    }
+
+  return executable_path;
 }
 
 #endif

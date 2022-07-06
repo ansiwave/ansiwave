@@ -17,7 +17,7 @@
  * Author: Ryan Lortie <desrt@desrt.ca>
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -1564,7 +1564,7 @@ unicode_unescape (const gchar  *src,
 {
   gchar buffer[9];
   guint64 value = 0;
-  gchar *end;
+  gchar *end = NULL;
   gsize n_valid_chars;
 
   (*src_ofs)++;

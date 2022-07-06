@@ -14,7 +14,7 @@
    You should have received a copy of the GNU Lesser General PublicLicense
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#include <generated_config.h>
+#include <config.h>
 
 /* Specification.  */
 #include <gnulib_math.h>

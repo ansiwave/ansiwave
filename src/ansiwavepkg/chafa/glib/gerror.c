@@ -497,7 +497,7 @@
  * supported.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "gvalgrind.h"
 #include <string.h>

@@ -26,7 +26,7 @@
  * MT safe
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -317,11 +317,8 @@ static const guint16 ascii_table_data[256] = {
 
 const guint16 * const g_ascii_table = ascii_table_data;
 
-#if defined (HAVE_NEWLOCALE) && \
-    defined (HAVE_USELOCALE) && \
-    defined (HAVE_STRTOD_L) && \
-    defined (HAVE_STRTOULL_L) && \
-    defined (HAVE_STRTOLL_L)
+#if defined(HAVE_NEWLOCALE) && \
+    defined(HAVE_USELOCALE)
 #define USE_XLOCALE 1
 #endif
 
@@ -731,7 +728,7 @@ gdouble
 g_ascii_strtod (const gchar *nptr,
                 gchar      **endptr)
 {
-#ifdef USE_XLOCALE
+#if defined(USE_XLOCALE) && defined(HAVE_STRTOD_L)
 
   g_return_val_if_fail (nptr != NULL, 0);
 
@@ -909,7 +906,7 @@ g_ascii_strtod (const gchar *nptr,
  * the string back using g_ascii_strtod() gives the same machine-number
  * (on machines with IEEE compatible 64bit doubles). It is
  * guaranteed that the size of the resulting string will never
- * be larger than @G_ASCII_DTOSTR_BUF_SIZE bytes, including the terminating
+ * be larger than %G_ASCII_DTOSTR_BUF_SIZE bytes, including the terminating
  * nul character, which is always added.
  *
  * Returns: The pointer to the buffer with the converted string.
@@ -930,13 +927,16 @@ g_ascii_dtostr (gchar       *buffer,
  * @buffer: A buffer to place the resulting string in
  * @buf_len: The length of the buffer.
  * @format: The printf()-style format to use for the
- *          code to use for converting.
+ *   code to use for converting
  * @d: The #gdouble to convert
  *
  * Converts a #gdouble to a string, using the '.' as
  * decimal point. To format the number you pass in
  * a printf()-style format string. Allowed conversion
  * specifiers are 'e', 'E', 'f', 'F', 'g' and 'G'.
+ *
+ * The @format must just be a single format specifier
+ * starting with `%`, expecting a #gdouble argument.
  *
  * The returned buffer is guaranteed to be nul-terminated.
  *
@@ -953,6 +953,10 @@ g_ascii_formatd (gchar       *buffer,
 {
 #ifdef USE_XLOCALE
   locale_t old_locale;
+
+  g_return_val_if_fail (buffer != NULL, NULL);
+  g_return_val_if_fail (format[0] == '%', NULL);
+  g_return_val_if_fail (strpbrk (format + 1, "'l%") == NULL, NULL);
 
   old_locale = uselocale (get_C_locale ());
    _g_snprintf (buffer, buf_len, format, d);
@@ -1044,7 +1048,7 @@ g_ascii_formatd (gchar       *buffer,
 #define TOUPPER(c)              (ISLOWER (c) ? (c) - 'a' + 'A' : (c))
 #define TOLOWER(c)              (ISUPPER (c) ? (c) - 'A' + 'a' : (c))
 
-#ifndef USE_XLOCALE
+#if !defined(USE_XLOCALE) || !defined(HAVE_STRTOULL_L) || !defined(HAVE_STRTOLL_L)
 
 static guint64
 g_parse_long_long (const gchar  *nptr,
@@ -1169,7 +1173,7 @@ g_parse_long_long (const gchar  *nptr,
     }
   return 0;
 }
-#endif /* !USE_XLOCALE */
+#endif /* !defined(USE_XLOCALE) || !defined(HAVE_STRTOULL_L) || !defined(HAVE_STRTOLL_L) */
 
 /**
  * g_ascii_strtoull:
@@ -1210,7 +1214,7 @@ g_ascii_strtoull (const gchar *nptr,
                   gchar      **endptr,
                   guint        base)
 {
-#ifdef USE_XLOCALE
+#if defined(USE_XLOCALE) && defined(HAVE_STRTOULL_L)
   return strtoull_l (nptr, endptr, base, get_C_locale ());
 #else
   gboolean negative;
@@ -1257,7 +1261,7 @@ g_ascii_strtoll (const gchar *nptr,
                  gchar      **endptr,
                  guint        base)
 {
-#ifdef USE_XLOCALE
+#if defined(USE_XLOCALE) && defined(HAVE_STRTOLL_L)
   return strtoll_l (nptr, endptr, base, get_C_locale ());
 #else
   gboolean negative;
@@ -1874,7 +1878,9 @@ g_ascii_strcasecmp (const gchar *s1,
  * @n: number of characters to compare
  *
  * Compare @s1 and @s2, ignoring the case of ASCII characters and any
- * characters after the first @n in each string.
+ * characters after the first @n in each string. If either string is
+ * less than @n bytes long, comparison will stop at the first nul byte
+ * encountered.
  *
  * Unlike the BSD strcasecmp() function, this only recognizes standard
  * ASCII letters and ignores the locale, treating all non-ASCII
@@ -2024,7 +2030,7 @@ g_strncasecmp (const gchar *s1,
  * g_strdelimit:
  * @string: the string to convert
  * @delimiters: (nullable): a string containing the current delimiters,
- *     or %NULL to use the standard delimiters defined in #G_STR_DELIMITERS
+ *     or %NULL to use the standard delimiters defined in %G_STR_DELIMITERS
  * @new_delimiter: the new delimiter character
  *
  * Converts any delimiter characters in @string to @new_delimiter.

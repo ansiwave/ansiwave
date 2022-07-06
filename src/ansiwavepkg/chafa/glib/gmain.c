@@ -29,7 +29,7 @@
  * MT safe
  */
 
-#include "generated_config.h"
+#include "config.h"
 #include "glibconfig.h"
 #include "glib_trace.h"
 
@@ -124,10 +124,14 @@
  * Each event source is assigned a priority. The default priority,
  * %G_PRIORITY_DEFAULT, is 0. Values less than 0 denote higher priorities.
  * Values greater than 0 denote lower priorities. Events from high priority
- * sources are always processed before events from lower priority sources.
+ * sources are always processed before events from lower priority sources: if
+ * several sources are ready to dispatch, the ones with equal-highest priority
+ * will be dispatched on the current #GMainContext iteration, and the rest wait
+ * until a subsequent #GMainContext iteration when they have the highest
+ * priority of the sources which are ready for dispatch.
  *
  * Idle functions can also be added, and assigned a priority. These will
- * be run whenever no events with a higher priority are ready to be processed.
+ * be run whenever no events with a higher priority are ready to be dispatched.
  *
  * The #GMainLoop data type represents a main event loop. A GMainLoop is
  * created with g_main_loop_new(). After adding the initial event sources,
@@ -176,6 +180,15 @@
  * g_main_context_iteration() directly. These functions are
  * g_main_context_prepare(), g_main_context_query(),
  * g_main_context_check() and g_main_context_dispatch().
+ *
+ * If the event loop thread releases #GMainContext ownership until the results
+ * required by g_main_context_check() are ready you must create a context with
+ * the flag %G_MAIN_CONTEXT_FLAGS_OWNERLESS_POLLING or else you'll lose
+ * g_source_attach() notifications. This happens for instance when you integrate
+ * the GLib event loop into implementations that follow the proactor pattern
+ * (i.e. in these contexts the `poll()` implementation will reclaim the thread for
+ * other tasks until the results are ready). One example of the proactor pattern
+ * is the Boost.Asio library.
  *
  * ## State of a Main Context # {#mainloop-states}
  *
@@ -270,6 +283,7 @@ struct _GMainContext
   GCond cond;
   GThread *owner;
   guint owner_count;
+  GMainContextFlags flags;
   GSList *waiters;
 
   gint ref_count;  /* (atomic) */
@@ -659,6 +673,23 @@ g_main_context_new_with_next_id (guint next_id)
 GMainContext *
 g_main_context_new (void)
 {
+  return g_main_context_new_with_flags (G_MAIN_CONTEXT_FLAGS_NONE);
+}
+
+/**
+ * g_main_context_new_with_flags:
+ * @flags: a bitwise-OR combination of #GMainContextFlags flags that can only be
+ *         set at creation time.
+ *
+ * Creates a new #GMainContext structure.
+ *
+ * Returns: (transfer full): the new #GMainContext
+ *
+ * Since: 2.72
+ */
+GMainContext *
+g_main_context_new_with_flags (GMainContextFlags flags)
+{
   static gsize initialised;
   GMainContext *context;
 
@@ -681,6 +712,7 @@ g_main_context_new (void)
 
   context->sources = g_hash_table_new (NULL, NULL);
   context->owner = NULL;
+  context->flags = flags;
   context->waiters = NULL;
 
   context->ref_count = 1;
@@ -1248,8 +1280,12 @@ g_source_attach_unlocked (GSource      *source,
   /* If another thread has acquired the context, wake it up since it
    * might be in poll() right now.
    */
-  if (do_wakeup && context->owner && context->owner != G_THREAD_SELF)
-    g_wakeup_signal (context->wakeup);
+  if (do_wakeup &&
+      (context->flags & G_MAIN_CONTEXT_FLAGS_OWNERLESS_POLLING ||
+       (context->owner && context->owner != G_THREAD_SELF)))
+    {
+      g_wakeup_signal (context->wakeup);
+    }
 
   g_trace_mark (G_TRACE_CURRENT_TIME, 0,
                 "GLib", "g_source_attach",
@@ -2527,7 +2563,7 @@ g_main_context_find_source_by_user_data (GMainContext *context,
  * been reissued, leading to the operation being performed against the
  * wrong source.
  *
- * Returns: For historical reasons, this function always returns %TRUE
+ * Returns: %TRUE if the source was found and removed.
  **/
 gboolean
 g_source_remove (guint tag)
@@ -4331,6 +4367,9 @@ g_main_loop_run (GMainLoop *loop)
   g_return_if_fail (loop != NULL);
   g_return_if_fail (g_atomic_int_get (&loop->ref_count) > 0);
 
+  /* Hold a reference in case the loop is unreffed from a callback function */
+  g_atomic_int_inc (&loop->ref_count);
+
   if (!g_main_context_acquire (loop->context))
     {
       gboolean got_ownership = FALSE;
@@ -4338,7 +4377,6 @@ g_main_loop_run (GMainLoop *loop)
       /* Another thread owns this context */
       LOCK_CONTEXT (loop->context);
 
-      g_atomic_int_inc (&loop->ref_count);
       g_atomic_int_set (&loop->is_running, TRUE);
 
       while (g_atomic_int_get (&loop->is_running) && !got_ownership)
@@ -4364,10 +4402,10 @@ g_main_loop_run (GMainLoop *loop)
     {
       g_warning ("g_main_loop_run(): called recursively from within a source's "
 		 "check() or prepare() member, iteration not possible.");
+      g_main_loop_unref (loop);
       return;
     }
 
-  g_atomic_int_inc (&loop->ref_count);
   g_atomic_int_set (&loop->is_running, TRUE);
   while (g_atomic_int_get (&loop->is_running))
     g_main_context_iterate (loop->context, TRUE, TRUE, self);

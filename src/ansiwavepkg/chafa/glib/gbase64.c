@@ -21,7 +21,7 @@
  *    Jeffrey Stedfast <fejj@ximian.com>
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <string.h>
 

@@ -18,7 +18,7 @@
  * Author: Ryan Lortie <desrt@desrt.ca>
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "gbitlock.h"
 

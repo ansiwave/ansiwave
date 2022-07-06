@@ -20,7 +20,7 @@
  * Authors: Marc-André Lureau <marcandre.lureau@redhat.com>
  */
 
-#include "generated_config.h"
+#include "config.h"
 #include <string.h>
 
 #include "gi18n.h"

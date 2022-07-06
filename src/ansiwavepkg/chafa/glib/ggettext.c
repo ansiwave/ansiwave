@@ -22,7 +22,7 @@
  * GLib at ftp://ftp.gtk.org/pub/gtk/. 
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "ggettext.h"
 #include "glibintl.h"

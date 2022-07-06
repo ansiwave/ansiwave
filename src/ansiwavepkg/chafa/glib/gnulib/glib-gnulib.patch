@@ -26,7 +26,7 @@ Here are explanations for some of them:
 +++ glib-82c3e92/glib/gnulib/asnprintf.c	2019-02-09 10:08:46.444859600 +0000
 @@ -16,6 +16,8 @@
  
- #include <generated_config.h>
+ #include <config.h>
  
 +#include "g-gnulib.h"
 +
@@ -39,7 +39,7 @@ Here are explanations for some of them:
  
  /* Written by Bruno Haible <bruno@clisp.org>, 2008.  */
  
-+#include <generated_config.h>
++#include <config.h>
 +#include "gnulib_math.h"
 +#include "isnand-nolibm.h"
  #include "isnan.c"
@@ -60,7 +60,7 @@ Here are explanations for some of them:
  /* Written by Bruno Haible <bruno@clisp.org>, 2007.  */
  
  #define USE_LONG_DOUBLE
-+#include <generated_config.h>
++#include <config.h>
 +#include "gnulib_math.h"
 +#include "isnanl-nolibm.h"
  #include "isnan.c"
@@ -78,7 +78,7 @@ Here are explanations for some of them:
 --- glib-82c3e92/glib/gnulib/printf-args.c	2019-02-09 09:44:57.147081400 +0000
 +++ glib-82c3e92/glib/gnulib/printf-args.c	2019-02-09 10:10:45.869597700 +0000
 @@ -24,6 +24,8 @@
- # include <generated_config.h>
+ # include <config.h>
  #endif
  
 +#include "g-gnulib.h"
@@ -156,7 +156,7 @@ Here are explanations for some of them:
 --- glib-82c3e92/glib/gnulib/printf-parse.c	2019-02-09 09:44:57.790835100 +0000
 +++ glib-82c3e92/glib/gnulib/printf-parse.c	2019-02-09 10:11:32.783744500 +0000
 @@ -31,6 +31,8 @@
- # include <generated_config.h>
+ # include <config.h>
  #endif
  
 +#include "g-gnulib.h"
@@ -207,7 +207,7 @@ Here are explanations for some of them:
 +#endif
  
  #ifndef VASNPRINTF
- # include <generated_config.h>
+ # include <config.h>
  #endif
 -#ifndef IN_LIBINTL
 -# include <alloca.h>

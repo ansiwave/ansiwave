@@ -15,11 +15,13 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <Foundation/Foundation.h>
 #include "gutils.h"
 #include "gstrfuncs.h"
+
+void load_user_special_dirs_macos (gchar **table);
 
 static gchar *
 find_folder (NSSearchPathDirectory type)

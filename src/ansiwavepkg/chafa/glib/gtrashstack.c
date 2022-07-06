@@ -22,7 +22,7 @@
  * GLib at ftp://ftp.gtk.org/pub/gtk/. 
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 /* we know we are deprecated here, no need for warnings */
 #ifndef GLIB_DISABLE_DEPRECATION_WARNINGS

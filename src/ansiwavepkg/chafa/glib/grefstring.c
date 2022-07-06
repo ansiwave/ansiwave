@@ -84,7 +84,7 @@
  * Since: 2.58
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "grefstring.h"
 

@@ -17,7 +17,7 @@
  * Author: Ryan Lortie <desrt@desrt.ca>
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 
 /* gwakeup.c is special -- GIO and some test cases include it.  As such,

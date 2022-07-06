@@ -26,7 +26,7 @@
  * MT safe
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "gprimes.h"
 

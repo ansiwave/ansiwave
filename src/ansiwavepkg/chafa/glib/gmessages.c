@@ -166,7 +166,7 @@
  * than the one under test).
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -525,6 +525,7 @@ static gpointer          fatal_log_data;
 static GLogWriterFunc log_writer_func = g_log_writer_default;
 static gpointer       log_writer_user_data = NULL;
 static GDestroyNotify log_writer_user_data_free = NULL;
+static gboolean       g_log_debug_enabled = FALSE;  /* (atomic) */
 
 /* --- functions --- */
 
@@ -1819,7 +1820,7 @@ g_log_structured (const gchar    *log_domain,
  * contain the text shown to the user.
  *
  * The values in the @fields dictionary are likely to be of type String
- * (#G_VARIANT_TYPE_STRING). Array of bytes (#G_VARIANT_TYPE_BYTESTRING) is also
+ * (%G_VARIANT_TYPE_STRING). Array of bytes (%G_VARIANT_TYPE_BYTESTRING) is also
  * supported. In this case the message is handled as binary and will be forwarded
  * to the log writer as such. The size of the array should not be higher than
  * %G_MAXSSIZE. Otherwise it will be truncated to this size. For other types
@@ -2225,10 +2226,14 @@ g_log_writer_is_journald (gint output_fd)
   if (output_fd < 0)
     return FALSE;
 
+  /* Namespaced journals start with `/run/systemd/journal.${name}/` (see
+   * `RuntimeDirectory=systemd/journal.%i` in `systemd-journald@.service`. The
+   * default journal starts with `/run/systemd/journal/`. */
   addr_len = sizeof(addr);
   err = getpeername (output_fd, &addr.sa, &addr_len);
   if (err == 0 && addr.storage.ss_family == AF_UNIX)
-    return g_str_has_prefix (addr.un.sun_path, "/run/systemd/journal/");
+    return (g_str_has_prefix (addr.un.sun_path, "/run/systemd/journal/") ||
+            g_str_has_prefix (addr.un.sun_path, "/run/systemd/journal."));
 #endif
 
   return FALSE;
@@ -2321,7 +2326,10 @@ g_log_writer_format_fields (GLogLevelFlags   log_level,
   now = g_get_real_time ();
   now_secs = (time_t) (now / 1000000);
   now_tm = localtime (&now_secs);
-  strftime (time_buf, sizeof (time_buf), "%H:%M:%S", now_tm);
+  if (G_LIKELY (now_tm != NULL))
+    strftime (time_buf, sizeof (time_buf), "%H:%M:%S", now_tm);
+  else
+    strcpy (time_buf, "(error)");
 
   g_string_append_printf (gstring, "%s%s.%03d%s: ",
                           use_color ? "\033[34m" : "",
@@ -2643,7 +2651,9 @@ should_drop_message (GLogLevelFlags   log_level,
                      gsize            n_fields)
 {
   /* Disable debug message output unless specified in G_MESSAGES_DEBUG. */
-  if (!(log_level & DEFAULT_LEVELS) && !(log_level >> G_LOG_LEVEL_USER_SHIFT))
+  if (!(log_level & DEFAULT_LEVELS) &&
+      !(log_level >> G_LOG_LEVEL_USER_SHIFT) &&
+      !g_log_get_debug_enabled ())
     {
       const gchar *domains;
       gsize i;
@@ -2872,6 +2882,47 @@ _g_log_writer_fallback (GLogLevelFlags   log_level,
 #endif
 
   return G_LOG_WRITER_HANDLED;
+}
+
+/**
+ * g_log_get_debug_enabled:
+ *
+ * Return whether debug output from the GLib logging system is enabled.
+ *
+ * Note that this should not be used to conditionalise calls to g_debug() or
+ * other logging functions; it should only be used from %GLogWriterFunc
+ * implementations.
+ *
+ * Note also that the value of this does not depend on `G_MESSAGES_DEBUG`; see
+ * the docs for g_log_set_debug_enabled().
+ *
+ * Returns: %TRUE if debug output is enabled, %FALSE otherwise
+ *
+ * Since: 2.72
+ */
+gboolean
+g_log_get_debug_enabled (void)
+{
+  return g_atomic_int_get (&g_log_debug_enabled);
+}
+
+/**
+ * g_log_set_debug_enabled:
+ * @enabled: %TRUE to enable debug output, %FALSE otherwise
+ *
+ * Enable or disable debug output from the GLib logging system for all domains.
+ * This value interacts disjunctively with `G_MESSAGES_DEBUG` — if either of
+ * them would allow a debug message to be outputted, it will be.
+ *
+ * Note that this should not be used from within library code to enable debug
+ * output — it is intended for external use.
+ *
+ * Since: 2.72
+ */
+void
+g_log_set_debug_enabled (gboolean enabled)
+{
+  g_atomic_int_set (&g_log_debug_enabled, enabled);
 }
 
 /**

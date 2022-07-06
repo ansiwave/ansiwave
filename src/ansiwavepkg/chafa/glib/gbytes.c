@@ -19,7 +19,7 @@
  *         Stef Walter <stefw@collabora.co.uk>
  */
 
-#include "generated_config.h"
+#include "config.h"
 
 #include "gbytes.h"
 
