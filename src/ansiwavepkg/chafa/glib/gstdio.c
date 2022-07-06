@@ -33,6 +33,7 @@
 
 #ifdef G_OS_WIN32
 #include <windows.h>
+#include <winioctl.h>
 #include <errno.h>
 #include <wchar.h>
 #include <direct.h>
