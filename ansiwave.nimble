@@ -1,6 +1,6 @@
 # Package
 
-version       = "1.7.8"
+version       = "1.7.9"
 author        = "oakes"
 description   = "ANSI art + MIDI music"
 license       = "Public Domain"

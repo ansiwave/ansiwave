@@ -25,7 +25,7 @@ from wavecorepkg/wavescript import CommandTree
 from nimwave import nil
 from ./ansiwavepkg/ui/context import nil
 
-const version = "1.7.7"
+const version = "1.7.9"
 
 proc exitClean(ex: ref Exception) =
   if iw.gIllwaveInitialized:
