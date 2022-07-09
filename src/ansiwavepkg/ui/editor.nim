@@ -1237,8 +1237,8 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
   if key == iw.Key.Mouse:
     let info = context.mouseInfo
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
-      if info.y == brushY:
-        let index = int((info.x - brushX) / 2)
+      if info.y == iw.y(tb) + brushY:
+        let index = int((info.x - (iw.x(tb) + brushX)) / 2)
         if index >= 0 and index < brushChars.len:
           session.insert(buffer.id, SelectedChar, brushChars[index])
           if buffer.mode == 1:
