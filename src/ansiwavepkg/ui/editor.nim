@@ -1187,20 +1187,20 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
               session.insert(Global, HintText, "hint: press " & colorBgShortcuts[index] & " for " & colorNames[index] & " background")
               session.insert(Global, HintTime, times.epochTime() + hintSecs)
   elif buffer.mode == 1:
-    try:
-      let ch =
+    let ch =
+      try:
         if input.codepoint != 0:
           char(input.codepoint)
         else:
           char(input.key.ord)
-      if ch in colorFgShortcutsSet:
-        let index = find(colorFgShortcuts, ch)
-        session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
-      elif ch in colorBgShortcutsSet:
-        let index = find(colorBgShortcuts, ch)
-        session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
-    except:
-      discard
+      except:
+        char(0)
+    if ch in colorFgShortcutsSet:
+      let index = find(colorFgShortcuts, ch)
+      session.insert(buffer.id, SelectedFgColor, colorFgCodes[index])
+    elif ch in colorBgShortcutsSet:
+      let index = find(colorBgShortcuts, ch)
+      session.insert(buffer.id, SelectedBgColor, colorBgCodes[index])
   var sess = session
   let
     darkCallback = proc () =
@@ -1218,7 +1218,7 @@ proc renderColors(session: var EditorSession, tb: var iw.TerminalBuffer, buffer:
     shortcut = (key: {iw.Key.CtrlB}, hint: "hint: change brightness with ctrl b")
   result = renderRadioButtons(session, tb, result, colorY, choices, buffer.brightness, input.key, false, shortcut)
 
-proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, key: iw.Key, brushX: int, brushY: int): int =
+proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer: tuple, input: tuple[key: iw.Key, codepoint: uint32], brushX: int, brushY: int): int =
   const
     brushChars        = ["█", "▓", "▒", "░", "▀", "▄", "▌", "▐"]
     brushShortcuts    = ['1', '2', '3', '4', '5', '6', '7', '8']
@@ -1234,7 +1234,7 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
   let brushIndex = find(brushChars, buffer.selectedChar)
   tui.write(tb, brushX, brushY, brushCharsColored)
   iw.write(tb, brushX + brushIndex * 2, brushY + 1, "↑")
-  if key == iw.Key.Mouse:
+  if input.key == iw.Key.Mouse:
     let info = context.mouseInfo
     if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
       if info.y == iw.y(tb) + brushY:
@@ -1245,13 +1245,17 @@ proc renderBrushes(session: var EditorSession, tb: var iw.TerminalBuffer, buffer
             session.insert(Global, HintText, "hint: press " & brushShortcuts[index] & " for that brush")
             session.insert(Global, HintTime, times.epochTime() + hintSecs)
   elif buffer.mode == 1:
-    try:
-      let ch = char(key.ord)
-      if ch in brushShortcutsSet:
-        let index = find(brushShortcuts, ch)
-        session.insert(buffer.id, SelectedChar, brushChars[index])
-    except:
-      discard
+    let ch =
+      try:
+        if input.codepoint != 0:
+          char(input.codepoint)
+        else:
+          char(input.key.ord)
+      except:
+        char(0)
+    if ch in brushShortcutsSet:
+      let index = find(brushShortcuts, ch)
+      session.insert(buffer.id, SelectedChar, brushChars[index])
 
 proc undo(session: var EditorSession, buffer: tuple) =
   if buffer.undoIndex > 0:
@@ -1363,7 +1367,7 @@ proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple
               x -= 1
               x = renderButton(sess, ctx.tb, "↔ insert", x, 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
           elif selectedBuffer.mode == 1:
-            x = renderBrushes(sess, ctx.tb, selectedBuffer, input.key, x + 1, 0)
+            x = renderBrushes(sess, ctx.tb, selectedBuffer, input, x + 1, 0)
 
           if selectedBuffer.mode == 1 or not defined(emscripten):
             let undoX = renderButton(sess, ctx.tb, "◄ undo", x, 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
