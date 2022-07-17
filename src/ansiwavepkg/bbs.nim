@@ -933,7 +933,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   if page.viewFocusAreas != ctx.data.focusAreas[]:
     session.insert(page.id, ViewFocusAreas, ctx.data.focusAreas[])
 
-  finished = finishedLoading
+  finished = finishedLoading and not isPlaying
   tb
 
 proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32]): iw.TerminalBuffer =
