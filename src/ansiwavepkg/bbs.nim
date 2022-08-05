@@ -700,7 +700,9 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   if (input.key != iw.Key.None or input.codepoint > 0):
     if input.key == iw.Key.Mouse:
       let info = context.mouseInfo
-      if info.button == iw.MouseButton.mbLeft and info.action == iw.MouseButtonAction.mbaPressed:
+      if info.button == iw.MouseButton.mbLeft and
+          info.action == iw.MouseButtonAction.mbaPressed and
+          info.y >= navbar.height:
         for i in 0 ..< page.viewFocusAreas.len:
           let area = page.viewFocusAreas[i]
           if iw.contains(area.tb, info):
