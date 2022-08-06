@@ -914,10 +914,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     proc contentView(ctx: var context.Context, node: JsonNode) =
       ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
       nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": view})
-      # add pointless focus area at the end so non-focusable content becomes visible via scrolling
-      var area: context.ViewFocusArea
-      area.tb = ctx.tb
-      ctx.data.focusAreas[].add(area)
     ctx.components["content"] = contentView
 
     proc navbarView(ctx: var context.Context, node: JsonNode) =
