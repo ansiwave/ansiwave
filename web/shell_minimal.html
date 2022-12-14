@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>ANSIWAVE BBS</title>
+    <style>
+html, body {
+  padding: 0px;
+  margin: 0px;
+  background-color: rgba(0, 16, 64, 1.0);
+  color: rgba(230, 235, 255, 1.0);
+}
+
+@font-face {
+  font-family: '3270';
+  src: url('3270_fonts_3b8f2fb/3270-Regular.woff') format('woff');
+}
+
+#content {
+  position: absolute;
+  z-index: -1;
+
+  font-family: '3270', monospace;
+  white-space: pre;
+  font-size: 20px;
+  line-height: 20px;
+}
+
+#content a {
+  color: white;
+}
+
+#editor {
+  background-color: rgba(0, 16, 64, 1.0);
+  position: absolute;
+  display: none;
+  padding: 1px;
+  outline: none;
+  overflow: scroll;
+
+  font-family: '3270', monospace;
+  white-space: pre-wrap;
+  font-size: 20px;
+  line-height: 20px;
+}
+    </style>
+  </head>
+  <body>
+    <div id="content"><noscript>Your browser doesn't support JavaScript</noscript></div>
+    <div id="editor" contenteditable="true" spellcheck="false"></div>
+
+    <script type='text/javascript'>
+      var editor = document.getElementById('editor');
+      window.onkeypress = function(e) {
+        if (editor.style.display == 'none' || editor.style.display == '') {
+          e.preventDefault();
+        }
+      }
+      window.onkeydown = function(e) {
+        if (editor.style.display == 'none' || editor.style.display == '') {
+          if (e.keyCode == 38 || e.keyCode == 40 || e.keyCode == 9) {
+            return false;
+          }
+        } else {
+          if (e.keyCode == 9) {
+            return false;
+          }
+        }
+      };
+      window.onwheel = function(e) {
+        if (editor.style.display == 'none' || editor.style.display == '') {
+          if (e.deltaY > 0) {
+            try {
+              Module.ccall("onScrollDown", null, [], []);
+            } catch (e) {}
+          }
+          else if (e.deltaY < 0) {
+            try {
+              Module.ccall("onScrollUp", null, [], []);
+            } catch (e) {}
+          }
+        }
+      };
+      editor.onscroll = function(e) {
+        if (e.target.style.display == 'none' || editor.style.display == '') {
+          return;
+        }
+        try {
+          Module.ccall("onScroll", null, [], []);
+        } catch (e) {}
+      }
+      window.onhashchange = function(e) {
+        try {
+          Module.ccall("hashChanged", null, [], []);
+        } catch (e) {}
+        document.documentElement.scrollTop = 0;
+      }
+      function mouseDown(x, y) {
+        Module.ccall("onMouseDown", null, ['number', 'number'], [x, y]);
+      }
+      function mouseUp(x, y) {
+        Module.ccall("onMouseUp", null, ['number', 'number'], [x, y]);
+      }
+      function mouseMove(x, y) {
+        Module.ccall("onMouseMove", null, ['number', 'number'], [x, y]);
+      }
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function() {
+          var element = document.getElementById('output');
+          if (element) element.value = ''; // clear browser cache
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.error(text);
+        },
+        setStatus: function(text) {
+          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+          if (text === Module.setStatus.last.text) return;
+          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+          var now = Date.now();
+          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+          Module.setStatus.last.time = now;
+          Module.setStatus.last.text = text;
+          if (m) {
+            text = m[1];
+          }
+          if (text.length > 0) {
+            console.log(text);
+          }
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+        },
+        onRuntimeInitialized: function() {
+          console.log('module loaded');
+        }
+      };
+      Module.setStatus('Downloading...');
+      window.onerror = function(message) {
+        console.error(message);
+      };
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>
