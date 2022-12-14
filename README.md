@@ -2,16 +2,15 @@ The haters told me BBSes, ANSI art and MIDI music were dead so I combined them t
 
 <a href="https://bbs.ansiwave.net/bbs/#type:post,id:bQOPvkpT5NfTM8kK311q0R1NvMmfdWs5liOyTgtyHcoz88LEQWJwVp-6Ktgk0vn9KxmsH-100u0OgAg1FqzeCQ,board:kEKgeSd3-74Uy0bfOOJ9mj0qW3KpMpXBGrrQdUv190E"><img src="screenshots/windows.png" width="600" >&lt;-- click me</a>
 
-ANSIWAVE BBS is a retro-futuristic bulletin board where you can have threaded discussions and share ANSI art and MIDI music. It is the glorious mashup that nobody asked for and everybody needs.
+ANSIWAVE BBS is a bulletin board where you can have threaded discussions and share ANSI art and MIDI music. It is the glorious mashup that nobody asked for and everybody needs.
 
 * Download [the terminal client](https://ansiwave.net) for windows, macos, or linux
 * Enter [the web portal](https://bbs.ansiwave.net/bbs/)
 * Watch [the screencast](https://www.youtube.com/watch?v=iOuCGyizPlk)
-* Join [the subreddit](https://www.reddit.com/r/ANSIWAVE/) in case the BBS has a bad day (it will)
 
 ## How to fire this puppy up and get 'er done
 
-Either download [a prebuilt binary](https://ansiwave.net), or you can build from source: [install Nim](https://nim-lang.org/install.html) and then do `nimble install ansiwave` (make sure `~/.nimble/bin` is on your PATH).
+Either download [a prebuilt binary](https://ansiwave.net), or you can build from source: [install Nim](https://nim-lang.org/install.html) and then do `nimble install` in this directory (make sure `~/.nimble/bin` is on your PATH).
 
 To access the BBS, just run it without any arguments:
 
