@@ -32,6 +32,7 @@ else:
 
 --define:useMalloc
 --opt:size
+--threads:off
 
 # Pass this to Emscripten linker to generate html file scaffold for us.
 when defined(emscripten_worker):
