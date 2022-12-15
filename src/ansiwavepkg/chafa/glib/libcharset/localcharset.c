@@ -117,7 +117,7 @@ _g_locale_get_charset_aliases (void)
       const char *base = "charset.alias";
       char *file_name;
 
-      dir = relocate (GLIB_CHARSETALIAS_DIR);
+      dir = (const char *) relocate (GLIB_CHARSETALIAS_DIR);
 
       /* Concatenate dir and base into freshly allocated file_name.  */
       {
