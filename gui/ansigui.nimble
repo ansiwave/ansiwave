@@ -15,4 +15,4 @@ task dev, "Run dev version":
 requires "nim >= 1.6.4"
 requires "paranim >= 0.12.0"
 requires "paratext >= 0.13.0"
-requires "https://github.com/ansiwave/ansiwave_bbs#fbb309a"
+requires "https://github.com/ansiwave/ansiwave_bbs#d78b128"
