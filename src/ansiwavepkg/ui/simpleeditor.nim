@@ -4,7 +4,7 @@ from pararules/engine import Session, Vars
 import json
 import unicode
 from ./context import nil
-from nimwave import nil
+from nimwave as nw import nil
 import tables
 
 type
@@ -97,45 +97,47 @@ proc onInput(session: var EditorSession, input: tuple[key: iw.Key, codepoint: ui
     discard onInput(session, input.codepoint, buffer)
   session.fireRules
 
-proc simpleEditorView*(ctx: var context.Context, node: JsonNode): context.RenderProc =
-  var session = init()
-  if "initial-value" in node:
-    setContent(session, node["initial-value"].str)
-  return
-    proc (ctx: var context.Context, node: JsonNode) =
-      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
-      let currIndex = ctx.data.focusAreas[].len
-      var area: context.ViewFocusArea
-      area.tb = ctx.tb
-      if node.hasKey("action"):
-        area.action = node["action"].str
-        area.actionData = {"term": % getContent(session)}.toOrderedTable
-      ctx.data.focusAreas[].add(area)
-      let focused = currIndex == ctx.data.focusIndex
-      if focused:
-        onInput(session, ctx.data.input)
+type
+  SimpleEditor* = ref object of nw.Node
+    session*: EditorSession
+    initialValue*: string
+    action*: string
+    prompt*: string
+  Cursor = ref object of nw.Node
+    x: int
+    y: int
 
-      let editor = session.query(rules.getEditor)
-      nimwave.render(ctx,
-        %*{
-          "type": "rect",
-          "children": [editor.line],
-          "children-after":
-            if focused:
-              %* [{"type": "cursor", "x": editor.cursorX, "y": editor.cursorY}]
-            else:
-              %* []
-          ,
-          "bottom-left-focused": node["prompt"].str,
-          "bottom-left": "",
-          "focused": focused,
-        }
-      )
+method mount*(node: SimpleEditor, ctx: var context.Context) =
+  node.session = init()
+  setContent(node.session, node.initialValue)
 
-proc cursorView*(ctx: var context.Context, node: JsonNode) =
+method render*(node: SimpleEditor, ctx: var context.Context) =
+  let mnode = context.getMounted(node, ctx)
+  ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
+  let currIndex = ctx.data.focusAreas[].len
+  var area: context.ViewFocusArea
+  area.tb = ctx.tb
+  area.action = node.action
+  area.actionData = {"term": % getContent(mnode.session)}.toTable
+  ctx.data.focusAreas[].add(area)
+  let focused = currIndex == ctx.data.focusIndex
+  if focused:
+    onInput(mnode.session, ctx.data.input)
+
+  let editor = mnode.session.query(rules.getEditor)
+  context.render(
+    context.Rect(
+      children: nw.seq(nw.Text(str: editor.line)),
+      childrenAfter: if focused: nw.seq(Cursor(x: editor.cursorX, y: editor.cursorY)) else: nw.seq(),
+      bottomLeftFocused: node.prompt,
+    ),
+    ctx
+  )
+
+method render*(node: Cursor, ctx: var context.Context) =
   let
-    col = int(node["x"].num)
-    row = int(node["y"].num)
+    col = int(node.x)
+    row = int(node.y)
   var ch = ctx.tb[col, row]
   ch.bg = iw.bgYellow
   if ch.fg == iw.fgYellow:

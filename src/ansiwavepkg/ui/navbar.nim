@@ -1,17 +1,40 @@
 from illwave as iw import `[]`, `[]=`, `==`
-import unicode, json, tables
-from nimwave import nil
-from strutils import nil
+import unicode
+from nimwave as nw import nil
 from ./context import nil
 
 const height* = 3
 
 type
-  Button = object
-    cb: proc ()
+  NavButton = ref object of nw.Node
+    text: string
     focused: bool
+    input: tuple[key: iw.Key, codepoint: uint32]
+    cb: proc ()
+  Spacer = ref object of nw.Node
+    width: int
 
-proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())], focusIndex: var int) =
+method render*(node: NavButton, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, 0, node.text.runeLen + 2, iw.height(ctx.tb))
+  if node.input.key == iw.Key.Mouse:
+    let info = context.mouseInfo
+    if info.action == iw.MouseButtonAction.mbaPressed and iw.contains(ctx.tb, info):
+      node.cb()
+  elif node.input.key == iw.Key.Enter and node.focused:
+    node.cb()
+  context.render(
+    nw.Box(
+      direction: nw.Direction.Horizontal,
+      border: if node.focused: nw.Border.Double else: nw.Border.Single,
+      children: nw.seq(nw.Text(str: node.text)),
+    ),
+    ctx
+  )
+
+method render*(node: Spacer, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, 0, node.width, iw.height(ctx.tb))
+
+proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint32], leftButtons: openArray[(string, proc())], middleLines: openArray[string], rightButtons: openArray[(string, proc())], focusIndex: ref int) =
   iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), iw.height(ctx.tb))
 
   var lineY = 0
@@ -29,57 +52,49 @@ proc render*(ctx: var context.Context, input: tuple[key: iw.Key, codepoint: uint
   let buttonCount = leftButtons.len + rightButtons.len
   case input.key:
   of iw.Key.Right:
-    if focusIndex < 0 and abs(focusIndex) < buttonCount:
-      focusIndex -= 1
+    if focusIndex[] < 0 and abs(focusIndex[]) < buttonCount:
+      focusIndex[] -= 1
   of iw.Key.Left:
-    if focusIndex < -1:
-      focusIndex += 1
+    if focusIndex[] < -1:
+      focusIndex[] += 1
   else:
     discard
 
   var
-    buttons: Table[string, Button]
     leftButtonsWidth = 0
     rightButtonsWidth = 0
-  var buttonFocus = -1
+    buttonFocus = -1
+
+  var leftBoxChildren: seq[nw.Node]
   for (text, cb) in leftButtons:
-    buttons[text] = Button(cb: cb, focused: buttonFocus == focusIndex)
+    leftBoxChildren.add(NavButton(text: text, focused: buttonFocus == focusIndex[], input: input, cb: cb))
     buttonFocus -= 1
     leftButtonsWidth += text.runeLen + 2
+  let leftBox = nw.Box(
+    direction: nw.Direction.Horizontal,
+    children: leftBoxChildren,
+  )
+  var rightBoxChildren: seq[nw.Node]
   for (text, cb) in rightButtons:
-    buttons[text] = Button(cb: cb, focused: buttonFocus == focusIndex)
+    rightBoxChildren.add(NavButton(text: text, focused: buttonFocus == focusIndex[], input: input, cb: cb))
     buttonFocus -= 1
     rightButtonsWidth += text.runeLen + 2
+  let rightBox = nw.Box(
+    direction: nw.Direction.Horizontal,
+    children: rightBoxChildren,
+  )
 
-  proc navButton(ctx: var context.Context, node: JsonNode) =
-    let
-      text = node["text"].str
-      focused = buttons[text].focused
-    ctx = nimwave.slice(ctx, 0, 0, text.runeLen + 2, iw.height(ctx.tb))
-    if input.key == iw.Key.Mouse:
-      let info = context.mouseInfo
-      if info.action == iw.MouseButtonAction.mbaPressed and iw.contains(ctx.tb, info):
-        buttons[text].cb()
-    elif input.key == iw.Key.Enter and focused:
-      buttons[text].cb()
-    nimwave.render(ctx, %* {"type": "nimwave.hbox", "border": if focused: "double" else: "single", "children": [text]})
-  ctx.components["nav-button"] = navButton
+  let spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
 
-  var leftBoxChildren = %* []
-  for (text, _) in leftButtons:
-    leftBoxChildren.add(%* {"type": "nav-button", "text": text})
-  var leftBox = %* {"type": "nimwave.hbox", "children": leftBoxChildren}
-  var rightBoxChildren = %* []
-  for (text, _) in rightButtons:
-    rightBoxChildren.add(%* {"type": "nav-button", "text": text})
-  var rightBox = %* {"type": "nimwave.hbox", "children": rightBoxChildren}
-
-  let
-    spacerWidth = max(0, iw.width(ctx.tb) - leftButtonsWidth - rightButtonsWidth)
-    spacer = strutils.repeat(' ', spacerWidth)
-  proc spacerView(ctx: var context.Context, node: JsonNode) =
-    ctx = nimwave.slice(ctx, 0, 0, spacer.runeLen, iw.height(ctx.tb))
-  ctx.components["spacer"] = spacerView
-
-  nimwave.render(ctx, %* [{"type": "nimwave.hbox", "children": [leftBox, {"type": "spacer"}, rightBox]}])
+  context.render(
+    nw.Box(
+      direction: nw.Direction.Horizontal,
+      children: nw.seq(
+        leftBox,
+        Spacer(width: spacerWidth),
+        rightBox,
+      ),
+    ),
+    ctx
+  )
 

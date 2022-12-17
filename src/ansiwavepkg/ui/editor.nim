@@ -18,11 +18,10 @@ from json import nil
 from zippy import nil
 from wavecorepkg/paths import nil
 import streams
-import json
 from ../storage import nil
 from ../post import RefStrings, ToWrappedTable, ToUnwrappedTable
 from terminal import nil
-from nimwave import nil
+from nimwave as nw import nil
 from nimwave/tui import nil
 from nimwave/tui/termtools/runewidth import nil
 from ./context import nil
@@ -1310,201 +1309,218 @@ proc init*(opts: Options, width: int, height: int, hash: Table[string, string] =
     result.insert(Editor, Lines, post.splitLines(storage.get(opts.sig)))
     result.fireRules
 
+type
+  TopBarView = ref object of nw.Node
+    session: Session[Fact, FactMatch]
+    input: tuple[key: iw.Key, codepoint: uint32]
+    rawInput: tuple[key: iw.Key, codepoint: uint32]
+    copyLinkCallback: proc ()
+  BufferView = ref object of nw.Node
+    session: Session[Fact, FactMatch]
+    input: tuple[key: iw.Key, codepoint: uint32]
+    focused: bool
+  BottomBarView = ref object of nw.Node
+    session: Session[Fact, FactMatch]
+    input: tuple[key: iw.Key, codepoint: uint32]
+
+method render*(node: TopBarView, ctx: var context.Context) =
+  let
+    globals = node.session.query(rules.getGlobals)
+    buffer = globals.buffers[globals.selectedBuffer]
+    bufferId = Id(globals.selectedBuffer)
+  if globals.midiProgress == nil:
+    case bufferId:
+    of Editor:
+      let playX =
+        if buffer.prompt != StopPlaying and buffer.commands[].len > 0:
+          renderButton(node.session, ctx.tb, "♫ play", 1, 1, node.input.key, proc () = compileAndPlayAll(node.session, buffer), (key: {iw.Key.CtrlP}, hint: "hint: play all lines with ctrl p"))
+        else:
+          0
+
+      if buffer.editable:
+        let titleX =
+          when defined(emscripten):
+            renderButton(node.session, ctx.tb, "+ file", 1, 0, node.input.key, proc () = browseImage(buffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
+          else:
+            renderButton(node.session, ctx.tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, node.input.key, proc () = discard)
+        var x = max(titleX, playX)
+
+        let
+          choices = [
+            (id: 0, label: "write mode", callback: proc () = node.session.insert(buffer.id, SelectedMode, 0)),
+            (id: 1, label: "draw mode", callback: proc () = node.session.insert(buffer.id, SelectedMode, 1)),
+          ]
+          shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
+        x = renderRadioButtons(node.session, ctx.tb, x, 0, choices, buffer.mode, node.input.key, false, shortcut)
+
+        if buffer.mode == 1 or not defined(emscripten):
+          x = renderColors(node.session, ctx.tb, buffer, node.input, x + 1, 0)
+
+        if buffer.mode == 0:
+          when not defined(emscripten):
+            discard renderButton(node.session, ctx.tb, "↨ copy line", x, 0, node.input.key, proc () = copyLine(buffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c")))
+            x = renderButton(node.session, ctx.tb, "↨ paste", x, 1, node.input.key, proc () = pasteLines(node.session, buffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v")))
+            x -= 1
+            x = renderButton(node.session, ctx.tb, "↔ insert", x, 1, node.input.key, proc () = discard onInput(node.session, iw.Key.Insert, buffer), (key: {}, hint: "hint: insert with the insert key"))
+        elif buffer.mode == 1:
+          x = renderBrushes(node.session, ctx.tb, buffer, node.input, x + 1, 0)
+
+        if buffer.mode == 1 or not defined(emscripten):
+          let undoX = renderButton(node.session, ctx.tb, "◄ undo", x, 0, node.input.key, proc () = undo(node.session, buffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
+          let redoX = renderButton(node.session, ctx.tb, "► redo", x, 1, node.input.key, proc () = redo(node.session, buffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
+          x = max(undoX, redoX)
+      elif not globals.options.bbsMode:
+        let
+          topText = "read-only mode! to edit this, convert it into an ansiwave:"
+          bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
+        iw.write(ctx.tb, max(0, int(textWidth/2 - topText.runeLen/2)), 0, topText)
+        iw.write(ctx.tb, max(playX, int(textWidth/2 - bottomText.runeLen/2)), 1, bottomText)
+    of Errors:
+      discard renderButton(node.session, ctx.tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", 1, 0, node.input.key, proc () = discard)
+    of Tutorial:
+      let titleX = renderButton(node.session, ctx.tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", 1, 0, node.input.key, proc () = discard)
+      when not defined(emscripten):
+        discard renderButton(node.session, ctx.tb, "↨ copy line", titleX, 0, node.input.key, proc () = copyLine(buffer), (key: {}, hint: "hint: copy line with ctrl k"))
+    of Publish:
+      let titleX = renderButton(node.session, ctx.tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", 1, 0, node.input.key, proc () = discard)
+      discard renderButton(node.session, ctx.tb, "↕ copy link", titleX, 0, node.input.key, node.copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
+    else:
+      discard
+  else:
+    let currentTime = times.epochTime()
+    ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
+    if not globals.midiProgress[].messageDisplayed:
+      globals.midiProgress.messageDisplayed = true
+      iw.fill(ctx.tb, 0, 0, textWidth + 1, (if buffer.id == Editor.ord: 1 else: 0), " ")
+      iw.write(ctx.tb, 0, 0, "making music...")
+    elif not globals.midiProgress[].started:
+      if midi.soundfontReady():
+        globals.midiProgress.started = true
+        let (secs, playResult) = midi.play(globals.midiProgress.events)
+        if playResult.kind == sound.Error:
+          node.session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
+        else:
+          globals.midiProgress.time = (currentTime, currentTime + secs)
+          globals.midiProgress.addrs = playResult.addrs
+      else:
+        iw.fill(ctx.tb, 0, 0, textWidth + 1, (if buffer.id == Editor.ord: 1 else: 0), " ")
+        iw.write(ctx.tb, 0, 0, "fetching soundfont...")
+    elif currentTime > globals.midiProgress.time.stop or node.rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
+      midi.stop(globals.midiProgress.addrs)
+      node.session.insert(Global, MidiProgress, cast[MidiProgressType](nil))
+      node.session.insert(buffer.id, Prompt, None)
+    else:
+      let
+        secs = globals.midiProgress.time.stop - globals.midiProgress.time.start
+        progress = currentTime - globals.midiProgress.time.start
+      # go to the right line
+      var lineTimesIdx = globals.midiProgress.lineTimes.len - 1
+      while lineTimesIdx >= 0:
+        let (line, time) = globals.midiProgress.lineTimes[lineTimesIdx]
+        if progress >= time:
+          moveCursor(node.session, buffer.id, 0, line)
+          break
+        else:
+          lineTimesIdx -= 1
+      # draw progress bar
+      iw.fill(ctx.tb, 0, 0, textWidth + 1, (if buffer.id == Editor.ord: 1 else: 0), " ")
+      iw.fill(ctx.tb, 0, 0, int((progress / secs) * float(textWidth + 1)), 0, "▓")
+      node.session.insert(buffer.id, Prompt, StopPlaying)
+
+method render*(node: BufferView, ctx: var context.Context) =
+  let
+    globals = node.session.query(rules.getGlobals)
+    buffer = globals.buffers[globals.selectedBuffer]
+  renderBuffer(node.session, ctx.tb, buffer, node.input, node.focused and buffer.prompt != StopPlaying)
+
+method render*(node: BottomBarView, ctx: var context.Context) =
+  let
+    globals = node.session.query(rules.getGlobals)
+    buffer = globals.buffers[globals.selectedBuffer]
+  var x = 0
+  if buffer.prompt != StopPlaying:
+    let
+      editor = globals.buffers[Editor.ord]
+      errorCount = editor.errors[].len
+      choices = [
+        (id: Editor.ord, label: "editor", callback: proc () {.closure.} = node.session.insert(Global, SelectedBuffer, Editor)),
+        (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = node.session.insert(Global, SelectedBuffer, Errors)),
+        (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = node.session.insert(Global, SelectedBuffer, Tutorial)),
+        (id: Publish.ord, label: "publish", callback: proc () {.closure.} = node.session.insert(Global, SelectedBuffer, Publish)),
+      ]
+      shortcut = (key: {iw.Key.CtrlN}, hint: "hint: switch tabs with ctrl n")
+    var selectedChoices = @choices
+    selectedChoices.setLen(0)
+    for choice in choices:
+      if globals.buffers.hasKey(choice.id):
+        selectedChoices.add(choice)
+    x = renderRadioButtons(node.session, ctx.tb, 0, 0, selectedChoices, globals.selectedBuffer, node.input.key, true, shortcut)
+  # render hints
+  if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
+    node.session.insert(Global, HintText, "")
+    node.session.insert(Global, HintTime, 0.0)
+  else:
+    let
+      showHint = globals.hintText.len > 0
+      text =
+        if showHint:
+          globals.hintText
+        else:
+          "‼ exit"
+      textX = max(x + 2, buffer.width + 1 - text.runeLen)
+    if showHint:
+      tui.write(ctx.tb, textX, 0, "\e[3m" & text & "\e[0m")
+    elif buffer.prompt != StopPlaying and not globals.options.bbsMode:
+      let cb =
+        proc () =
+          node.session.insert(Global, HintText, "press ctrl c to exit")
+          node.session.insert(Global, HintTime, times.epochTime() + hintSecs)
+      discard renderButton(node.session, ctx.tb, text, textX, 0, node.input.key, cb)
+
 proc tick*(session: var EditorSession, ctx: var context.Context, rawInput: tuple[key: iw.Key, codepoint: uint32], focused: bool) =
   let
     width = iw.width(ctx.tb)
     height = iw.height(ctx.tb)
     termWindow = session.query(rules.getTerminalWindow)
     globals = session.query(rules.getGlobals)
-    selectedBuffer = globals.buffers[globals.selectedBuffer]
-    currentTime = times.epochTime()
+    buffer = globals.buffers[globals.selectedBuffer]
     input: tuple[key: iw.Key, codepoint: uint32] =
       if globals.midiProgress != nil:
         (iw.Key.None, 0'u32) # ignore input while playing
       else:
         rawInput
 
+  var sess = session
+  let
+    copyLinkCallback = proc () =
+      let buffer = globals.buffers[Editor.ord]
+      copyLink(initLink(post.joinLines(buffer.lines)))
+      var
+        tb = iw.initTerminalBuffer(width, height)
+        ctx = context.initContext()
+      ctx.tb = tb
+      tick(sess, ctx, (iw.Key.None, 0'u32), focused)
+      iw.display(ctx.tb)
+
   if termWindow != (width, height):
     onWindowResize(session, width, height)
 
-  var sess = session
-  let bufferId = Id(globals.selectedBuffer)
-
-  # render top bar
-  if globals.midiProgress == nil:
-    proc topBarView(ctx: var context.Context, node: JsonNode) =
-      case bufferId:
-      of Editor:
-        let playX =
-          if selectedBuffer.prompt != StopPlaying and selectedBuffer.commands[].len > 0:
-            renderButton(sess, ctx.tb, "♫ play", 1, 1, input.key, proc () = compileAndPlayAll(sess, selectedBuffer), (key: {iw.Key.CtrlP}, hint: "hint: play all lines with ctrl p"))
-          else:
-            0
-
-        if selectedBuffer.editable:
-          let titleX =
-            when defined(emscripten):
-              renderButton(sess, ctx.tb, "+ file", 1, 0, input.key, proc () = browseImage(selectedBuffer), (key: {iw.Key.CtrlO}, hint: "hint: open file with ctrl o"))
-            else:
-              renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈\e[0m", 1, 0, input.key, proc () = discard)
-          var x = max(titleX, playX)
-
-          let
-            choices = [
-              (id: 0, label: "write mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 0)),
-              (id: 1, label: "draw mode", callback: proc () = sess.insert(selectedBuffer.id, SelectedMode, 1)),
-            ]
-            shortcut = (key: {iw.Key.CtrlE}, hint: "hint: switch modes with ctrl e")
-          x = renderRadioButtons(sess, ctx.tb, x, 0, choices, selectedBuffer.mode, input.key, false, shortcut)
-
-          if selectedBuffer.mode == 1 or not defined(emscripten):
-            x = renderColors(sess, ctx.tb, selectedBuffer, input, x + 1, 0)
-
-          if selectedBuffer.mode == 0:
-            when not defined(emscripten):
-              discard renderButton(sess, ctx.tb, "↨ copy line", x, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c")))
-              x = renderButton(sess, ctx.tb, "↨ paste", x, 1, input.key, proc () = pasteLines(sess, selectedBuffer), (key: {}, hint: "hint: paste with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v")))
-              x -= 1
-              x = renderButton(sess, ctx.tb, "↔ insert", x, 1, input.key, proc () = discard onInput(sess, iw.Key.Insert, selectedBuffer), (key: {}, hint: "hint: insert with the insert key"))
-          elif selectedBuffer.mode == 1:
-            x = renderBrushes(sess, ctx.tb, selectedBuffer, input, x + 1, 0)
-
-          if selectedBuffer.mode == 1 or not defined(emscripten):
-            let undoX = renderButton(sess, ctx.tb, "◄ undo", x, 0, input.key, proc () = undo(sess, selectedBuffer), (key: {iw.Key.CtrlX, iw.Key.CtrlZ}, hint: "hint: undo with ctrl x"))
-            let redoX = renderButton(sess, ctx.tb, "► redo", x, 1, input.key, proc () = redo(sess, selectedBuffer), (key: {iw.Key.CtrlR}, hint: "hint: redo with ctrl r"))
-            x = max(undoX, redoX)
-        elif not globals.options.bbsMode:
-          let
-            topText = "read-only mode! to edit this, convert it into an ansiwave:"
-            bottomText = "ansiwave https://ansiwave.net/... hello.ansiwave"
-          iw.write(ctx.tb, max(0, int(textWidth/2 - topText.runeLen/2)), 0, topText)
-          iw.write(ctx.tb, max(playX, int(textWidth/2 - bottomText.runeLen/2)), 1, bottomText)
-      of Errors:
-        discard renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ errors\e[0m", 1, 0, input.key, proc () = discard)
-      of Tutorial:
-        let titleX = renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ tutorial\e[0m", 1, 0, input.key, proc () = discard)
-        when not defined(emscripten):
-          discard renderButton(sess, ctx.tb, "↨ copy line", titleX, 0, input.key, proc () = copyLine(selectedBuffer), (key: {}, hint: "hint: copy line with ctrl k"))
-      of Publish:
-        let
-          titleX = renderButton(sess, ctx.tb, "\e[3m≈ANSIWAVE≈ publish\e[0m", 1, 0, input.key, proc () = discard)
-          copyLinkCallback = proc () =
-            let buffer = globals.buffers[Editor.ord]
-            copyLink(initLink(post.joinLines(buffer.lines)))
-            var
-              tb = iw.initTerminalBuffer(width, height)
-              ctx = context.initContext()
-            ctx.tb = tb
-            tick(sess, ctx, (iw.Key.None, 0'u32), focused)
-            iw.display(ctx.tb)
-        discard renderButton(sess, ctx.tb, "↕ copy link", titleX, 0, input.key, copyLinkCallback, (key: {iw.Key.CtrlH}, hint: "hint: copy link with ctrl h"))
-      else:
-        discard
-    ctx.components["top-bar"] = topBarView
-  else:
-    proc midiProgressView(ctx: var context.Context, node: JsonNode) =
-      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), if bufferId == Editor: 2 else: 1)
-      if not globals.midiProgress[].messageDisplayed:
-        globals.midiProgress.messageDisplayed = true
-        iw.fill(ctx.tb, 0, 0, textWidth + 1, (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
-        iw.write(ctx.tb, 0, 0, "making music...")
-      elif not globals.midiProgress[].started:
-        if midi.soundfontReady():
-          globals.midiProgress.started = true
-          let currentTime = times.epochTime()
-          let (secs, playResult) = midi.play(globals.midiProgress.events)
-          if playResult.kind == sound.Error:
-            sess.insert(Global, MidiProgress, cast[MidiProgressType](nil))
-          else:
-            globals.midiProgress.time = (currentTime, currentTime + secs)
-            globals.midiProgress.addrs = playResult.addrs
-        else:
-          iw.fill(ctx.tb, 0, 0, textWidth + 1, (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
-          iw.write(ctx.tb, 0, 0, "fetching soundfont...")
-      elif currentTime > globals.midiProgress.time.stop or rawInput.key in {iw.Key.Tab, iw.Key.Escape}:
-        midi.stop(globals.midiProgress.addrs)
-        sess.insert(Global, MidiProgress, cast[MidiProgressType](nil))
-        sess.insert(selectedBuffer.id, Prompt, None)
-      else:
-        let
-          secs = globals.midiProgress.time.stop - globals.midiProgress.time.start
-          progress = currentTime - globals.midiProgress.time.start
-        # go to the right line
-        var lineTimesIdx = globals.midiProgress.lineTimes.len - 1
-        while lineTimesIdx >= 0:
-          let (line, time) = globals.midiProgress.lineTimes[lineTimesIdx]
-          if progress >= time:
-            moveCursor(sess, selectedBuffer.id, 0, line)
-            break
-          else:
-            lineTimesIdx -= 1
-        # draw progress bar
-        iw.fill(ctx.tb, 0, 0, textWidth + 1, (if selectedBuffer.id == Editor.ord: 1 else: 0), " ")
-        iw.fill(ctx.tb, 0, 0, int((progress / secs) * float(textWidth + 1)), 0, "▓")
-        sess.insert(selectedBuffer.id, Prompt, StopPlaying)
-    ctx.components["top-bar"] = midiProgressView
-
-  proc bufferView(ctx: var context.Context, node: JsonNode) =
-    renderBuffer(sess, ctx.tb, selectedBuffer, input, focused and selectedBuffer.prompt != StopPlaying)
-  ctx.components["buffer"] = bufferView
-
-  # render bottom bar
-  proc bottomBarView(ctx: var context.Context, node: JsonNode) =
-    var x = 0
-    if selectedBuffer.prompt != StopPlaying:
-      let
-        editor = globals.buffers[Editor.ord]
-        errorCount = editor.errors[].len
-        choices = [
-          (id: Editor.ord, label: "editor", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Editor)),
-          (id: Errors.ord, label: strutils.format("errors ($1)", errorCount), callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Errors)),
-          (id: Tutorial.ord, label: "tutorial", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Tutorial)),
-          (id: Publish.ord, label: "publish", callback: proc () {.closure.} = sess.insert(Global, SelectedBuffer, Publish)),
-        ]
-        shortcut = (key: {iw.Key.CtrlN}, hint: "hint: switch tabs with ctrl n")
-      var selectedChoices = @choices
-      selectedChoices.setLen(0)
-      for choice in choices:
-        if globals.buffers.hasKey(choice.id):
-          selectedChoices.add(choice)
-      x = renderRadioButtons(sess, ctx.tb, 0, 0, selectedChoices, globals.selectedBuffer, input.key, true, shortcut)
-    # render hints
-    if globals.hintTime > 0 and times.epochTime() >= globals.hintTime:
-      sess.insert(Global, HintText, "")
-      sess.insert(Global, HintTime, 0.0)
-    else:
-      let
-        showHint = globals.hintText.len > 0
-        text =
-          if showHint:
-            globals.hintText
-          else:
-            "‼ exit"
-        textX = max(x + 2, selectedBuffer.width + 1 - text.runeLen)
-      if showHint:
-        tui.write(ctx.tb, textX, 0, "\e[3m" & text & "\e[0m")
-      elif selectedBuffer.prompt != StopPlaying and not globals.options.bbsMode:
-        let cb =
-          proc () =
-            sess.insert(Global, HintText, "press ctrl c to exit")
-            sess.insert(Global, HintTime, times.epochTime() + hintSecs)
-        discard renderButton(sess, ctx.tb, text, textX, 0, input.key, cb)
-  ctx.components["bottom-bar"] = bottomBarView
-
-  proc editorView(ctx: var context.Context, node: JsonNode) =
-    let
-      top = node["top"]
-      mid = node["middle"]
-      btm = node["bottom"]
-      topBarHeight = if bufferId == Editor: 2 else: 1
-      bottomBarHeight = 1
-      middleHeight = iw.height(ctx.tb) - topBarHeight - bottomBarHeight
-    var y = 0
-    for (node, height) in [(top, topBarHeight), (mid, middleHeight), (btm, bottomBarHeight)]:
-      var childContext = nimwave.slice(ctx, 0, y, max(0, iw.width(ctx.tb)), height)
-      nimwave.render(childContext, node)
-      y += height
-  ctx.components["editor"] = editorView
-
-  nimwave.render(ctx, %* {"type": "editor", "top": {"type": "top-bar"}, "middle": {"type": "buffer"}, "bottom": {"type": "bottom-bar"}})
+  let
+    top = TopBarView(session: session, input: input, rawInput: rawInput, copyLinkCallback: copyLinkCallback)
+    middle = BufferView(session: session, input: input, focused: focused)
+    bottom = BottomBarView(session: session, input: input)
+    bufferId = Id(globals.selectedBuffer)
+    topBarHeight = if bufferId == Editor: 2 else: 1
+    bottomBarHeight = 1
+    middleHeight = iw.height(ctx.tb) - topBarHeight - bottomBarHeight
+  var y = 0
+  var topContext = nw.slice(ctx, 0, y, max(0, iw.width(ctx.tb)), topBarHeight)
+  context.render(top, topContext)
+  y += topBarHeight
+  var middleContext = nw.slice(ctx, 0, y, max(0, iw.width(ctx.tb)), middleHeight)
+  context.render(middle, middleContext)
+  y += middleHeight
+  var bottomContext = nw.slice(ctx, 0, y, max(0, iw.width(ctx.tb)), bottomBarHeight)
+  context.render(bottom, bottomContext)
+  y += bottomBarHeight
 

@@ -1,17 +1,29 @@
 from illwave as iw import nil
-from nimwave import nil
+from nimwave as nw import nil
 import tables, json
 
 var mouseInfo*: iw.MouseInfo
 
 type
-  ViewFocusArea* = tuple[tb: iw.TerminalBuffer, action: string, actionData: OrderedTable[string, JsonNode], copyableText: seq[string]]
+  ViewFocusArea* = tuple[tb: iw.TerminalBuffer, action: string, actionData: Table[string, JsonNode], copyableText: seq[string]]
   State* = object
     focusIndex*: int
     focusAreas*: ref seq[ViewFocusArea]
     input*: tuple[key: iw.Key, codepoint: uint32]
-  Context* = nimwave.Context[State]
-  RenderProc* = nimwave.RenderProc[State]
+  Context* = nw.Context[State]
+  Rect* = ref object of nw.Node
+    action*: string
+    actionData*: Table[string, JsonNode]
+    children*: seq[nw.Node]
+    childrenAfter*: seq[nw.Node]
+    topLeft*: string
+    topRight*: string
+    bottomLeft*: string
+    bottomRight*: string
+    bottomLeftFocused*: string
+    copyableText*: seq[string]
 
 proc initContext*(): Context =
-  nimwave.initContext[State]()
+  nw.initContext[State]()
+
+include nimwave/prelude

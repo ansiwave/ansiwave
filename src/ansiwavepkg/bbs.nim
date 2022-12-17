@@ -23,7 +23,7 @@ from ./sound import nil
 from strutils import nil
 from urlly import `$`
 from terminal import nil
-from nimwave import nil
+from nimwave as nw import nil
 
 when defined(emscripten):
   from nimwave/web/emscripten import nil
@@ -45,7 +45,7 @@ type
     data: Component
     focusIndex: int
     scrollY: int
-    view: JsonNode
+    view: nw.Node
     viewCommands: post.CommandTreesRef
     viewFocusAreas: ViewFocusAreaSeq
     midiProgress: MidiProgressType
@@ -73,7 +73,7 @@ schema Fact(Id, Attr):
   ComponentData: Component
   FocusIndex: int
   ScrollY: int
-  View: JsonNode
+  View: nw.Node
   ViewCommands: post.CommandTreesRef
   ViewFocusAreas: ViewFocusAreaSeq
   MidiProgress: MidiProgressType
@@ -208,7 +208,7 @@ proc insertPage(session: var BbsSession, comp: ui.Component, sig: string) =
   session.insert(id, ComponentData, comp)
   session.insert(id, FocusIndex, 0)
   session.insert(id, ScrollY, 0)
-  session.insert(id, View, cast[JsonNode](nil))
+  session.insert(id, View, cast[nw.Node](nil))
   session.insert(id, ViewCommands, cast[post.CommandTreesRef](nil))
   session.insert(id, ViewFocusAreas, @[])
   session.insert(id, MidiProgress, cast[MidiProgressType](nil))
@@ -279,13 +279,13 @@ proc initBbsSession*(clnt: client.Client, hash: Table[string, string]): BbsSessi
 
 proc refresh(session: var BbsSession, clnt: client.Client, page: Page) =
   session.insert(page.id, ScrollY, 0)
-  session.insert(page.id, View, cast[JsonNode](nil))
+  session.insert(page.id, View, cast[nw.Node](nil))
   let globals = session.query(rules.getGlobals)
   ui.refresh(clnt, page.data, globals.board)
 
 var disableDoubleBuffering = false
 
-proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: OrderedTable[string, JsonNode], focusIndex: var int): bool =
+proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, width: int, height: int, input: tuple[key: iw.Key, codepoint: uint32], actionName: string, actionData: Table[string, JsonNode], focusIndex: var int): bool =
   case actionName:
   of "show-post":
     result = input.key in {iw.Key.Mouse, iw.Key.Enter}
@@ -497,31 +497,102 @@ proc getEditorLines*(session: BbsSession): seq[ref string] =
   except Exception as ex:
     discard
 
-proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: client.Client, globals: tuple, page: tuple, input: tuple[key: iw.Key, codepoint: uint32], finishedLoading: bool, focusIndex: var int) =
-  var sess = session
+type
+  EditorNavBar = ref object of nw.Node
+    session: BbsSession
+    isPlaying: bool
+    clnt: client.Client
+    backAction: proc ()
+    input: tuple[key: iw.Key, codepoint: uint32]
+    focusIndex: ref int
+
+method render*(node: EditorNavBar, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
+  let
+    globals = node.session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  if not node.isPlaying:
+    var rightButtons: seq[(string, proc ())]
+    var errorLines: seq[string]
+    if page.data.request.started:
+      if not page.data.request.ready:
+        rightButtons.add((" sending... ", proc () {.closure.} = discard))
+      elif page.data.request.value.kind == client.Valid:
+        discard
+      else:
+        let
+          continueAction = proc () =
+            page.data.request.started = false
+            editor.setEditable(page.data.session, true)
+          errorStr = page.data.request.value.error
+        rightButtons.add((" continue editing ", continueAction))
+        errorLines = @[
+          "error (don't worry, a draft is saved)",
+          errorStr
+        ]
+    else:
+      let
+        sendAction = proc () {.closure.} =
+          editor.setEditable(page.data.session, false)
+          let
+            content = post.joinLines(editor.getEditor(page.data.session).lines)
+            (body, sig) = common.sign(user.keyPair, page.data.headers, strutils.strip(content, leading = true, trailing = true, {'\n'}))
+          page.data.requestBody = body
+          page.data.requestSig = sig
+          page.data.request = client.submit(node.clnt, "ansiwave", body)
+      rightButtons.add((" send ", sendAction))
+    var leftButtons: seq[(string, proc ())]
+    leftButtons.add((" ← ", node.backAction))
+    navbar.render(ctx, node.input, leftButtons, errorLines, rightButtons, node.focusIndex)
+
+type
+  EditorView = ref object of nw.Node
+    session: BbsSession
+    input: tuple[key: iw.Key, codepoint: uint32]
+    focusIndex: int
+
+method render*(node: EditorView, ctx: var context.Context) =
+  let
+    globals = node.session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
+  editor.tick(page.data.session, ctx, node.input, node.focusIndex == 0)
+
+type
+  ContentNavBar = ref object of nw.Node
+    session: BbsSession
+    clnt: client.Client
+    input: tuple[key: iw.Key, codepoint: uint32]
+    focusIndex: ref int
+    finishedLoading: bool
+
+method render*(node: ContentNavBar, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
+  let
+    globals = node.session.query(rules.getGlobals)
+    page = globals.pages[globals.selectedPage]
   let
     backAction = proc () {.closure.} =
       if globals.breadcrumbsIndex > 0:
-        sess.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
+        node.session.insert(Global, PageBreadcrumbsIndex, globals.breadcrumbsIndex - 1)
     upAction = proc () {.closure.} =
       let sig = page.data.post.value.valid.parent
       if sig == page.data.post.value.valid.public_key:
-        sess.insertPage(ui.initUser(clnt, globals.board, sig), sig)
+        node.session.insertPage(ui.initUser(node.clnt, globals.board, sig), sig)
       else:
-        sess.insertPage(ui.initPost(clnt, globals.board, sig), sig)
+        node.session.insertPage(ui.initPost(node.clnt, globals.board, sig), sig)
     refreshAction = proc () {.closure.} =
-      refresh(sess, clnt, page)
+      refresh(node.session, node.clnt, page)
     homeAction = proc () {.closure.} =
-      sess.insertPage(ui.initUser(clnt, globals.board, globals.board), globals.board)
+      node.session.insertPage(ui.initUser(node.clnt, globals.board, globals.board), globals.board)
     searchAction = proc () {.closure.} =
-      sess.insertPage(ui.initSearch(clnt, globals.board), "search")
+      node.session.insertPage(ui.initSearch(node.clnt, globals.board), "search")
   var leftButtons: seq[(string, proc ())]
   when not defined(emscripten):
     leftButtons &= @[(" ← ", backAction), (" ⟳ ", refreshAction)]
   if page.sig != globals.board:
     leftButtons.add((" ⌂ ", homeAction))
   if page.data.kind == ui.Post and
-      finishedLoading and
+      node.finishedLoading and
       page.data.post.ready and
       page.data.post.value.kind != client.Error:
     leftButtons &= @[(" ↑ ", upAction)]
@@ -533,7 +604,7 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
     let tags = common.parseTags(page.data.user.value.valid.tags.value)
     if "moderator" in tags or "modleader" in tags:
       let limboAction = proc () {.closure.} =
-        sess.insertPage(ui.initLimbo(clnt, globals.board), "limbo")
+        node.session.insertPage(ui.initLimbo(node.clnt, globals.board), "limbo")
       leftButtons &= @[(" limbo ", limboAction)]
   when defined(emscripten):
     let content = ui.getContent(page.data)
@@ -555,7 +626,7 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
         playAction = proc () {.closure.} =
           var progress: MidiProgressType
           new progress
-          sess.insert(page.id, MidiProgress, progress)
+          node.session.insert(page.id, MidiProgress, progress)
       leftButtons.add((" ♫ play ", playAction))
     var rightButtons: seq[(string, proc ())] =
       if page.sig == "login" or page.sig == "logout":
@@ -563,13 +634,13 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
       elif user.pubKey == "":
         let
           loginAction = proc () {.closure.} =
-            sess.insertPage(ui.initLogin(), "login")
+            node.session.insertPage(ui.initLogin(), "login")
         @[(" login ", loginAction)]
       elif page.sig == user.pubKey:
         let
           logoutAction = proc () {.closure, gcsafe.} =
             {.cast(gcsafe).}:
-              sess.insertPage(ui.initLogout(), "logout")
+              node.session.insertPage(ui.initLogout(), "logout")
           downloadKeyAction = proc () {.closure.} =
             when defined(emscripten):
               user.downloadImage()
@@ -580,13 +651,13 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
       else:
         let
           draftsAction = proc () {.closure.} =
-            sess.insertPage(ui.initDrafts(clnt, globals.board), "drafts")
+            node.session.insertPage(ui.initDrafts(node.clnt, globals.board), "drafts")
           sentAction = proc () {.closure.} =
-            sess.insertPage(ui.initSent(clnt, globals.board), "sent")
+            node.session.insertPage(ui.initSent(node.clnt, globals.board), "sent")
           repliesAction = proc () {.closure.} =
-            sess.insertPage(ui.initReplies(clnt, globals.board), "replies")
+            node.session.insertPage(ui.initReplies(node.clnt, globals.board), "replies")
           myPageAction = proc () {.closure.} =
-            sess.insertPage(ui.initUser(clnt, globals.board, user.pubKey), user.pubKey)
+            node.session.insertPage(ui.initUser(node.clnt, globals.board, user.pubKey), user.pubKey)
         var s: seq[(string, proc ())]
         if globals.hasDrafts and page.sig != "drafts":
           s.add((" drafts ", draftsAction))
@@ -596,7 +667,7 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
           s.add((" replies ", repliesAction))
         s.add((" my page ", myPageAction))
         s
-    navbar.render(ctx, input, leftButtons, [], rightButtons, focusIndex)
+    navbar.render(ctx, node.input, leftButtons, [], rightButtons, node.focusIndex)
   else:
     if not page.midiProgress[].messageDisplayed:
       page.midiProgress[].messageDisplayed = true
@@ -615,7 +686,7 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
     elif page.midiProgress[].midiResult.playResult.kind == sound.Error:
       let
         continueAction = proc () =
-          sess.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+          node.session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
         errorStr = page.midiProgress[].midiResult.playResult.message
       var rightButtons: seq[(string, proc ())]
       rightButtons.add((" continue ", continueAction))
@@ -623,17 +694,26 @@ proc renderNavbar(ctx: var context.Context, session: var BbsSession, clnt: clien
         "error",
         errorStr
       ]
-      navbar.render(ctx, input, [], errorLines, rightButtons, focusIndex)
+      navbar.render(ctx, node.input, [], errorLines, rightButtons, node.focusIndex)
     else:
       let currTime = times.epochTime()
-      if currTime > page.midiProgress[].time.stop or input.key in {iw.Key.Tab, iw.Key.Escape}:
+      if currTime > page.midiProgress[].time.stop or node.input.key in {iw.Key.Tab, iw.Key.Escape}:
         midi.stop(page.midiProgress[].midiResult.playResult.addrs)
-        session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
+        node.session.insert(page.id, MidiProgress, cast[MidiProgressType](nil))
       else:
         let progress = (currTime - page.midiProgress[].time.start) / (page.midiProgress[].time.stop - page.midiProgress[].time.start)
         iw.fill(ctx.tb, 0, 0, iw.width(ctx.tb), 2, " ")
         iw.fill(ctx.tb, 0, 0, int(progress * float(iw.width(ctx.tb))), 0, "▓")
         iw.write(ctx.tb, 0, 1, "press esc to stop playing")
+
+type
+  ContentView = ref object of nw.Node
+    view: nw.Node
+    scrollY: int
+
+method render*(node: ContentView, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, node.scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
+  context.render(node.view, ctx)
 
 proc init*() =
   try:
@@ -659,7 +739,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     maxScroll = max(1, int(height / 5))
     view =
       if page.view == nil:
-        let v = ui.toJson(page.data, finishedLoading)
+        let v = ui.toNode(page.data, finishedLoading)
         if finishedLoading:
           session.insert(page.id, View, v)
         v
@@ -694,7 +774,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
 
   # if there is any input, find the associated action
   var
-    action: tuple[actionName: string, actionData: OrderedTable[string, JsonNode]]
+    action: tuple[actionName: string, actionData: Table[string, JsonNode]]
     focusIndex = page.focusIndex
     scrollY = page.scrollY
   if (input.key != iw.Key.None or input.codepoint > 0):
@@ -751,13 +831,13 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           let tags = page.data.user.value.valid.tags
           page.data.editTags.initialValue = tags.value
           page.data.editTags.sig = tags.sig
-          session.insert(page.id, View, cast[JsonNode](nil))
+          session.insert(page.id, View, cast[nw.Node](nil))
       elif page.data.kind == ui.Post:
         if page.data.post.ready and page.data.post.value.kind != client.Error:
           let tags = page.data.post.value.valid.extra_tags
           page.data.editExtraTags.initialValue = tags.value
           page.data.editExtraTags.sig = tags.sig
-          session.insert(page.id, View, cast[JsonNode](nil))
+          session.insert(page.id, View, cast[nw.Node](nil))
     of iw.Key.CtrlK, iw.Key.CtrlC:
       when not defined(emscripten):
         if focusIndex >= 0 and focusIndex < page.viewFocusAreas.len:
@@ -813,7 +893,6 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
     ctx = page.context[]
   else:
     ctx = context.initContext()
-    ui.addComponents(ctx)
     var ctxRef: ref context.Context
     new ctxRef
     ctxRef[] = ctx
@@ -824,8 +903,36 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   var tb = iw.initTerminalBuffer(width, height)
   ctx.tb = tb
 
+  # make a ref so the navbar can modify the focus index
+  let focusIndexRef = new int
+  focusIndexRef[] = focusIndex
+
   # render
   if page.isEditor:
+    # handle requests
+    if page.data.request.started:
+      client.get(page.data.request)
+      if not page.data.request.ready:
+        finishedLoading = false # when a request is being sent, make sure the view refreshes
+      elif page.data.request.value.kind == client.Valid:
+        session.retract(page.id, ComponentData)
+        storage.remove(page.sig)
+        backAction()
+        session.fireRules
+        let
+          idx = strutils.find(page.sig, ".edit")
+          sig =
+            # if it's an edit, go to the original sig
+            if idx != -1:
+              let parts = strutils.split(page.sig, '.')
+              parts[0]
+            # go to the new sig
+            else:
+              page.data.requestSig
+        if storage.set(sig & ".ansiwave", page.data.requestBody):
+          session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
+        return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finished)
+
     let filteredInput =
       if page.focusIndex == 0:
         input
@@ -839,89 +946,37 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       else:
         (iw.Key.None, 0'u32)
 
-    ctx = nimwave.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
+    ctx = nw.slice(ctx, 0, 0, editor.textWidth + 2, iw.height(ctx.tb))
 
-    if isPlaying:
-      proc navbarView(ctx: var context.Context, node: JsonNode) =
-        ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
-      ctx.components["navbar"] = navbarView
-    else:
-      var rightButtons: seq[(string, proc ())]
-      var errorLines: seq[string]
-      if page.data.request.started:
-        client.get(page.data.request)
-        if not page.data.request.ready:
-          rightButtons.add((" sending... ", proc () {.closure.} = discard))
-          finishedLoading = false # when a request is being sent, make sure the view refreshes
-        elif page.data.request.value.kind == client.Valid:
-          session.retract(page.id, ComponentData)
-          storage.remove(page.sig)
-          backAction()
-          session.fireRules
-          let
-            idx = strutils.find(page.sig, ".edit")
-            sig =
-              # if it's an edit, go to the original sig
-              if idx != -1:
-                let parts = strutils.split(page.sig, '.')
-                parts[0]
-              # go to the new sig
-              else:
-                page.data.requestSig
-          if storage.set(sig & ".ansiwave", page.data.requestBody):
-            session.insertPage(if sig == user.pubKey: ui.initUser(clnt, globals.board, sig) else: ui.initPost(clnt, globals.board, sig), sig)
-          return tick(session, clnt, width, height, (iw.Key.None, 0'u32), finished)
-        else:
-          let
-            continueAction = proc () =
-              page.data.request.started = false
-              editor.setEditable(page.data.session, true)
-            errorStr = page.data.request.value.error
-          rightButtons.add((" continue editing ", continueAction))
-          errorLines = @[
-            "error (don't worry, a draft is saved)",
-            errorStr
-          ]
-      else:
-        let
-          sendAction = proc () {.closure.} =
-            editor.setEditable(page.data.session, false)
-            let
-              content = post.joinLines(editor.getEditor(page.data.session).lines)
-              (body, sig) = common.sign(user.keyPair, page.data.headers, strutils.strip(content, leading = true, trailing = true, {'\n'}))
-            page.data.requestBody = body
-            page.data.requestSig = sig
-            page.data.request = client.submit(clnt, "ansiwave", body)
-        rightButtons.add((" send ", sendAction))
-      var leftButtons: seq[(string, proc ())]
-      leftButtons.add((" ← ", backAction))
-      proc navbarView(ctx: var context.Context, node: JsonNode) =
-        ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
-        navbar.render(ctx, input, leftButtons, errorLines, rightButtons, focusIndex)
-      ctx.components["navbar"] = navbarView
-
-    proc editorView(ctx: var context.Context, node: JsonNode) =
-      editor.tick(page.data.session, ctx, filteredInput, focusIndex == 0)
-    ctx.components["editor"] = editorView
-
-    nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": [{"type": "navbar"}, {"type": "editor"}]})
+    context.render(
+      nw.Box(
+        direction: nw.Direction.Vertical,
+        children: nw.seq(
+          EditorNavBar(session: session, isPlaying: isPlaying, clnt: clnt, backAction: backAction, input: input, focusIndex: focusIndexRef),
+          EditorView(session: session, input: filteredInput, focusIndex: focusIndex),
+        ),
+      ),
+      ctx
+    )
 
     page.data.session.fireRules
     editor.saveToStorage(page.data.session, page.sig)
   else:
-    ctx = nimwave.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb), (0, 0, constants.editorWidth + 2, if defined(emscripten): -1 else: iw.height(ctx.tb)))
+    ctx = nw.slice(ctx, 0, 0, constants.editorWidth + 2, iw.height(ctx.tb), (0, 0, constants.editorWidth + 2, if defined(emscripten): -1 else: iw.height(ctx.tb)))
 
-    proc contentView(ctx: var context.Context, node: JsonNode) =
-      ctx = nimwave.slice(ctx, 0, scrollY, iw.width(ctx.tb), iw.height(ctx.tb), (0, 0, iw.width(ctx.tb), if defined(emscripten): -1 else: iw.height(ctx.tb)))
-      nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": view})
-    ctx.components["content"] = contentView
+    context.render(
+      nw.Box(
+        direction: nw.Direction.Vertical,
+        children: nw.seq(
+          ContentNavBar(session: session, clnt: clnt, input: input, focusIndex: focusIndexRef, finishedLoading: finishedLoading),
+          ContentView(view: view, scrollY: scrollY),
+        ),
+      ),
+      ctx
+    )
 
-    proc navbarView(ctx: var context.Context, node: JsonNode) =
-      ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), navbar.height)
-      renderNavbar(ctx, sess, clnt, globals, page, input, finishedLoading, focusIndex)
-    ctx.components["navbar"] = navbarView
-
-    nimwave.render(ctx, %* {"type": "nimwave.vbox", "children": [{"type": "navbar"}, {"type": "content"}]})
+  # get the new focus index from the ref, in case the navbar changed it
+  focusIndex = focusIndexRef[]
 
   # update values if necessary
   if focusIndex != page.focusIndex:

@@ -20,7 +20,7 @@ from ./ui/simpleeditor import nil
 from algorithm import nil
 from chrono import nil
 from urlly import nil
-from nimwave import nil
+from nimwave as nw import nil
 
 type
   ComponentKind* = enum
@@ -75,6 +75,20 @@ type
     content: string
     sig: string
     time: int
+  Button = ref object of nw.Node
+    text: string
+    align: string
+    border: nw.Border
+    action: string
+    actionData: Table[string, JsonNode]
+  Tabs = ref object of nw.Node
+    action: string
+    actionData: Table[string, JsonNode]
+    text: seq[string]
+    index: int
+  EditorView = ref object of nw.Node
+    action: string
+    actionData: Table[string, JsonNode]
 
 proc refresh*(clnt: client.Client, comp: Component, board: string) =
   comp.cache = initTable[string, client.ChannelValue[client.Response]]()
@@ -216,37 +230,32 @@ proc header(entity: entities.User): string =
     ]
   separate(parts)
 
-proc toJson*(entity: entities.Post, content: string, board: string, kind: string, sig: string): JsonNode =
+proc toNode*(entity: entities.Post, content: string, board: string, kind: string, sig: string): nw.Node =
   const maxLines = int(editorWidth / 4f)
   let
     replies = replyText(entity, board)
     lines = common.splitAfterHeaders(content)
     wrappedLines = post.wrapLines(lines)
     truncatedLines = if wrappedLines.len > maxLines: wrappedLines[0 ..< maxLines] else: wrappedLines
-  %*{
-    "type": "rect",
-    "children": truncatedLines,
-    "copyable-text": lines,
-    "top-left": if entity.parent == board: "" else: header(entity),
-    "top-right": (if kind == "post": replies else: ""),
-    "bottom-left": if wrappedLines.len > maxLines: "see more" else: "",
-    "action": "show-post",
-    "action-data": {"type": kind, "sig": sig},
-    "accessible-text": replies,
-    "accessible-hash": createHash(@{"type": kind, "id": sig, "board": board}),
-  }
+  context.Rect(
+    children: nw.seq(truncatedLines),
+    copyableText: lines,
+    topLeft: if entity.parent == board: "" else: header(entity),
+    topRight: (if kind == "post": replies else: ""),
+    bottomRight: if wrappedLines.len > maxLines: "see more" else: "",
+    action: "show-post",
+    actionData: {"type": % kind, "sig": % sig}.toTable,
+  )
 
-proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string): JsonNode =
-  result = JsonNode(kind: JArray)
+proc toNode*(posts: seq[entities.Post], comp: Component, finishedLoading: var bool, noResultsText: string): seq[nw.Node] =
   if comp.offset > 0:
     result.add:
-      %* {
-        "type": "button",
-        "text": "previous page",
-        "align": "right",
-        "action": "change-page",
-        "action-data": {"offset-change": -entities.limit},
-      }
+      Button(
+        text: "previous page",
+        align: "right",
+        action: "change-page",
+        actionData: {"offset-change": % -entities.limit}.toTable,
+      )
   var showStillLoading = false
   if posts.len > 0:
     for post in posts:
@@ -268,44 +277,42 @@ proc toJson*(posts: seq[entities.Post], comp: Component, finishedLoading: var bo
             else:
               (false, "")
       if ready:
-        result.elems.add(toJson(post, content, comp.board, kind, sig))
+        result.add(toNode(post, content, comp.board, kind, sig))
       else:
         finishedLoading = false
         showStillLoading = true
     if showStillLoading:
-      result.elems.add(%"still loading")
+      result.add(nw.Text(str: "still loading"))
   else:
-    result.elems.add(%noResultsText)
+    result.add(nw.Text(str: noResultsText))
   if posts.len == entities.limit:
     result.add:
-      %* {
-        "type": "button",
-        "text": "next page",
-        "align": "right",
-        "action": "change-page",
-        "action-data": {"offset-change": entities.limit},
-      }
+      Button(
+        text: "next page",
+        align: "right",
+        action: "change-page",
+        actionData: {"offset-change": % entities.limit}.toTable,
+      )
 
-proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonNode =
+proc toNode(content: string, readyTime: float, finishedLoading: var bool): seq[nw.Node] =
   let lines = strutils.splitLines(content)
   var
     sectionLines: seq[string]
     sectionTitle = ""
-  proc flush(sectionLines: var seq[string], sectionTitle: var string, res: JsonNode, finishedLoading: var bool) =
+  proc flush(sectionLines: var seq[string], sectionTitle: var string, res: var seq[nw.Node], finishedLoading: var bool) =
     let
       wrappedLines = post.wrapLines(sectionLines)
       animatedLines = post.animateLines(wrappedLines, readyTime)
     finishedLoading = finishedLoading and animatedLines == wrappedLines
     if sectionLines.len > 0:
-      res.elems.add(%* {
-        "type": "rect",
-        "children": animatedLines,
-        "copyable-text": animatedLines,
-        "top-left": truncate(sectionTitle, constants.editorWidth),
-      })
+      res.add:
+        context.Rect(
+          children: nw.seq(animatedLines),
+          copyableText: animatedLines,
+          topLeft: truncate(sectionTitle, constants.editorWidth),
+        )
       sectionLines = @[]
       sectionTitle = ""
-  result = %[]
   for i in 0 ..< lines.len:
     let strippedLine = codes.stripCodesIfCommand(lines[i])
     if strutils.startsWith(strippedLine, "/link "):
@@ -323,14 +330,14 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
           else:
             words.add(part)
         let text = strutils.join(words, " ")
-        result.elems.add(%* {
-          "type": "rect",
-          "top-left": truncate(text, constants.editorWidth - 2),
-          "children": [truncate(url, constants.editorWidth)],
-          "copyable-text": [url],
-          "action": "go-to-url",
-          "action-data": {"url": url},
-        })
+        result.add:
+          context.Rect(
+            topLeft: truncate(text, constants.editorWidth - 2),
+            children: nw.seq(truncate(url, constants.editorWidth)),
+            copyableText: @[url],
+            action: "go-to-url",
+            actionData: {"url": % url}.toTable,
+          )
       else:
         sectionLines.add(lines[i])
     elif strutils.startsWith(strippedLine, "/section ") or strippedLine == "/section":
@@ -345,74 +352,68 @@ proc toJson(content: string, readyTime: float, finishedLoading: var bool): JsonN
       sectionLines.add(lines[i])
   flush(sectionLines, sectionTitle, result, finishedLoading)
 
-proc toJson*(draft: Draft, board: string): JsonNode =
+proc toNode*(draft: Draft, board: string): seq[nw.Node] =
   const maxLines = int(editorWidth / 4f)
   let
     lines = post.wrapLines(strutils.splitLines(draft.content))
     isNew = strutils.endsWith(draft.sig, ".new")
     parts = strutils.split(draft.sig, '.')
     originalSig = parts[0]
-  %*[
-    {
-      "type": "rect",
-      "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
-      "copyable-text": lines,
-      "bottom-left": if lines.len > maxLines: "see more" else: "",
-      "action": "show-editor",
-      "action-data": {
-        "sig": draft.sig,
-        "headers": common.headers(user.pubKey, draft.target, if isNew: common.New else: common.Edit, board),
-      },
-    },
-    {
-      "type": "button",
-      "text": if isNew: "see post that this is replying to" else: "see post that this is editing",
-      "align": "right",
-      "action": "show-post",
-      "action-data": {"type": "post", "sig": originalSig},
-    },
-    "" # spacer
+  @[
+    context.Rect(
+      children: nw.seq(if lines.len > maxLines: lines[0 ..< maxLines] else: lines),
+      copyableText: lines,
+      bottomLeft: if lines.len > maxLines: "see more" else: "",
+      action: "show-editor",
+      actionData: {
+        "sig": % draft.sig,
+        "headers": % common.headers(user.pubKey, draft.target, if isNew: common.New else: common.Edit, board),
+      }.toTable,
+    ),
+    Button(
+      text: if isNew: "see post that this is replying to" else: "see post that this is editing",
+      align: "right",
+      action: "show-post",
+      actionData: {"type": % "post", "sig": % originalSig}.toTable,
+    ),
+    nw.Text(str: "") # spacer
   ]
 
-proc toJson*(recent: Recent): JsonNode =
+proc toNode*(recent: Recent): nw.Node =
   const maxLines = int(editorWidth / 4f)
   let lines = post.wrapLines(strutils.splitLines(recent.content))
-  %* {
-    "type": "rect",
-    "children": if lines.len > maxLines: lines[0 ..< maxLines] else: lines,
-    "copyable-text": lines,
-    "bottom-left": if lines.len > maxLines: "see more" else: "",
-    "action": "show-post",
-    "action-data": {"type": "post", "sig": recent.sig},
-  }
+  context.Rect(
+    children: nw.seq(if lines.len > maxLines: lines[0 ..< maxLines] else: lines),
+    copyableText: lines,
+    bottomLeft: if lines.len > maxLines: "see more" else: "",
+    action: "show-post",
+    actionData: {"type": % "post", "sig": % recent.sig}.toTable,
+  )
 
-proc toJson*(posts: seq[Recent], offset: int): JsonNode =
-  result = JsonNode(kind: JArray)
+proc toNode*(posts: seq[Recent], offset: int): seq[nw.Node] =
   if offset > 0:
     result.add:
-      %* {
-        "type": "button",
-        "text": "previous page",
-        "align": "right",
-        "action": "change-page",
-        "action-data": {"offset-change": -entities.limit},
-      }
+      Button(
+        text: "previous page",
+        align: "right",
+        action: "change-page",
+        actionData: {"offset-change": % -entities.limit}.toTable,
+      )
   if posts.len > 0:
     for post in posts:
-      result.elems.add(toJson(post))
+      result.add(toNode(post))
   else:
-    result.elems.add(%"no posts")
+    result.add(nw.Text(str: "no posts"))
   if posts.len == entities.limit:
     result.add:
-      %* {
-        "type": "button",
-        "text": "next page",
-        "align": "right",
-        "action": "change-page",
-        "action-data": {"offset-change": entities.limit},
-      }
+      Button(
+        text: "next page",
+        align: "right",
+        action: "change-page",
+        actionData: {"offset-change": % entities.limit}.toTable,
+      )
 
-proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
+proc toNodes*(comp: Component, finishedLoading: var bool): seq[nw.Node] =
   case comp.kind:
   of Post:
     client.get(comp.postContent)
@@ -420,11 +421,11 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
     client.get(comp.post)
     finishedLoading = comp.postContent.ready and comp.replies.ready and comp.post.ready
     var parsed: post.Parsed
-    %*[
+    nw.seq(
       if comp.sig != comp.board:
         if not comp.post.ready or
             comp.post.value.kind == client.Error:
-          %""
+          nw.seq()
         else:
           if comp.editExtraTags.sig != "":
             finishedLoading = false # so the editor will always refresh
@@ -432,99 +433,93 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
               client.get(comp.editExtraTags.request)
               if comp.editExtraTags.request.ready:
                 if comp.editExtraTags.request.value.kind == client.Error:
-                  %["error: " & comp.editExtraTags.request.value.error, "refresh to continue"]
+                  nw.seq("error: " & comp.editExtraTags.request.value.error, "refresh to continue")
                 else:
-                  %["extra tags edited successfully (but they may take time to appear)", "refresh to continue"]
+                  nw.seq("extra tags edited successfully (but they may take time to appear)", "refresh to continue")
               else:
-                %"editing extra tags..."
+                nw.seq("editing extra tags...")
             else:
-              %* {
-                "type": "simple-editor",
-                "id": "extra-tag-field",
-                "initial-value": comp.editExtraTags.initialValue,
-                "prompt": "press enter to edit extra tags or esc to cancel",
-                "action": "edit-extra-tags",
-              }
+              nw.seq(simpleeditor.SimpleEditor(
+                id: "extra-tag-field",
+                initialValue: comp.editExtraTags.initialValue,
+                prompt: "press enter to edit extra tags or esc to cancel",
+                action: "edit-extra-tags",
+              ))
           else:
             if comp.post.value.valid.parent != comp.board:
-              % (" " & header(comp.post.value.valid))
+              nw.seq(" " & header(comp.post.value.valid))
             else:
-              %""
+              nw.seq()
       else:
-        %""
+        nw.seq()
       ,
       if not comp.postContent.ready:
-        %"loading..."
+        nw.seq("loading...")
       else:
         parsed = post.getFromLocalOrRemote(comp.postContent.value, comp.sig)
         if parsed.kind == post.Error:
-          %"failed to load post"
+          nw.seq("failed to load post")
         else:
-          toJson(parsed.content, comp.postContent.readyTime, finishedLoading)
+          toNode(parsed.content, comp.postContent.readyTime, finishedLoading)
       ,
       if comp.postContent.ready and parsed.kind != post.Error:
         if parsed.key == user.pubKey:
-          %* {
-            "type": "button",
-            "text":
+          nw.seq(Button(
+            text:
               if parsed.key == comp.board:
                 "edit subboard"
               else:
                 "edit post"
             ,
-            "align": "right",
-            "action": "show-editor",
-            "action-data": {
-              "sig": comp.sig & "." & parsed.sig & ".edit",
-              "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
-            },
-          }
+            align: "right",
+            action: "show-editor",
+            actionData: {
+              "sig": % (comp.sig & "." & parsed.sig & ".edit"),
+              "content": % parsed.content,
+              "headers": % common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
+            }.toTable,
+          ))
         elif parsed.key != comp.board:
-          %* {
-            "type": "button",
-            "text": "see user",
-            "align": "right",
-            "action": "show-post",
-            "action-data": {"type": "user", "sig": parsed.key},
-            "accessible-text": "see user",
-            "accessible-hash": createHash(@{"type": "user", "id": parsed.key, "board": comp.board}),
-          }
+          nw.seq(Button(
+            text: "see user",
+            align: "right",
+            action: "show-post",
+            actionData: {"type": % "user", "sig": % parsed.key}.toTable,
+          ))
         else:
-          %[]
+          nw.seq()
       else:
-        %[]
+        nw.seq()
       ,
       if user.pubKey == "":
-        %[]
+        nw.seq()
       else:
-        %* {
-          "type": "button",
-          "text": "write new post",
-          "align": "right",
-          "action": "show-editor",
-          "action-data": {
-            "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, common.New, comp.board),
-          },
-        }
+        nw.seq(Button(
+          text: "write new post",
+          align: "right",
+          action: "show-editor",
+          actionData: {
+            "sig": % (comp.sig & ".new"),
+            "headers": % common.headers(user.pubKey, comp.sig, common.New, comp.board),
+          }.toTable,
+        ))
       ,
       if comp.sig != comp.board:
         if comp.post.ready and comp.post.value.kind != client.Error:
-          % (" " & replyText(comp.post.value.valid, comp.board))
+          nw.seq(" " & replyText(comp.post.value.valid, comp.board))
         else:
-          %""
+          nw.seq()
       else:
-        %""
+        nw.seq()
       ,
-      "", # spacer
+      nw.seq(""), # spacer
       if not comp.replies.ready:
-        %"loading posts"
+        nw.seq("loading posts")
       elif comp.replies.value.kind == client.Error:
-        %"failed to load replies"
+        nw.seq("failed to load replies")
       else:
-       toJson(comp.replies.value.valid, comp, finishedLoading, "")
-    ]
+       toNode(comp.replies.value.valid, comp, finishedLoading, "")
+    )
   of User:
     client.get(comp.userContent)
     client.get(comp.userPosts)
@@ -533,19 +528,19 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
       comp.userPosts.ready and
       (comp.sig == comp.board or comp.user.ready)
     var parsed: post.Parsed
-    %*[
+    nw.seq(
       if comp.sig != comp.board:
         client.get(comp.user)
         if not comp.user.ready or
             comp.user.value.kind == client.Error:
-          %[]
+          nw.seq()
         else:
           if comp.user.value.valid.user_id == 0:
             # if the user wasn't found, try checking in limbo
             if not comp.limbo:
               comp.limbo = true
               refresh(comp.client, comp, comp.board)
-            %[]
+            nw.seq()
           else:
             if comp.editTags.sig != "":
               finishedLoading = false # so the editor will always refresh
@@ -553,130 +548,122 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
                 client.get(comp.editTags.request)
                 if comp.editTags.request.ready:
                   if comp.editTags.request.value.kind == client.Error:
-                    %["error: " & comp.editTags.request.value.error, "refresh to continue"]
+                    nw.seq("error: " & comp.editTags.request.value.error, "refresh to continue")
                   else:
-                    %["tags edited successfully (but they may take time to appear)", "refresh to continue"]
+                    nw.seq("tags edited successfully (but they may take time to appear)", "refresh to continue")
                 else:
-                  %"editing tags..."
+                  nw.seq("editing tags...")
               else:
-                %* {
-                  "type": "simple-editor",
-                  "id": "tag-field",
-                  "initial-value": comp.editTags.initialValue,
-                  "prompt": "press enter to edit tags or esc to cancel",
-                  "action": "edit-tags",
-                }
+                nw.seq(simpleeditor.SimpleEditor(
+                  id: "tag-field",
+                  initialValue: comp.editTags.initialValue,
+                  prompt: "press enter to edit tags or esc to cancel",
+                  action: "edit-tags",
+                ))
             elif comp.limbo and comp.sig == user.pubKey:
-              % "you're in \"limbo\"...a mod will add you to the board shortly."
+              nw.seq("you're in \"limbo\"...a mod will add you to the board shortly.")
             else:
-              % (" " & header(comp.user.value.valid))
+              nw.seq(" " & header(comp.user.value.valid))
       else:
-        %[]
+        nw.seq()
       ,
       if not comp.userContent.ready:
-        %"loading..."
+        nw.seq("loading...")
       else:
         parsed = post.getFromLocalOrRemote(comp.userContent.value, comp.sig)
         if parsed.kind == post.Error:
           if comp.sig == user.pubKey:
-            %"Your banner will be here. Put something about yourself...or not."
+            nw.seq("Your banner will be here. Put something about yourself...or not.")
           else:
-            %""
+            nw.seq()
         else:
           if comp.sig == user.pubKey and parsed.content == "":
-            %"Your banner will be here. Put something about yourself...or not."
+            nw.seq("Your banner will be here. Put something about yourself...or not.")
           else:
-            toJson(parsed.content, comp.userContent.readyTime, finishedLoading)
+            toNode(parsed.content, comp.userContent.readyTime, finishedLoading)
       ,
       if comp.userContent.ready and parsed.kind != post.Error:
         if parsed.key == user.pubKey:
-          %* {
-            "type": "button",
-            "text": "edit banner",
-            "align": "right",
-            "action": "show-editor",
-            "action-data": {
-              "sig": comp.sig & "." & parsed.sig & ".edit",
-              "content": parsed.content,
-              "headers": common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
-            },
-          }
+          nw.seq(Button(
+            text: "edit banner",
+            align: "right",
+            action: "show-editor",
+            actionData: {
+              "sig": % (comp.sig & "." & parsed.sig & ".edit"),
+              "content": % parsed.content,
+              "headers": % common.headers(user.pubKey, parsed.sig, common.Edit, comp.board),
+            }.toTable,
+          ))
         else:
-          %[]
+          nw.seq()
       elif comp.sig == user.pubKey:
-        %* {
-          "type": "button",
-          "text": "create banner",
-          "align": "right",
-          "action": "show-editor",
-          "action-data": {
-            "sig": comp.sig & "." & comp.sig & ".edit",
-            "headers": common.headers(user.pubKey, user.pubKey, common.Edit, comp.board),
-          },
-        }
+        nw.seq(Button(
+          text: "create banner",
+          align: "right",
+          action: "show-editor",
+          actionData: {
+            "sig": % (comp.sig & "." & comp.sig & ".edit"),
+            "headers": % common.headers(user.pubKey, user.pubKey, common.Edit, comp.board),
+          }.toTable,
+        ))
       else:
-        %[]
+        nw.seq()
       ,
       if comp.sig == user.pubKey:
-        %* {
-          "type": "button",
-          "text":
+        nw.seq(Button(
+          text:
             if comp.sig == comp.board:
               "create new subboard"
             else:
               "write new journal post"
           ,
-          "align": "right",
-          "action": "show-editor",
-          "action-data": {
-            "sig": comp.sig & ".new",
-            "headers": common.headers(user.pubKey, comp.sig, common.New, comp.board),
-          },
-        }
+          align: "right",
+          action: "show-editor",
+          actionData: {
+            "sig": % (comp.sig & ".new"),
+            "headers": % common.headers(user.pubKey, comp.sig, common.New, comp.board),
+          }.toTable,
+        ))
       else:
-        %[]
+        nw.seq()
       ,
       if comp.sig == comp.board:
-        %[]
+        nw.seq()
       else:
-        %* {
-          "type": "tabs",
-          "text": ["journal posts", "all posts"],
-          "index": (if comp.showAllPosts: 1 else: 0),
-          "action": "toggle-user-posts",
-          "action-data": {},
-        }
+        nw.seq(Tabs(
+          text: @["journal posts", "all posts"],
+          index: (if comp.showAllPosts: 1 else: 0),
+          action: "toggle-user-posts",
+        ))
       ,
-      "", # spacer
+      nw.seq(""), # spacer
       if not comp.userPosts.ready:
-        %"loading posts"
+        nw.seq("loading posts")
       elif comp.userPosts.value.kind == client.Error:
-        %"failed to load posts"
+        nw.seq("failed to load posts")
       else:
-        toJson(comp.userPosts.value.valid, comp, finishedLoading, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
-    ]
+        toNode(comp.userPosts.value.valid, comp, finishedLoading, (if comp.sig == comp.board: "no subboards" elif comp.showAllPosts: "no posts" else: "no journal posts"))
+    )
   of Editor:
     finishedLoading = true
-    %*{
-      "type": "editor",
-      "action": "edit",
-      "action-data": {},
-    }
+    nw.seq(EditorView(
+      action: "edit",
+    ))
   of Drafts:
     finishedLoading = false # don't cache
-    var json = JsonNode(kind: JArray)
+    var nodes: seq[nw.Node]
     for filename in post.drafts():
       let newIdx = strutils.find(filename, ".new")
       if newIdx != -1:
-        json.elems.add(toJson(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename), comp.board))
+        nodes.add(toNode(Draft(content: storage.get(filename), target: filename[0 ..< newIdx], sig: filename), comp.board))
       else:
         let editIdx = strutils.find(filename, ".edit")
         if editIdx != -1:
           # filename is: original-sig.last-sig.edit
           let parts = strutils.split(filename, '.')
           if parts.len == 3:
-            json.elems.add(toJson(Draft(content: storage.get(filename), target: parts[1], sig: filename), comp.board))
-    json
+            nodes.add(toNode(Draft(content: storage.get(filename), target: parts[1], sig: filename), comp.board))
+    nodes
   of Sent:
     finishedLoading = false # don't cache
     var recents: seq[Recent]
@@ -693,103 +680,93 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         else: 0
     )
     recents = recents[comp.offset ..< min(comp.offset + entities.limit, recents.len)]
-    %* [
+    nw.seq(
       "These are your recently sent posts.",
       "They may take some time to appear on the board.",
       "",
-      toJson(recents, comp.offset),
-    ]
+      toNode(recents, comp.offset),
+    )
   of Replies:
     client.get(comp.userReplies)
     finishedLoading = false # don't cache
-    %*[
+    nw.seq(
       "These are replies to any of your posts.",
       "", # space
       if not comp.userReplies.ready:
-        %"loading replies"
+        nw.seq("loading replies")
       elif comp.userReplies.value.kind == client.Error:
-        %"failed to load replies"
+        nw.seq("failed to load replies")
       else:
-        toJson(comp.userReplies.value.valid, comp, finishedLoading, "no replies")
-    ]
+        toNode(comp.userReplies.value.valid, comp, finishedLoading, "no replies")
+    )
   of Login:
     finishedLoading = true
-    %*[
+    nw.seq(
       "",
       when defined(emscripten):
-        %* [
+        nw.seq(
           "If you don't have an account, create one by saving your key.",
           "You will need this to login later so keep it somewhere safe:",
-          {
-            "type": "button",
-            "text": "save login key",
-            "align": "right",
-            "action": "create-user",
-            "action-data": {},
-          },
-        ]
+          Button(
+            text: "save login key",
+            align: "right",
+            action: "create-user",
+          ),
+        )
       else:
-        %* [
+        nw.seq(
           "If you don't have an account, create one here. This will generate",
           storage.dataDir & "/login-key.png which you can use to login anywhere in the future.",
-          {
-            "type": "button",
-            "text": "create account",
-            "align": "right",
-            "action": "create-user",
-            "action-data": {},
-          },
-        ]
+          Button(
+            text: "create account",
+            align: "right",
+            action: "create-user",
+          ),
+        )
       ,
       "",
       when defined(emscripten):
-        %* [
+        nw.seq(
           "If you already have an account, add your key:",
-          {
-            "type": "button",
-            "text": "add existing login key",
-            "align": "right",
-            "action": "login",
-            "action-data": {},
-          },
-        ]
+          Button(
+            text: "add existing login key",
+            align: "right",
+            action: "login",
+          ),
+        )
       else:
-        %* [
+        nw.seq(
           "If you already have an account, copy your login key",
           "into the data directory:",
           "",
           "cp path/to/login-key.png " & storage.dataDir & "/.",
           "",
           "Then, rerun ansiwave and you will be logged in.",
-        ]
+        )
       ,
-    ]
+    )
   of Logout:
     finishedLoading = true
     when defined(emscripten):
-      %*[
+      nw.seq(
         "",
         "Are you sure you want to logout?",
         "If you don't have a copy of your login key somewhere,",
         "you will never be able to login again!",
-        {
-          "type": "button",
-          "text": "cancel",
-          "align": "right",
-          "action": "go-back",
-          "action-data": {},
-        },
+        Button(
+          text: "cancel",
+          align: "right",
+          action: "go-back",
+        ),
         "", # spacer
-        {
-          "type": "button",
-          "text": "continue logout",
-          "align": "right",
-          "action": "logout",
-          "action-data": {},
-        },
-      ]
+        Button(
+          text: "continue logout",
+          align: "right",
+          action: "logout",
+        ),
+      )
     else:
-      %* [
+      nw.seq(
         "To logout, just delete your login key from the data directory:",
         "",
         "rm " & storage.dataDir & "/login-key.png",
@@ -798,49 +775,52 @@ proc toJson*(comp: Component, finishedLoading: var bool): JsonNode =
         "",
         "Warning: if you don't keep a copy of the login key elsewhere,",
         "you will never be able to log back in!",
-      ]
+      )
   of Message:
     finishedLoading = false # don't cache
-    %* [comp.message]
+    nw.seq(comp.message)
   of Search:
     finishedLoading = false # so the editor will always refresh
     if comp.showResults:
       client.get(comp.searchResults)
-    %* [
-      {
-        "type": "simple-editor",
-        "id": "search-field",
-        "prompt": "press enter to search",
-        "action": "search",
-      },
-      {
-        "type": "tabs",
-        "text": ["posts", "users", "tags"],
-        "index": comp.searchKind.ord,
-        "action": "change-search-type",
-        "action-data": {},
-      },
+    nw.seq(
+      simpleeditor.SimpleEditor(
+        id: "search-field",
+        prompt: "press enter to search",
+        action: "search",
+      ),
+      Tabs(
+        text: @["posts", "users", "tags"],
+        index: comp.searchKind.ord,
+        action: "change-search-type",
+      ),
       if comp.showResults:
         if not comp.searchResults.ready:
-          %"searching"
+          nw.seq("searching")
         elif comp.searchResults.value.kind == client.Error:
-          %["failed to fetch search results", comp.searchResults.value.error]
+          nw.seq("failed to fetch search results", comp.searchResults.value.error)
         else:
-          toJson(comp.searchResults.value.valid, comp, finishedLoading, "no results")
+          toNode(comp.searchResults.value.valid, comp, finishedLoading, "no results")
       else:
-        %""
-    ]
+        nw.seq()
+    )
   of Limbo:
     client.get(comp.limboResults)
     finishedLoading = comp.limboResults.ready
-    %* [
+    nw.seq(
       if not comp.limboResults.ready:
-        %"searching limbo"
+        nw.seq("searching limbo")
       elif comp.limboResults.value.kind == client.Error:
-        %["failed to search limbo", comp.limboResults.value.error]
+        nw.seq("failed to search limbo", comp.limboResults.value.error)
       else:
-        toJson(comp.limboResults.value.valid, comp, finishedLoading, "no posts in limbo")
-    ]
+        toNode(comp.limboResults.value.valid, comp, finishedLoading, "no posts in limbo")
+    )
+
+proc toNode*(comp: Component, finishedLoading: var bool): nw.Node =
+  nw.Box(
+    direction: nw.Direction.Vertical,
+    children: toNodes(comp, finishedLoading),
+  )
 
 proc getContent*(comp: Component): string =
   case comp.kind:
@@ -914,90 +894,92 @@ proc toHash*(comp: Component, board: string): string =
       newSeq[(string, string)]()
   createHash(pairs)
 
-proc buttonView(ctx: var context.Context, node: JsonNode) =
+method render*(node: Button, ctx: var context.Context) =
   let
-    text = node["text"].str
+    text = node.text
     buttonWidth = text.runeLen + 2
     parentWidth = iw.width(ctx.tb)
     x =
-      if "align" in node and node["align"].str == "right":
+      if node.align == "right":
         parentWidth - buttonWidth
       else:
         0
-  ctx = nimwave.slice(ctx, x, 0, buttonWidth, 3)
+  ctx = nw.slice(ctx, x, 0, buttonWidth, 3)
   let border =
-    if "border" in node:
-      node["border"].str
+    if node.border != nw.Border.None:
+      node.border
     else:
       let currIndex = ctx.data.focusAreas[].len
       var area: context.ViewFocusArea
       area.tb = ctx.tb
-      if node.hasKey("action"):
-        area.action = node["action"].str
-        area.actionData = node["action-data"].fields
+      if node.action != "":
+        area.action = node.action
+        area.actionData = node.actionData
       ctx.data.focusAreas[].add(area)
       if currIndex == ctx.data.focusIndex:
-        "double"
+        nw.Border.Double
       else:
-        "single"
-  nimwave.render(ctx, %* {"type": "nimwave.hbox", "border": border, "children": [text]})
+        nw.Border.Single
+  context.render(
+    nw.Box(
+      direction: nw.Direction.Horizontal,
+      border: border,
+      children: nw.seq(text),
+    ),
+    ctx
+  )
 
 var showPasteText*: bool
 
-proc rectView(ctx: var context.Context, node: JsonNode) =
-  let children = if "children" in node: node["children"].elems else: @[]
+method render*(node: context.Rect, ctx: var context.Context) =
   var
     y = 1
     remainingHeight = iw.height(ctx.tb).int
-    remainingChildren = children.len
-  for child in children:
+    remainingChildren = node.children.len
+  for child in node.children:
     let initialHeight = int(remainingHeight / remainingChildren)
-    var childContext = nimwave.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2))
-    nimwave.render(childContext, child)
+    var childContext = nw.slice(ctx, 1, y, max(0, iw.width(ctx.tb) - 2), max(0, initialHeight - 2))
+    context.render(child, childContext)
     let actualHeight = iw.height(childContext.tb)
     y += actualHeight
     remainingHeight -= actualHeight
     remainingChildren -= 1
-  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
+  ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
 
   let focused =
-    if "focused" in node:
-      node["focused"].bval
-    else:
+    block:
       let currIndex = ctx.data.focusAreas[].len
       var area: context.ViewFocusArea
       area.tb = ctx.tb
-      if node.hasKey("action"):
-        area.action = node["action"].str
-        area.actionData = node["action-data"].fields
-      if "copyable-text" in node:
-        for line in node["copyable-text"]:
-          area.copyableText.add(line.str)
+      if node.action != "":
+        area.action = node.action
+        area.actionData = node.actionData
+      for line in node.copyableText:
+        area.copyableText.add(line)
       ctx.data.focusAreas[].add(area)
       currIndex == ctx.data.focusIndex
 
   iw.drawRect(ctx.tb, 0, 0, iw.width(ctx.tb)-1, iw.height(ctx.tb)-1, doubleStyle = focused)
 
-  if "children-after" in node:
-    for child in node["children-after"]:
-      var childContext = nimwave.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
-      nimwave.render(childContext, child)
+  for child in node.childrenAfter:
+    var childContext = nw.slice(ctx, 1, 1, iw.width(ctx.tb), iw.height(ctx.tb))
+    context.render(child, childContext)
 
-  if "top-left" in node and node["top-left"].str != "":
-    let text = " " & node["top-left"].str & " "
+  if node.topLeft != "":
+    let text = " " & node.topLeft & " "
     iw.write(ctx.tb, 1, 0, text)
-  if "top-right" in node and node["top-right"].str != "":
-    let text = " " & node["top-right"].str & " "
+  if node.topRight != "":
+    let text = " " & node.topRight & " "
     iw.write(ctx.tb, iw.width(ctx.tb) - 1 - text.runeLen, 0, text)
-  if focused and "bottom-left-focused" in node and node["bottom-left-focused"].str != "":
-    let text = " " & node["bottom-left-focused"].str & " "
+  if focused and node.bottomLeftFocused != "":
+    let text = " " & node.bottomLeftFocused & " "
     iw.write(ctx.tb, 1, iw.height(ctx.tb)-1, text)
-  elif "bottom-left" in node and node["bottom-left"].str != "":
-    let text = " " & node["bottom-left"].str & " "
+  elif node.bottomLeft != "":
+    let text = " " & node.bottomLeft & " "
     iw.write(ctx.tb, 1, iw.height(ctx.tb)-1, text)
 
   when not defined(emscripten):
-    if focused and "copyable-text" in node:
+    if focused and node.copyableText.len > 0:
       let bottomRightText =
         if showPasteText:
           " now you can paste in the editor with ctrl " & (if iw.gIllwaveInitialized: "l" else: "v") & " "
@@ -1005,36 +987,35 @@ proc rectView(ctx: var context.Context, node: JsonNode) =
           " copy with ctrl " & (if iw.gIllwaveInitialized: "k" else: "c") & " "
       iw.write(ctx.tb, iw.width(ctx.tb) - 1 - bottomRightText.runeLen, iw.height(ctx.tb)-1, bottomRightText)
 
-proc tabsView(ctx: var context.Context, node: JsonNode) =
-  ctx = nimwave.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
+method render*(node: Tabs, ctx: var context.Context) =
+  ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), 3)
   let currIndex = ctx.data.focusAreas[].len
   var area: context.ViewFocusArea
   area.tb = ctx.tb
-  if node.hasKey("action"):
-    area.action = node["action"].str
-    area.actionData = node["action-data"].fields
+  if node.action != "":
+    area.action = node.action
+    area.actionData = node.actionData
   ctx.data.focusAreas[].add(area)
   let focused = currIndex == ctx.data.focusIndex
   var
-    tabs = newJArray()
+    tabs: seq[nw.Node]
     tabIndex = 0
-  for tab in node["text"]:
+  for tab in node.text:
     let border =
-      if tabIndex == node["index"].num:
+      if tabIndex == node.index:
         if focused:
-          "double"
+          nw.Border.Double
         else:
-          "single"
+          nw.Border.Single
       else:
-        "none"
-    tabs.add(%* {"type": "button", "text": tab.str, "border": border})
+        nw.Border.Hidden
+    tabs.add(Button(text: tab, border: border))
     tabIndex += 1
-  nimwave.render(ctx, %* {"type": "nimwave.hbox", "children": tabs})
-
-proc addComponents*(ctx: var context.Context) =
-  ctx.components["button"] = buttonView
-  ctx.components["rect"] = rectView
-  ctx.components["tabs"] = tabsView
-  ctx.components["cursor"] = simpleeditor.cursorView
-  ctx.statefulComponents["simple-editor"] = simpleeditor.simpleEditorView
+  context.render(
+    nw.Box(
+      direction: nw.Direction.Horizontal,
+      children: tabs,
+    ),
+    ctx
+  )
 
