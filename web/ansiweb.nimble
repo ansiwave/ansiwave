@@ -21,4 +21,4 @@ task emscripten, "Build the emscripten release version":
 # Dependencies
 
 requires "nim >= 1.6.4"
-requires "https://github.com/ansiwave/ansiwave_bbs#d78b128"
+requires "ansiwave >= 1.7.11"
