@@ -34,7 +34,7 @@ type
   Attr* = enum
     Board, Client, Hash,
     SelectedPage, AllPages, PageBreadcrumbs, PageBreadcrumbsIndex,
-    Signature, ComponentData, FocusIndex, ScrollY,
+    Signature, ComponentData, FocusIndex, ScrollY, ViewHeight,
     View, ViewCommands, ViewFocusAreas, MidiProgress,
     HasDrafts, HasSent, UiContext,
   ViewFocusAreaSeq = seq[context.ViewFocusArea]
@@ -45,6 +45,7 @@ type
     data: Component
     focusIndex: int
     scrollY: int
+    viewHeight: int
     view: nw.Node
     viewCommands: post.CommandTreesRef
     viewFocusAreas: ViewFocusAreaSeq
@@ -73,6 +74,7 @@ schema Fact(Id, Attr):
   ComponentData: Component
   FocusIndex: int
   ScrollY: int
+  ViewHeight: int
   View: nw.Node
   ViewCommands: post.CommandTreesRef
   ViewFocusAreas: ViewFocusAreaSeq
@@ -157,6 +159,7 @@ let (initSession, rules) =
         (id, ComponentData, data)
         (id, FocusIndex, focusIndex)
         (id, ScrollY, scrollY)
+        (id, ViewHeight, viewHeight)
         (id, View, view)
         (id, ViewCommands, viewCommands)
         (id, ViewFocusAreas, viewFocusAreas)
@@ -208,6 +211,7 @@ proc insertPage(session: var BbsSession, comp: ui.Component, sig: string) =
   session.insert(id, ComponentData, comp)
   session.insert(id, FocusIndex, 0)
   session.insert(id, ScrollY, 0)
+  session.insert(id, ViewHeight, 0)
   session.insert(id, View, cast[nw.Node](nil))
   session.insert(id, ViewCommands, cast[post.CommandTreesRef](nil))
   session.insert(id, ViewFocusAreas, @[])
@@ -871,10 +875,10 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           if scrollY > limit:
             scrollY = limit
             focusIndex += 1
-        # if we're at the top of the first focus area but there is more scrollable context,
+        # if we're at the top of the first focus area but there is more scrollable content,
         # scroll up more since there is non-focusable text that is still not visible
         elif focusIndex == 0 and scrollY < 0:
-          scrollY = max(0, scrollY - maxScroll)
+          scrollY = min(0, scrollY + maxScroll)
       of iw.Key.Down:
         let bottom = height - (iw.y(page.viewFocusAreas[focusIndex].tb) + iw.height(page.viewFocusAreas[focusIndex].tb)) + scrollY
         if scrollY > bottom:
@@ -883,8 +887,16 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
           if scrollY < limit:
             scrollY = limit
             focusIndex -= 1
+        # if we're at the bottom of the last focus area but there is more scrollable content,
+        # scroll down more since there is non-focusable text that is still not visible
+        elif page.viewHeight + (scrollY - height) > 0:
+          scrollY = max(height - page.viewHeight, scrollY - maxScroll)
       else:
         discard
+    # if we can scroll up but the nav bar is focused, scroll up more
+    elif key == iw.Key.Up and scrollY < 0:
+      scrollY = min(0, scrollY + maxScroll)
+    # don't let it go beyond the last focused area
     if focusIndex > 0 and focusIndex > page.viewFocusAreas.len - 1:
       focusIndex = page.viewFocusAreas.len - 1
 
@@ -974,6 +986,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
       ),
       ctx
     )
+    session.insert(page.id, ViewHeight, iw.height(ctx.tb))
 
   # get the new focus index from the ref, in case the navbar changed it
   focusIndex = focusIndexRef[]
