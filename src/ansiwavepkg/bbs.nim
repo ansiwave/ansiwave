@@ -889,7 +889,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
             focusIndex -= 1
         # if we're at the bottom of the last focus area but there is more scrollable content,
         # scroll down more since there is non-focusable text that is still not visible
-        elif page.viewHeight + (scrollY - height) > 0:
+        elif focusIndex == page.viewFocusAreas.len - 1 and page.viewHeight + (scrollY - height) > 0:
           scrollY = max(height - page.viewHeight, scrollY - maxScroll)
       else:
         discard
