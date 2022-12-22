@@ -21,7 +21,7 @@ from times import nil
 from ./midi import nil
 from ./sound import nil
 from strutils import nil
-from urlly import `$`
+from webby import `$`
 from terminal import nil
 from nimwave as nw import nil
 
@@ -432,8 +432,8 @@ proc handleAction(session: var BbsSession, clnt: client.Client, page: Page, widt
       let url = actionData["url"].str
       if url != "":
         let
-          currUrl = urlly.parseUrl(paths.address)
-          destUrl = urlly.parseUrl(url)
+          currUrl = webby.parseUrl(paths.address)
+          destUrl = webby.parseUrl(url)
         if currUrl.hostname == destUrl.hostname and destUrl.fragment != "":
           routeHash(session, clnt, destUrl.fragment)
         else:
@@ -1006,7 +1006,7 @@ proc tick*(session: var BbsSession, clnt: client.Client, width: int, height: int
   var finished: bool
   return tick(session, clnt, width, height, input, finished)
 
-proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
+proc main*(parsedUrl: webby.Url, origHash: Table[string, string]) =
   var hash = origHash
   if "board" notin origHash:
     hash["board"] = paths.defaultBoard
@@ -1016,18 +1016,17 @@ proc main*(parsedUrl: urlly.Url, origHash: Table[string, string]) =
   var clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   when not defined(emscripten):
-    if parsedUrl != nil:
-      # offline board
-      if parsedUrl.scheme == "" and os.dirExists($parsedUrl):
-        clnt = client.Client(kind: client.Offline, path: $parsedUrl, postAddress: paths.postAddress)
-      # opening a url
-      elif parsedUrl.scheme != "" and parsedUrl.hostname != urlly.parseUrl(paths.address).hostname:
-        var newUrl = parsedUrl
-        newUrl.fragment = ""
-        let s = $ newUrl
-        paths.address = s
-        paths.postAddress = s
-        clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
+    # offline board
+    if parsedUrl.scheme == "" and os.dirExists($parsedUrl):
+      clnt = client.Client(kind: client.Offline, path: $parsedUrl, postAddress: paths.postAddress)
+    # opening a url
+    elif parsedUrl.scheme != "" and parsedUrl.hostname != webby.parseUrl(paths.address).hostname:
+      var newUrl = parsedUrl
+      newUrl.fragment = ""
+      let s = $ newUrl
+      paths.address = s
+      paths.postAddress = s
+      clnt = client.Client(kind: client.Online, address: paths.address, postAddress: paths.postAddress)
 
   client.start(clnt)
 

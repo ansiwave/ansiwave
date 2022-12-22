@@ -4,7 +4,7 @@ from base64 import nil
 
 test "zlib compression":
   const text = staticRead("luke-and-yoda.ansiwave")
-  const output = zippy.compress(text, dataFormat = zippy.dfZlib)
+  let output = zippy.compress(text, dataFormat = zippy.dfZlib)
   let b64 = base64.encode(output, safe = true)
   check text == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 

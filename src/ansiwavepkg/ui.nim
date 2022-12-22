@@ -19,7 +19,7 @@ from ./post import nil
 from ./ui/simpleeditor import nil
 from algorithm import nil
 from chrono import nil
-from urlly import nil
+from webby import nil
 from nimwave as nw import nil
 
 type
@@ -325,7 +325,7 @@ proc toNode(content: string, readyTime: float, finishedLoading: var bool): seq[n
           parts = strutils.split(res.args[0].name, " ")
           words: seq[string]
         for part in parts:
-          if urlly.parseUrl(part).scheme != "":
+          if webby.parseUrl(part).scheme != "":
             url = part
           else:
             words.add(part)

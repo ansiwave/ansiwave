@@ -18,7 +18,7 @@ from json import nil
 from parseopt import nil
 from zippy import nil
 import streams
-from urlly import `$`
+from webby import `$`
 from ./ansiwavepkg/ui/editor import nil
 from terminal import nil
 from wavecorepkg/wavescript import CommandTree
@@ -121,7 +121,7 @@ proc convertToWav(opts: editor.Options) =
       discard
 
 proc convert(opts: editor.Options) =
-  let parsedUrl = urlly.parseUrl(opts.input)
+  let parsedUrl = webby.parseUrl(opts.input)
   if parsedUrl.scheme != "": # a url
     let outputExt = os.splitFile(opts.output).ext
     if outputExt == ".ansiwave":
@@ -216,11 +216,11 @@ proc main*() =
   setControlCHook(exitClean)
   terminal.hideCursor()
   var
-    parsedUrl: urlly.Url
+    parsedUrl: webby.Url
     hash: Table[string, string]
   if opts.input != "":
     # parse link if necessary
-    parsedUrl = urlly.parseUrl(opts.input)
+    parsedUrl = webby.parseUrl(opts.input)
     let isUri = parsedUrl.scheme != ""
     if isUri:
       hash = editor.parseHash(parsedUrl.fragment)
