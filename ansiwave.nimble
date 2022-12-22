@@ -19,7 +19,7 @@ task bbs, "Run bbs test":
 # Dependencies
 
 requires "nim >= 1.4.2"
-requires "pararules >= 1.1.0"
+requires "pararules >= 1.2.0"
 requires "paramidi >= 0.6.0"
 requires "paramidi_soundfonts >= 0.2.0"
 requires "parasound >= 1.0.0"
