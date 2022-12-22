@@ -22,6 +22,7 @@ type
     bottomRight*: string
     bottomLeftFocused*: string
     copyableText*: seq[string]
+    focused*: ref bool
 
 proc initContext*(): Context =
   nw.initContext[State]()

@@ -124,12 +124,16 @@ method render*(node: SimpleEditor, ctx: var context.Context) =
   if focused:
     onInput(mnode.session, ctx.data.input)
 
-  let editor = mnode.session.query(rules.getEditor)
+  let
+    editor = mnode.session.query(rules.getEditor)
+    focusedRef = new bool
+  focusedRef[] = focused
   context.render(
     context.Rect(
       children: nw.seq(nw.Text(str: editor.line)),
       childrenAfter: if focused: nw.seq(Cursor(x: editor.cursorX, y: editor.cursorY)) else: nw.seq(),
       bottomLeftFocused: node.prompt,
+      focused: focusedRef
     ),
     ctx
   )

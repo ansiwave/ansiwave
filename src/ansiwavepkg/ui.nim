@@ -947,7 +947,9 @@ method render*(node: context.Rect, ctx: var context.Context) =
   ctx = nw.slice(ctx, 0, 0, iw.width(ctx.tb), y+1)
 
   let focused =
-    block:
+    if node.focused != nil:
+      node.focused[]
+    else:
       let currIndex = ctx.data.focusAreas[].len
       var area: context.ViewFocusArea
       area.tb = ctx.tb
