@@ -1,4 +1,4 @@
-This is the web version of [ANSIWAVE BBS](https://github.com/ansiwave/ansiwave_bbs).
+This is the web version of [ANSIWAVE BBS](https://github.com/ansiwave/ansiwave).
 
 If you want to build this for your own ANSIWAVE instance, you should definitely change the defaults that are set in [config.nims](config.nims). The `defaultPostAddress` should just be blank unless you want new posts to be sent to a different server than the one hosting the frontend files. The `defaultBoard` should be the public key of the main board on your server.
 
