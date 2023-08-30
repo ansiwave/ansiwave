@@ -8,14 +8,14 @@ test "zlib compression":
   let b64 = base64.encode(output, safe = true)
   check text == zippy.uncompress(base64.decode(b64), dataFormat = zippy.dfZlib)
 
-from ./ansiwavepkg/chafa import nil
+from ansiwavepkg/chafa import nil
 
 const img = staticRead("aintgottaexplainshit.jpg")
 
 test "convert image to ansi art":
   echo chafa.imageToAnsi(img, 80)
 
-import ./ansiwavepkg/qrcodegen
+import ansiwavepkg/qrcodegen
 
 test "qrcode":
   const text = "Hello, world!"
@@ -25,7 +25,7 @@ test "qrcode":
                              qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
   printQr(qrcode.addr)
 
-from ./ansiwavepkg/user import nil
+from ansiwavepkg/user import nil
 import stb_image/read as stbi
 
 test "stego":
@@ -35,11 +35,11 @@ test "stego":
   user.stego(data, message)
   check message == user.destego(data)
 
-from ./ansiwavepkg/ui/editor import nil
+from ansiwavepkg/ui/editor import nil
 from illwave as iw import `[]`, `[]=`, `==`
 from times import nil
 import pararules
-from ./ansiwavepkg/ui/context import nil
+from ansiwavepkg/ui/context import nil
 
 test "editor perf":
   let t1 = times.cpuTime()
