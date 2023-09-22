@@ -13,7 +13,7 @@ NOTE: You must install Emscripten first:
 ```
 git clone https://github.com/emscripten-core/emsdk
 cd emsdk
-./emsdk install latest
-./emsdk activate latest
+./emsdk install 3.1.0
+./emsdk activate 3.1.0
 # add the dirs that are printed by the last command to your PATH
 ```
